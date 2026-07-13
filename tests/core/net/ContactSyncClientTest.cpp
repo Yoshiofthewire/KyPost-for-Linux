@@ -22,6 +22,7 @@ private slots:
     void pushSendsBaseCursorAndAuthAsQueryParams();
     void tooOldTrueSurfacesFlagWithEmptyChangedAndDeleted();
     void pullUnauthorizedFrom401PassesErrorThrough();
+    void deletedFieldRoundTripsTrueAndOmittedWhenFalse();
 };
 
 namespace {
@@ -314,6 +315,28 @@ void ContactSyncClientTest::pullUnauthorizedFrom401PassesErrorThrough()
     QCOMPARE(*result.error, NetworkError::Unauthorized);
     QVERIFY(result.changed.isEmpty());
     QVERIFY(result.deletedContacts.isEmpty());
+}
+
+void ContactSyncClientTest::deletedFieldRoundTripsTrueAndOmittedWhenFalse()
+{
+    Contact tombstone;
+    tombstone.uid = QStringLiteral("c-9");
+    tombstone.rev = 2;
+    tombstone.deleted = true;
+    const QJsonObject tombstoneJson = ContactWire::contactToJson(tombstone);
+    QVERIFY(tombstoneJson.contains(QStringLiteral("deleted")));
+    QCOMPARE(tombstoneJson.value(QStringLiteral("deleted")).toBool(), true);
+
+    const Contact roundTripped = ContactWire::contactFromJson(tombstoneJson);
+    QCOMPARE(roundTripped.deleted, true);
+
+    Contact notDeleted;
+    notDeleted.uid = QStringLiteral("c-10");
+    const QJsonObject notDeletedJson = ContactWire::contactToJson(notDeleted);
+    QVERIFY(!notDeletedJson.contains(QStringLiteral("deleted")));
+
+    const Contact roundTrippedNotDeleted = ContactWire::contactFromJson(notDeletedJson);
+    QCOMPARE(roundTrippedNotDeleted.deleted, false);
 }
 
 QTEST_GUILESS_MAIN(ContactSyncClientTest)

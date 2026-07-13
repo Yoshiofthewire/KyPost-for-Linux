@@ -52,6 +52,10 @@ struct Contact
     QVector<ContactEmailEntry> emails;
     QVector<ContactPhoneEntry> phones;
     QVector<ContactAddressEntry> addresses;
+    bool deleted = false; // wire "deleted" (json:"deleted,omitempty" in the Go
+                           // Contact struct) -- a push entry with {uid, rev,
+                           // deleted:true} tombstones server-side, every
+                           // other field omitted/zero.
 
     bool operator==(const Contact&) const = default;
 };

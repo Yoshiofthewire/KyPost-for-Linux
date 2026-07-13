@@ -15,6 +15,10 @@ add_library(llamacore STATIC
   domain/MailRepository.h
   domain/KeywordRepository.cpp
   domain/KeywordRepository.h
+  domain/ContactSyncReconciliation.cpp
+  domain/ContactSyncReconciliation.h
+  domain/ContactSyncRepository.cpp
+  domain/ContactSyncRepository.h
   db/Database.cpp
   db/Database.h
   db/EmailDao.cpp
@@ -25,6 +29,8 @@ add_library(llamacore STATIC
   db/FolderDao.h
   db/PushDao.cpp
   db/PushDao.h
+  db/PendingContactChangeDao.cpp
+  db/PendingContactChangeDao.h
   db/SqlUtil.h
   stores/SettingsStore.cpp
   stores/SettingsStore.h

@@ -3,6 +3,7 @@
 #include "models/Contact.h"
 #include "net/NetworkError.h"
 
+#include <QJsonObject>
 #include <QString>
 #include <QUrl>
 #include <QVector>
@@ -10,6 +11,19 @@
 
 class HttpClient;
 struct RelayAuth;
+
+// Every core/models/Contact.h field maps 1:1 onto a same-named JSON key
+// (confirmed against the Go Contact/ContactValue/ContactAddress structs) --
+// exported here (rather than kept file-local to ContactSyncClient.cpp) so
+// core/db/PendingContactChangeDao's callers (ContactSyncRepository) can
+// serialize a queued local change with the exact same mapping this client
+// uses on the wire, instead of a second, divergence-prone copy.
+namespace ContactWire {
+
+QJsonObject contactToJson(const Contact& contact);
+Contact contactFromJson(const QJsonObject& obj);
+
+} // namespace ContactWire
 
 // Response shape shared by both GET (pull) and POST (push)
 // {serverBaseUrl}/api/contacts/sync, verified against the Go backend's

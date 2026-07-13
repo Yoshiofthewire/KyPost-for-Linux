@@ -118,6 +118,10 @@ QVector<T> entriesFromJson(const QJsonArray& array, FromJsonFn fromJson)
     return entries;
 }
 
+} // namespace
+
+namespace ContactWire {
+
 // Every core/models/Contact.h field maps 1:1 onto a same-named JSON key
 // (confirmed against the Go Contact/ContactValue/ContactAddress structs) --
 // no field-name translation needed anywhere in this pair.
@@ -142,6 +146,8 @@ QJsonObject contactToJson(const Contact& contact)
     obj[QStringLiteral("emails")] = entriesToJson(contact.emails, emailEntryToJson);
     obj[QStringLiteral("phones")] = entriesToJson(contact.phones, phoneEntryToJson);
     obj[QStringLiteral("addresses")] = entriesToJson(contact.addresses, addressEntryToJson);
+    if (contact.deleted)
+        obj[QStringLiteral("deleted")] = true;
     return obj;
 }
 
@@ -167,8 +173,13 @@ Contact contactFromJson(const QJsonObject& obj)
     contact.phones = entriesFromJson<ContactPhoneEntry>(obj.value(QStringLiteral("phones")).toArray(), phoneEntryFromJson);
     contact.addresses =
         entriesFromJson<ContactAddressEntry>(obj.value(QStringLiteral("addresses")).toArray(), addressEntryFromJson);
+    contact.deleted = obj.value(QStringLiteral("deleted")).toBool();
     return contact;
 }
+
+} // namespace ContactWire
+
+namespace {
 
 // Parses the {cursor, tooOld, changed?, deleted?} response shape shared by
 // both pull and push. changed/deleted are treated as empty (not a parse
@@ -183,12 +194,12 @@ ContactSyncResult parseSyncResponse(const QJsonObject& json)
     const QJsonArray changed = json.value(QStringLiteral("changed")).toArray();
     out.changed.reserve(changed.size());
     for (const QJsonValue& value : changed)
-        out.changed.append(contactFromJson(value.toObject()));
+        out.changed.append(ContactWire::contactFromJson(value.toObject()));
 
     const QJsonArray deleted = json.value(QStringLiteral("deleted")).toArray();
     out.deletedContacts.reserve(deleted.size());
     for (const QJsonValue& value : deleted)
-        out.deletedContacts.append(contactFromJson(value.toObject()));
+        out.deletedContacts.append(ContactWire::contactFromJson(value.toObject()));
 
     return out;
 }
@@ -233,7 +244,7 @@ ContactSyncResult ContactSyncClient::push(const QUrl& serverBaseUrl, const Relay
 {
     QJsonObject body;
     body[QStringLiteral("baseCursor")] = baseCursor;
-    body[QStringLiteral("changes")] = entriesToJson(changes, contactToJson);
+    body[QStringLiteral("changes")] = entriesToJson(changes, ContactWire::contactToJson);
 
     const HttpClient::HttpResult result = m_httpClient.post(endpointFor(serverBaseUrl), auth.queryItems(), body);
 
