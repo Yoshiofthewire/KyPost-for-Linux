@@ -45,6 +45,7 @@ llama_add_test(NtfySubscriberTest core/net/NtfySubscriberTest.cpp)
 
 llama_add_test(ThemePaletteTest core/theme/ThemePaletteTest.cpp)
 llama_add_test(AppThemeTest core/theme/AppThemeTest.cpp)
+llama_add_test(ThemeManagerTest core/theme/ThemeManagerTest.cpp)
 
 # SecureStoreKeychain needs QtKeychain + app/ headers, unlike the plain
 # llama_add_test() targets above, so it's its own bespoke add_executable

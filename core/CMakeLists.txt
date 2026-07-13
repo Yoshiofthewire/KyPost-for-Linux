@@ -66,6 +66,8 @@ add_library(llamacore STATIC
   theme/AppTheme.h
   theme/SemanticColors.h
   theme/Shape.h
+  theme/ThemeManager.cpp
+  theme/ThemeManager.h
 )
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/db/migrations/001_initial.sql LLAMA_MIGRATION_001_SQL)
