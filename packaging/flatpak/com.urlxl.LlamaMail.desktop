@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Llama Mail
+Exec=llamamail
+Icon=com.urlxl.LlamaMail
+Categories=Network;Email;

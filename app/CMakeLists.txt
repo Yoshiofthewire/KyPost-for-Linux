@@ -21,3 +21,6 @@ target_sources(llamamail PRIVATE
   platform/SecureStoreKeychain.h
 )
 target_link_libraries(llamamail PRIVATE Qt6Keychain::Qt6Keychain)
+
+include(GNUInstallDirs)
+install(TARGETS llamamail RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

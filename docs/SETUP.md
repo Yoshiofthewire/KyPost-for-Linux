@@ -38,16 +38,8 @@ re-verification pass.
   future phase (still needs the user's real distributor/account to actually
   exercise it).
 
-## Remaining gap: `org.kde.Sdk` Flatpak runtime
+## `org.kde.Sdk` Flatpak runtime — resolved in Task 9
 
-`flatpak list --runtime | grep -i kde` shows `org.kde.Platform` (6.10,
-user-scoped) installed, but **not** `org.kde.Sdk`. The `Platform` runtime is
-enough to *run* KDE/Qt6 apps but not to *build* a Flatpak against KF6 —
-`flatpak-builder` needs the matching `Sdk` runtime. `flathub` is already
-configured as a remote (both system and user), so fetching it is a single
-`flatpak install` away.
+Was the one real gap surfaced by the Task 8 re-verification pass: `org.kde.Platform//6.10` was installed but not the matching `org.kde.Sdk`, so `flatpak-builder` had nothing to build against. Task 9 installed it (`flatpak install --user -y flathub org.kde.Sdk//6.10`, verify: `flatpak list --user --runtime | grep -i kde`) and used it to build `packaging/flatpak/com.urlxl.LlamaMail.json` end to end.
 
-This is the one real gap surfaced by this re-verification pass — not one of
-the original 5 checklist items, but a newly-identified prerequisite for
-building the Flatpak. Task 9 in this batch resolves it — not addressed
-here.
+One additional gap surfaced during that build, not predicted here: `Qt6Keychain` (installed natively via the `qtkeychain-qt6` pacman package) has no Flatpak/KDE-runtime equivalent, so the manifest builds it from source as a `qtkeychain` module pinned to release `0.17.0` (matches the native package's upstream version) ahead of the `llamamail` module. The manifest also needed `app/CMakeLists.txt` to gain an `install(TARGETS llamamail ...)` rule — the native build never needed one since it only ever ran the binary in-tree, but `flatpak-builder`'s `cmake-ninja` buildsystem runs `ninja install` unconditionally.

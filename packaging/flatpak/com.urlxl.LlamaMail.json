@@ -1,0 +1,43 @@
+{
+    "app-id": "com.urlxl.LlamaMail",
+    "runtime": "org.kde.Platform",
+    "runtime-version": "6.10",
+    "sdk": "org.kde.Sdk",
+    "command": "llamamail",
+    "finish-args": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=network"
+    ],
+    "modules": [
+        {
+            "name": "qtkeychain",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DBUILD_WITH_QT5=OFF",
+                "-DBUILD_TEST_APPLICATION=OFF",
+                "-DBUILD_TRANSLATIONS=OFF"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/frankosterfeld/qtkeychain/archive/refs/tags/0.17.0.tar.gz",
+                    "sha256": "3b85c3929034b0a99da777130c34d99f006fcd3a9d56564159399a33fee0e504"
+                }
+            ]
+        },
+        {
+            "name": "llamamail",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DCMAKE_BUILD_TYPE=Release"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../.."
+                }
+            ]
+        }
+    ]
+}
