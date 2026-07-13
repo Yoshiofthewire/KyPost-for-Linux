@@ -1,11 +1,51 @@
 #include "push/UnifiedPushConnector.h"
+#include "theme/ThemeController.h"
+
+#include "stores/SettingsStore.h"
 
 #include <QDebug>
+#include <QDir>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QStandardPaths>
 #include <QUrl>
 
 #include <KDBusService>
+
+// Task 28: every bundled font file (see app/resources/fonts.qrc) loaded via
+// QFontDatabase::addApplicationFont before the QQmlApplicationEngine is
+// constructed, so QML content can reference these families from the very
+// first frame. These 11 files are baked into the resource bundle at build
+// time (app/resources/fonts.qrc), so a load failure here is a packaging
+// defect, not an expected runtime condition -- unlike the mobile
+// counterparts' system-font-fallback pattern, there is no silent fallback:
+// qWarning() on every -1 so a broken bundle is loud, not silently degraded.
+static void loadBundledFonts()
+{
+    static const char* const kFontResources[] = {
+        ":/fonts/SpaceGrotesk-Light.ttf",
+        ":/fonts/SpaceGrotesk-Regular.ttf",
+        ":/fonts/SpaceGrotesk-Medium.ttf",
+        ":/fonts/SpaceGrotesk-SemiBold.ttf",
+        ":/fonts/SpaceGrotesk-Bold.ttf",
+        ":/fonts/IBMPlexMono-Regular.ttf",
+        ":/fonts/IBMPlexMono-Italic.ttf",
+        ":/fonts/IBMPlexMono-Medium.ttf",
+        ":/fonts/IBMPlexMono-SemiBold.ttf",
+        ":/fonts/IBMPlexMono-Bold.ttf",
+        ":/fonts/IBMPlexMono-BoldItalic.ttf",
+    };
+    for (const char* resource : kFontResources) {
+        const int id = QFontDatabase::addApplicationFont(QString::fromLatin1(resource));
+        if (id == -1) {
+            qWarning() << "loadBundledFonts: failed to load bundled font:" << resource;
+            continue;
+        }
+        qDebug() << "loadBundledFonts: loaded" << resource << "as"
+                  << QFontDatabase::applicationFontFamilies(id);
+    }
+}
 
 // Task 12 stub router: scans a set of command-line-style arguments for a
 // llamalabels:// deep link and logs it. Real pairing-URL parsing (token
@@ -83,6 +123,33 @@ int main(int argc, char* argv[])
     // covers the case where xdg-open launches llamamail fresh (nothing was
     // running yet to redirect to).
     routeDeepLink(app.arguments());
+
+    // Task 28: bundled fonts must be registered with QFontDatabase before
+    // the QQmlApplicationEngine below parses any QML that might reference
+    // them by family name (none does yet, but ThemeController.fontUi()/
+    // fontMono() already advertise these family names to future QML).
+    loadBundledFonts();
+
+    // Task 28: first real on-disk location for app-level persistent state
+    // (core/ deliberately never decides this -- see SettingsStore.h's doc
+    // comment). AppConfigLocation is the XDG-correct place for a
+    // human-editable-if-needed settings file, distinct from AppDataLocation
+    // (databases/caches, not used by this task). Constructed before
+    // ThemeController/QQmlApplicationEngine since both need it to already
+    // exist.
+    const QString settingsDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    QDir().mkpath(settingsDir);
+    SettingsStore settingsStore(settingsDir + QStringLiteral("/settings.ini"));
+
+    // Task 28: wraps core::ThemeManager (which itself wraps settingsStore
+    // above) for QML consumption. Constructed before the engine and
+    // registered as a QML singleton instance immediately after, so
+    // MobileRoot.qml (loaded just below) can already bind to Theme.* from
+    // its very first frame in a later task -- this task only proves the
+    // singleton registers and loads cleanly.
+    ThemeController themeController(settingsStore);
+    qmlRegisterSingletonInstance<ThemeController>(
+        "com.urlxl.LlamaMail", 1, 0, "Theme", &themeController);
 
     QQmlApplicationEngine engine;
     engine.load(QUrl(QStringLiteral("qrc:/qml/MobileRoot.qml")));

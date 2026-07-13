@@ -1,0 +1,15 @@
+<RCC>
+  <qresource prefix="/fonts">
+    <file alias="SpaceGrotesk-Light.ttf">../../fonts/Space_Grotesk/static/SpaceGrotesk-Light.ttf</file>
+    <file alias="SpaceGrotesk-Regular.ttf">../../fonts/Space_Grotesk/static/SpaceGrotesk-Regular.ttf</file>
+    <file alias="SpaceGrotesk-Medium.ttf">../../fonts/Space_Grotesk/static/SpaceGrotesk-Medium.ttf</file>
+    <file alias="SpaceGrotesk-SemiBold.ttf">../../fonts/Space_Grotesk/static/SpaceGrotesk-SemiBold.ttf</file>
+    <file alias="SpaceGrotesk-Bold.ttf">../../fonts/Space_Grotesk/static/SpaceGrotesk-Bold.ttf</file>
+    <file alias="IBMPlexMono-Regular.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-Regular.ttf</file>
+    <file alias="IBMPlexMono-Italic.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-Italic.ttf</file>
+    <file alias="IBMPlexMono-Medium.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-Medium.ttf</file>
+    <file alias="IBMPlexMono-SemiBold.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-SemiBold.ttf</file>
+    <file alias="IBMPlexMono-Bold.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-Bold.ttf</file>
+    <file alias="IBMPlexMono-BoldItalic.ttf">../../fonts/IBM_Plex_Mono/IBMPlexMono-BoldItalic.ttf</file>
+  </qresource>
+</RCC>

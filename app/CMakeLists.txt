@@ -13,6 +13,19 @@ target_link_libraries(llamamail PRIVATE
   KF6::Kirigami
 )
 
+# ThemeController wraps core::ThemeManager as a QML singleton (Q_PROPERTY/
+# QColor/qmlRegisterSingletonInstance), so it belongs in the app executable,
+# never in llamacore -- Qt6::Gui (QColor) and Qt6::Qml (qmlRegisterSingleton*)
+# are already available transitively via Qt6::Quick above, no new
+# find_package/target_link_libraries needed. fonts.qrc bundles the real TTF
+# files ThemeController.fontUi()/fontMono() advertise the family names of;
+# same AUTORCC mechanism already used for qml/qml.qrc.
+target_sources(llamamail PRIVATE
+  theme/ThemeController.cpp
+  theme/ThemeController.h
+  resources/fonts.qrc
+)
+
 # SecureStoreKeychain talks to the Secret Service over QtDBus, so it belongs
 # in the app executable, never in llamacore.
 find_package(Qt6Keychain REQUIRED)
