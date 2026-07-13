@@ -35,6 +35,7 @@ struct InboxFetchResult
     std::optional<NetworkError> error;
     QString detail; // human-readable detail on error; empty otherwise
     QStringList tabs;
+    // QMap sorts by key alphabetically -- iterate via tabs (order-preserving) if wire/tab order matters, not this map directly.
     QMap<QString, QVector<InboxEmailItem>> byTab;
 };
 
