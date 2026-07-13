@@ -339,7 +339,14 @@ bool MailController::downloadAttachment(const QString& mailbox, const QString& m
     // whatever filename the download response's Content-Disposition header
     // carried, and finally to a generic name if both are somehow empty.
     QString name = suggestedName.isEmpty() ? result.filename : suggestedName;
-    if (name.isEmpty())
+    // Both sources are attacker-influenced (an attachment's display name and
+    // Content-Disposition filename both originate from the mail message
+    // itself), so strip any path component before using it to build a
+    // filesystem path below -- QFileInfo::fileName() keeps only the segment
+    // after the last '/', which neutralizes a "../../.ssh/authorized_keys"-
+    // style name regardless of how many traversal segments it contains.
+    name = QFileInfo(name).fileName();
+    if (name.isEmpty() || name == QStringLiteral(".") || name == QStringLiteral(".."))
         name = QStringLiteral("attachment");
 
     const QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);

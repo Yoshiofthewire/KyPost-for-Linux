@@ -15,9 +15,11 @@
 
 #include "../../core/net/FakeRelayServer.h"
 
+#include <QDir>
 #include <QFile>
 #include <QNetworkAccessManager>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -29,6 +31,8 @@ private slots:
     void selectKeywordFiltersCachedEmailsWithoutAnyNetworkCall();
     void archiveEmailsNotPairedShortCircuitsWithNoNetworkCall();
     void sendMailOverAttachmentCapRejectsBeforeAnyNetworkCall();
+    void downloadAttachmentSanitizesPathTraversalInSuggestedName();
+    void downloadAttachmentSanitizesPathTraversalInServerFilename();
 
 private:
     static void savePairing(PairingStore& pairingStore, quint16 port);
@@ -223,6 +227,116 @@ void MailControllerTest::sendMailOverAttachmentCapRejectsBeforeAnyNetworkCall()
     QCOMPARE(ok, false);
     QVERIFY(controller.lastError().contains(QStringLiteral("25 MB")));
     QVERIFY(fake.receivedRequest().isEmpty());
+}
+
+void MailControllerTest::downloadAttachmentSanitizesPathTraversalInSuggestedName()
+{
+    // Regression test for a path-traversal fix: both the caller-supplied
+    // suggestedName (this test) and the server's Content-Disposition
+    // filename (next test) are attacker-influenced -- they originate from
+    // the mail message's own attachment metadata -- so a name containing
+    // "../" segments must not be able to write outside the Downloads
+    // directory. QStandardPaths::setTestModeOn() redirects
+    // QStandardPaths::DownloadLocation to a sandboxed test location so this
+    // test can safely assert on real filesystem writes.
+    QStandardPaths::setTestModeEnabled(true);
+
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    const QByteArray attachmentBytes = "attachment-bytes";
+    FakeRelayServer fake(httpResponse(200, "OK", attachmentBytes, "application/octet-stream"));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+    savePairing(pairingStore, fake.port());
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+    KeywordRepository keywordRepository(settingsStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository mailRepository(source, emailDao, pairingStore, cursorStore);
+
+    MailController controller(mailRepository, source, keywordRepository, pairingStore);
+
+    const QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    QDir().mkpath(downloadDir);
+    const QString escapeTarget = QDir(downloadDir).filePath(QStringLiteral("../evil.txt"));
+    QFile::remove(QDir::cleanPath(escapeTarget));
+
+    const bool ok = controller.downloadAttachment(QStringLiteral("Inbox"), QStringLiteral("42"), 0,
+                                                    QStringLiteral("../evil.txt"));
+
+    QCOMPARE(ok, true);
+    QVERIFY(!QFile::exists(QDir::cleanPath(escapeTarget)));
+
+    const QString sanitizedPath = QDir(downloadDir).filePath(QStringLiteral("evil.txt"));
+    QVERIFY(QFile::exists(sanitizedPath));
+    QFile written(sanitizedPath);
+    QVERIFY(written.open(QIODevice::ReadOnly));
+    QCOMPARE(written.readAll(), attachmentBytes);
+}
+
+void MailControllerTest::downloadAttachmentSanitizesPathTraversalInServerFilename()
+{
+    QStandardPaths::setTestModeEnabled(true);
+
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    const QByteArray attachmentBytes = "server-named-bytes";
+    // No suggestedName supplied by the caller -- downloadAttachment() falls
+    // back to the response's Content-Disposition filename, which is just as
+    // attacker-influenced as the caller-supplied name in the sibling test.
+    FakeRelayServer fake(httpResponse(200, "OK", attachmentBytes, "application/octet-stream",
+                                       { { "Content-Disposition", R"(attachment; filename="../../evil2.txt")" } }));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+    savePairing(pairingStore, fake.port());
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+    KeywordRepository keywordRepository(settingsStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository mailRepository(source, emailDao, pairingStore, cursorStore);
+
+    MailController controller(mailRepository, source, keywordRepository, pairingStore);
+
+    const QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    QDir().mkpath(downloadDir);
+    const QString escapeTarget = QDir::cleanPath(QDir(downloadDir).filePath(QStringLiteral("../../evil2.txt")));
+    QFile::remove(escapeTarget);
+
+    const bool ok = controller.downloadAttachment(QStringLiteral("Inbox"), QStringLiteral("42"), 0, QString());
+
+    QCOMPARE(ok, true);
+    QVERIFY(!QFile::exists(escapeTarget));
+
+    const QString sanitizedPath = QDir(downloadDir).filePath(QStringLiteral("evil2.txt"));
+    QVERIFY(QFile::exists(sanitizedPath));
 }
 
 QTEST_GUILESS_MAIN(MailControllerTest)
