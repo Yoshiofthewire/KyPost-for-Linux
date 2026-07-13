@@ -6,5 +6,9 @@
     <file>components/GhostButton.qml</file>
     <file>components/DangerButton.qml</file>
     <file>components/PillTab.qml</file>
+    <file>components/StatusBadge.qml</file>
+    <file>components/Avatar.qml</file>
+    <file>components/EmptyState.qml</file>
+    <file>components/SectionLabel.qml</file>
   </qresource>
 </RCC>
