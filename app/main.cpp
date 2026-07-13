@@ -18,7 +18,15 @@ static void routeDeepLink(const QStringList& arguments)
     for (const QString& argument : arguments) {
         const QUrl url(argument);
         if (url.scheme() == QStringLiteral("llamalabels")) {
-            qDebug() << "StubRouter: received deep link:" << url;
+            // Only scheme+host+path are logged, never the query string. Today this URL
+            // only ever carries a test token, but the plan's real contract is
+            // llamalabels://native-pair?sub=...&hash=...&pt=... -- subscriber id, subscriber
+            // hash, and pairing token, all real authentication credentials once native
+            // pairing lands. Logging the full URL now would set a precedent that leaks
+            // those to the journal later, so strip the query up front instead.
+            QUrl redacted = url;
+            redacted.setQuery(QString());
+            qDebug() << "StubRouter: received deep link:" << redacted;
             return;
         }
     }

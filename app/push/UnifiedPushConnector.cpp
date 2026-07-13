@@ -3,6 +3,7 @@
 #include <KUnifiedPush/Connector>
 
 #include <QDebug>
+#include <QUrl>
 
 UnifiedPushConnector::UnifiedPushConnector(const QString& serviceName, QObject* parent)
     : QObject(parent)
@@ -20,7 +21,13 @@ UnifiedPushConnector::UnifiedPushConnector(const QString& serviceName, QObject* 
     // comment at the KDBusService construction site in main.cpp.
 
     connect(m_connector, &KUnifiedPush::Connector::endpointChanged, this, [](const QString& endpoint) {
-        qDebug() << "UnifiedPushConnector: endpoint changed:" << endpoint;
+        // The endpoint URL's path/query (e.g. https://unifiedpush.kde.org/upezZkYjE4N2E2?up=1)
+        // is a bearer secret -- see Linux_QT_Client_Plan.md's ntfy-topic discussion, same
+        // property applies here: anyone who obtains it can push arbitrary notifications to
+        // this app instance. Log only the host (not secret -- distributor hostnames like
+        // unifiedpush.kde.org are public) so distributor choice is still debuggable without
+        // writing the credential to the journal.
+        qDebug() << "UnifiedPushConnector: endpoint changed, host:" << QUrl(endpoint).host();
     });
 
     connect(m_connector, &KUnifiedPush::Connector::messageReceived, this, [](const QByteArray& msg) {
@@ -34,7 +41,9 @@ UnifiedPushConnector::UnifiedPushConnector(const QString& serviceName, QObject* 
 
 void UnifiedPushConnector::registerClient(const QString& description)
 {
+    // Same reasoning as the endpointChanged handler above: the endpoint is a bearer
+    // secret and must not be logged in full, so only its host is reported here.
     qDebug() << "UnifiedPushConnector: registering client, current state:" << m_connector->state()
-              << "current endpoint:" << m_connector->endpoint();
+              << "current endpoint host:" << QUrl(m_connector->endpoint()).host();
     m_connector->registerClient(description);
 }
