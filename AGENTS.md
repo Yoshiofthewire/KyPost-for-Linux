@@ -4,16 +4,19 @@
 
 Llama Mail is a **relay-only** Qt/C++/QML email client: there is no IMAP or
 SMTP anywhere on-device, and the backend at `mail.urlxl.com` is the sole
-transport for mail, contacts, and push. It targets three surfaces from one
-codebase — **Linux Desktop** (KDE Plasma primary, Kirigami KF6/Qt6, packaged
-as a Flatpak), **KDE Mobile** (Plasma Mobile, same Flatpak, mobile UI root),
-and **Ubuntu Touch** (Lomiri, Kirigami KF5 bundled in the click, Qt 5.15,
-packaged via Clickable). It is the fourth sibling client after the Android
-app (`~/git/llama-mobile`) and the SwiftUI macOS/iOS app
+transport for mail, contacts, and push. It targets **Qt6/Kirigami KF6
+only** across two surfaces from one codebase — **Linux Desktop** (KDE
+Plasma primary, packaged as a Flatpak) and **KDE Mobile** (Plasma Mobile,
+same Flatpak, mobile UI root). **Ubuntu Touch (Lomiri) support is
+deferred** — Qt5 is EOL and this codebase no longer builds against it; see
+Section 4 for the re-check trigger. It is the fourth sibling client after
+the Android app (`~/git/llama-mobile`) and the SwiftUI macOS/iOS app
 (`~/git/llama-Mail-for-Mac`). The authoritative design source for this repo
 is `Linux_QT_Client_Plan.md` at the repo root — read it before making any
 architectural decision; this file only summarizes and carries forward the
-rules most likely to be violated by accident.
+rules most likely to be violated by accident (note: that plan document
+predates the Qt5-drop decision and still describes a dual-Qt/Ubuntu Touch
+target — this file is the current source of truth on that point).
 
 ## 2. Repo layout map
 
@@ -22,7 +25,7 @@ Full detail (including per-subdirectory breakdowns) lives in
 map, not a duplicate:
 
 ```
-core/       — libllamacore: models/net/db/stores/domain/theme, QtCore+Network+Sql only (compiles under Qt5 and Qt6)
+core/       — libllamacore: models/net/db/stores/domain/theme, QtCore+Network+Sql only
 app/        — main.cpp, push/ (KUnifiedPush glue, Qt6-only), platform/ (SecureStore backends, Compat shims), qml/ (MobileRoot, DesktopRoot, pages, components)
 tests/      — QtTest, stubbed HttpClient; ctest-driven
 packaging/  — flatpak/ (Flatpak manifest + metainfo) and click/ (Clickable manifest + apparmor)
@@ -32,26 +35,15 @@ docs/       — local tooling/setup notes (see docs/SETUP.md)
 
 ## 3. Build instructions
 
-Two out-of-tree build directories, one per Qt major version, driven by the
-`LLAMA_QT6` CMake option:
+A single out-of-tree build directory, Qt6-only:
 
 ```sh
-cmake -B build-qt6 -DLLAMA_QT6=ON
-cmake --build build-qt6
-
-cmake -B build-qt5 -DLLAMA_QT6=OFF
-cmake --build build-qt5
+cmake -B build -S .
+cmake --build build
+ctest --test-dir build
 ```
 
-Run tests for both after building:
-
-```sh
-ctest --test-dir build-qt6
-ctest --test-dir build-qt5
-```
-
-A change is not verified until it builds and tests pass under **both**
-directories — a Qt6-only or Qt5-only green build is not sufficient.
+A change is not verified until this builds cleanly and `ctest` is green.
 
 ## 4. Locked decisions (do not relitigate)
 
@@ -72,24 +64,31 @@ Carried forward verbatim (in substance) from `Linux_QT_Client_Plan.md`'s own
 - **90-second foreground refresh cadence.** Full-snapshot refresh
   (`since=0`); delta/cursor mail sync stays v2.
 - **License: GPL-2.0** (fine with Qt LGPL / KDE).
+- **Qt5/Ubuntu Touch (Clickable) support is dropped, not merely paused.**
+  Qt5 is EOL upstream, so this codebase now hard-requires Qt6 and has no
+  Qt5 build path at all (previously a dual-Qt CMake toggle selected between
+  two separate build trees; that toggle and both trees are gone — see
+  Section 3 for the current single build directory). This was a deliberate
+  call, not an oversight: Ubuntu Touch is deferred until UBports ships a
+  usable Qt6/KF6 track (the 24.04-2.0 beta, slated ~2026-07-20, or the
+  further-out 26.04-1.x/Qt 6.9 line) — see Section 1. Re-check when UT
+  ships that track; the plan is to target it directly with this same Qt6
+  codebase, no separate build path.
 
-## 5. Dual-Qt / dual-package rules
+## 5. Single-Qt rules
 
-- **No KF6-only QML types** (e.g. no `Kirigami.Delegates`) and **no
-  removed-in-KF6 types** (e.g. `BasicListItem`) — write custom row
-  delegates instead of relying on either.
-- A `Compat` QML singleton is the escape hatch for genuine KF5/KF6
-  divergence that can't be avoided by writing to the common subset. It has
-  **not been created yet** — that's a future phase, not something to
-  speculatively build now.
+Qt5/KF5 support was dropped (Qt5 is EOL); Ubuntu Touch is deferred until it
+ships its own Qt6/KF6 track — see Section 1 and the locked decision in
+Section 4. There is no longer a KF5/KF6 divergence to guard against, so
+most of what used to live in this section (dual-Qt QML-type restrictions, a
+`Compat` singleton escape hatch) is moot and has been removed. One rule
+carries forward unchanged, independent of the Qt5 decision:
+
 - `core/`'s **QtCore/QtNetwork/QtSql-only boundary** is the rule most likely
   to be accidentally violated in a single commit: nothing in `core/` may
   pull in QtDBus, QtGui/QtQuick, KUnifiedPush, KNotifications, or any Lomiri
-  glue. That code belongs in `app/`. This boundary is what keeps `core/`
-  compiling identically under both Qt majors — check `core/`'s own
-  CMakeLists/includes before adding a dependency there.
-- Build and test under both `build-qt6` and `build-qt5` every time (see
-  Section 3) — don't defer the second Qt major to "later."
+  glue. That code belongs in `app/`. Check `core/`'s own CMakeLists/includes
+  before adding a dependency there.
 
 ## 6. Ponytail, lazy senior dev mode
 

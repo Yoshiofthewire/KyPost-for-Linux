@@ -1,32 +1,49 @@
 # Local tooling gaps
 
-Checked on this machine during repo bootstrap (Task 1). Nothing here is
-installed by this pass — this is a checklist for later phases.
+Re-verified during Task 8 (Qt5 drop / Qt6-only build). 4 of the original 5
+items from the Task 1 checklist are now installed on this machine; one real
+gap remains, tracked below.
 
-- **`extra-cmake-modules`** (pacman package `extra/extra-cmake-modules`) —
-  verify: `pkg-config --exists ECM` (exit 1 today) or
-  `pacman -Q extra-cmake-modules` (reports "not found" today). Currently
-  optional: the top-level `CMakeLists.txt` does
-  `find_package(ECM QUIET NO_MODULE)` and only extends
-  `CMAKE_MODULE_PATH` if found. Needed once a task starts using ECM's
-  convenience macros (e.g. `ecm_add_test`, `KDECompilerSettings`).
+- **`extra-cmake-modules`** — installed (`extra-cmake-modules 6.27.0-1`,
+  verify: `pacman -Q extra-cmake-modules`). The top-level `CMakeLists.txt`
+  still does `find_package(ECM QUIET NO_MODULE)` and only extends
+  `CMAKE_MODULE_PATH` if found — this stays optional until a task starts
+  using ECM's convenience macros (e.g. `ecm_add_test`, `KDECompilerSettings`).
 
-- **`flatpak-builder`** — verify: `which flatpak-builder` (not found today).
-  Blocks the Flatpak packaging skeleton (`packaging/flatpak/`, future
-  phase).
+- **`flatpak-builder`** — installed (`/usr/bin/flatpak-builder`, verify:
+  `which flatpak-builder`). Unblocks the Flatpak packaging skeleton
+  (`packaging/flatpak/`), but see the `org.kde.Sdk` gap below — the runtime
+  needed to actually build the Flatpak is still missing.
 
-- **`clickable`** (pip package) — verify: `which clickable` (not found
-  today). Blocks the Clickable/Ubuntu Touch packaging skeleton
-  (`packaging/click/`, future phase).
+- **`clickable`** — installed (`/usr/bin/clickable`, verify: `which
+  clickable`). Unblocks the Clickable/Ubuntu Touch packaging tooling itself,
+  though Ubuntu Touch as a build *target* is deferred per `AGENTS.md`
+  Section 4 (Qt5 EOL; UT hasn't shipped its own Qt6 track yet) — clickable
+  has nothing Qt6-buildable to package against right now.
 
-- **A QtWebEngine package (Qt6 variant) + the `io.qt.qtwebengine.BaseApp`
-  Flatpak extension** — verify: `pacman -Qs qtwebengine` (no match today) /
-  `flatpak list | grep qtwebengine` (no match today, no Flatpak remotes
-  configured). Blocks HTML mail rendering (future phase), not needed for
-  this pass.
+- **A QtWebEngine package (Qt6 variant)** — installed as `qt6-webengine
+  6.11.1-4` (verify with `pacman -Q qt6-webengine` or `pacman -Qs
+  webengine` — note the old checklist's `pacman -Qs qtwebengine` command
+  returns nothing because the actual package name is `qt6-webengine`, not
+  `qtwebengine`; same package, the old verify command just didn't match the
+  hyphenated name). The `io.qt.qtwebengine.BaseApp` Flatpak extension is a
+  separate, still-unverified concern for the Flatpak build specifically —
+  not needed for this pass. HTML mail rendering (the feature this blocks)
+  is still a future phase.
 
-- **`kunifiedpush`** (KDE/kunifiedpush Connector library + host distributor
-  daemon) — verify: `pkg-config --modversion KUnifiedPush` (not found
-  today) or `pacman -Qs kunifiedpush` (no match today). Blocks the
-  KUnifiedPush push proofs (future phase, needs the user's real
-  distributor/account anyway).
+- **`kunifiedpush`** — installed (`kunifiedpush 26.04.3-1.1`, verify:
+  `pacman -Qs kunifiedpush`). Unblocks the KUnifiedPush push proofs in a
+  future phase (still needs the user's real distributor/account to actually
+  exercise it).
+
+## Remaining gap: `org.kde.Sdk` Flatpak runtime
+
+`flatpak list --runtime | grep -i kde` shows `org.kde.Platform` (6.10,
+user-scoped) installed, but **not** `org.kde.Sdk`. The `Platform` runtime is
+enough to *run* KDE/Qt6 apps but not to *build* a Flatpak against KF6 —
+`flatpak-builder` needs the matching `Sdk` runtime. `flathub` is already
+configured as a remote (both system and user), so fetching it is a single
+`flatpak install` away.
+
+This is the one real gap left from the original 5-item checklist. Task 9 in
+this batch resolves it — not addressed here.

@@ -6,10 +6,9 @@
 
 // Writes each key as a separate file under a caller-supplied directory.
 // Every file is chmod'd to owner-read-write only (0600) on write, using the
-// portable QFileDevice flags so behavior is identical on Qt5/Qt6. The
-// directory itself is not created here on construction — callers (or a
-// future phase's platform glue) are expected to pass an existing directory
-// resolved via QStandardPaths.
+// portable QFileDevice flags. The directory itself is not created here on
+// construction — callers (or a future phase's platform glue) are expected
+// to pass an existing directory resolved via QStandardPaths.
 class SecureStoreFile : public SecureStore
 {
 public:

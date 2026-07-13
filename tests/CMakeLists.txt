@@ -3,7 +3,7 @@
 
 function(llama_add_test test_name)
   add_executable(${test_name} ${ARGN})
-  target_link_libraries(${test_name} PRIVATE llamacore ${QT_TARGET_PREFIX}::Test)
+  target_link_libraries(${test_name} PRIVATE llamacore Qt6::Test)
   add_test(NAME ${test_name} COMMAND ${test_name})
 endfunction()
 
@@ -25,19 +25,17 @@ llama_add_test(CursorStoreTest core/stores/CursorStoreTest.cpp)
 llama_add_test(SecureStoreFileTest core/stores/SecureStoreFileTest.cpp)
 
 # SecureStoreKeychain needs QtKeychain + app/ headers, unlike the plain
-# llama_add_test() targets above, and only builds under Qt6 (only
-# qtkeychain-qt6 is installed on this machine).
-if(LLAMA_QT6)
-  find_package(Qt6Keychain REQUIRED)
-  add_executable(SecureStoreKeychainTest
-    app/platform/SecureStoreKeychainTest.cpp
-    ${CMAKE_SOURCE_DIR}/app/platform/SecureStoreKeychain.cpp
-  )
-  target_include_directories(SecureStoreKeychainTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
-  target_link_libraries(SecureStoreKeychainTest PRIVATE
-    llamacore
-    Qt6Keychain::Qt6Keychain
-    ${QT_TARGET_PREFIX}::Test
-  )
-  add_test(NAME SecureStoreKeychainTest COMMAND SecureStoreKeychainTest)
-endif()
+# llama_add_test() targets above, so it's its own bespoke add_executable
+# block rather than going through the helper.
+find_package(Qt6Keychain REQUIRED)
+add_executable(SecureStoreKeychainTest
+  app/platform/SecureStoreKeychainTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/platform/SecureStoreKeychain.cpp
+)
+target_include_directories(SecureStoreKeychainTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(SecureStoreKeychainTest PRIVATE
+  llamacore
+  Qt6Keychain::Qt6Keychain
+  Qt6::Test
+)
+add_test(NAME SecureStoreKeychainTest COMMAND SecureStoreKeychainTest)
