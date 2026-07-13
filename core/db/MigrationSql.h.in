@@ -1,0 +1,15 @@
+#pragma once
+
+#include <QString>
+
+// Generated at CMake configure time from db/migrations/001_initial.sql
+// (single source of truth) via file(READ) + configure_file — chosen over
+// Qt resource (qrc) embedding because a qrc's static initializer compiled
+// into a *static* library (llamacore) gets dropped by the linker unless
+// something explicitly references it, which caused the migration to
+// silently no-op (PRAGMA user_version got set to 1 with zero tables
+// created). A generated raw C++ string constant has no such gotcha.
+inline QString llamaMigrationSql001()
+{
+    return QStringLiteral(R"SQL(@LLAMA_MIGRATION_001_SQL@)SQL");
+}

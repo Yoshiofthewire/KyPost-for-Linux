@@ -6,9 +6,24 @@ add_library(llamacore STATIC
   models/KeywordSettings.h
   models/MfaChallenge.h
   models/PushNotification.h
+  db/Database.cpp
+  db/Database.h
+  db/EmailDao.cpp
+  db/EmailDao.h
+  db/ContactDao.cpp
+  db/ContactDao.h
+  db/FolderDao.cpp
+  db/FolderDao.h
+  db/PushDao.cpp
+  db/PushDao.h
+  db/SqlUtil.h
 )
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/db/migrations/001_initial.sql LLAMA_MIGRATION_001_SQL)
+configure_file(db/MigrationSql.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/MigrationSql.h @ONLY)
+
 target_include_directories(llamacore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(llamacore PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 target_link_libraries(llamacore PUBLIC
   ${QT_TARGET_PREFIX}::Core
