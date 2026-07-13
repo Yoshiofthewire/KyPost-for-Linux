@@ -6,6 +6,9 @@ add_library(llamacore STATIC
   models/KeywordSettings.h
   models/MfaChallenge.h
   models/PushNotification.h
+  domain/DevicePairing.h
+  domain/PairingStore.cpp
+  domain/PairingStore.h
   db/Database.cpp
   db/Database.h
   db/EmailDao.cpp

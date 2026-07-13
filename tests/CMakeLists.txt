@@ -24,6 +24,8 @@ llama_add_test(SettingsStoreTest core/stores/SettingsStoreTest.cpp)
 llama_add_test(CursorStoreTest core/stores/CursorStoreTest.cpp)
 llama_add_test(SecureStoreFileTest core/stores/SecureStoreFileTest.cpp)
 
+llama_add_test(PairingStoreTest core/domain/PairingStoreTest.cpp)
+
 llama_add_test(NetworkErrorTest core/net/NetworkErrorTest.cpp)
 llama_add_test(HttpClientTest core/net/HttpClientTest.cpp)
 llama_add_test(NativeRegistrationClientTest core/net/NativeRegistrationClientTest.cpp)
