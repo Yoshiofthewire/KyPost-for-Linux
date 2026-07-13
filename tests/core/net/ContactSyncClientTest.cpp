@@ -1,0 +1,320 @@
+#include "net/ContactSyncClient.h"
+
+#include "models/Contact.h"
+#include "net/HttpClient.h"
+#include "net/RelayAuth.h"
+
+#include "FakeRelayServer.h"
+
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QTest>
+
+class ContactSyncClientTest : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void pullRoundTripMapsPopulatedAndAbsentOptionalFieldsIncludingNestedEntries();
+    void pullSendsSinceAndAuthAsQueryParams();
+    void pushRoundTripSendsExactFieldNamesIncludingEmptyUidCreate();
+    void pushSendsBaseCursorAndAuthAsQueryParams();
+    void tooOldTrueSurfacesFlagWithEmptyChangedAndDeleted();
+    void pullUnauthorizedFrom401PassesErrorThrough();
+};
+
+namespace {
+
+// Contact 1: every optional scalar field populated, plus one nested entry
+// of each kind (all sub-fields populated).
+const QByteArray kPopulatedContactJson = R"(
+{
+  "uid": "c-1",
+  "rev": 5,
+  "createdAt": "2026-01-01T00:00:00Z",
+  "updatedAt": "2026-02-01T00:00:00Z",
+  "fn": "Ada Lovelace",
+  "givenName": "Ada",
+  "familyName": "Lovelace",
+  "middleName": "Augusta",
+  "prefix": "Countess",
+  "suffix": "Esq.",
+  "nickname": "Ada",
+  "org": "Analytical Engines Ltd",
+  "title": "Mathematician",
+  "notes": "Pioneer of computing",
+  "birthday": "1815-12-10",
+  "emails": [{"label":"work","value":"ada@example.com"}],
+  "phones": [{"label":"mobile","value":"+1-555-0100"}],
+  "addresses": [{"label":"home","street":"1 Main St","city":"London","region":"London","postalCode":"SW1A 1AA","country":"UK"}]
+}
+)";
+
+// Contact 2: only the required fields (uid, rev) present -- every optional
+// scalar field and every array key entirely absent from the wire.
+const QByteArray kMinimalContactJson = R"(
+{
+  "uid": "c-2",
+  "rev": 1
+}
+)";
+
+// Deleted-array entry: full Contact JSON per the resolved wire contract
+// (contacts.Store.ChangedSince returns full Contact structs, tombstoned),
+// not a bare uid.
+const QByteArray kDeletedContactJson = R"(
+{
+  "uid": "c-3",
+  "rev": 9,
+  "emails": [{"value":"nolabel@example.com"}]
+}
+)";
+
+} // namespace
+
+void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsIncludingNestedEntries()
+{
+    const QByteArray body = "{\"cursor\":100,\"tooOld\":false,\"changed\":[" + kPopulatedContactJson + ","
+        + kMinimalContactJson + "],\"deleted\":[" + kDeletedContactJson + "]}";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const ContactSyncResult result = client.pull(serverBaseUrl, auth, 0);
+
+    QVERIFY(!result.error.has_value());
+    QCOMPARE(result.cursor, qint64(100));
+    QCOMPARE(result.tooOld, false);
+    QCOMPARE(result.changed.size(), 2);
+    QCOMPARE(result.deletedContacts.size(), 1);
+
+    // Contact 1: every field, including nested entries, maps exactly.
+    const Contact& c1 = result.changed.at(0);
+    QCOMPARE(c1.uid, QStringLiteral("c-1"));
+    QCOMPARE(c1.rev, qint64(5));
+    QVERIFY(c1.createdAt.has_value());
+    QCOMPARE(*c1.createdAt, QStringLiteral("2026-01-01T00:00:00Z"));
+    QVERIFY(c1.updatedAt.has_value());
+    QCOMPARE(*c1.updatedAt, QStringLiteral("2026-02-01T00:00:00Z"));
+    QVERIFY(c1.fn.has_value());
+    QCOMPARE(*c1.fn, QStringLiteral("Ada Lovelace"));
+    QVERIFY(c1.givenName.has_value());
+    QCOMPARE(*c1.givenName, QStringLiteral("Ada"));
+    QVERIFY(c1.familyName.has_value());
+    QCOMPARE(*c1.familyName, QStringLiteral("Lovelace"));
+    QVERIFY(c1.middleName.has_value());
+    QCOMPARE(*c1.middleName, QStringLiteral("Augusta"));
+    QVERIFY(c1.prefix.has_value());
+    QCOMPARE(*c1.prefix, QStringLiteral("Countess"));
+    QVERIFY(c1.suffix.has_value());
+    QCOMPARE(*c1.suffix, QStringLiteral("Esq."));
+    QVERIFY(c1.nickname.has_value());
+    QCOMPARE(*c1.nickname, QStringLiteral("Ada"));
+    QVERIFY(c1.org.has_value());
+    QCOMPARE(*c1.org, QStringLiteral("Analytical Engines Ltd"));
+    QVERIFY(c1.title.has_value());
+    QCOMPARE(*c1.title, QStringLiteral("Mathematician"));
+    QVERIFY(c1.notes.has_value());
+    QCOMPARE(*c1.notes, QStringLiteral("Pioneer of computing"));
+    QVERIFY(c1.birthday.has_value());
+    QCOMPARE(*c1.birthday, QStringLiteral("1815-12-10"));
+
+    QCOMPARE(c1.emails.size(), 1);
+    QVERIFY(c1.emails.at(0).label.has_value());
+    QCOMPARE(*c1.emails.at(0).label, QStringLiteral("work"));
+    QCOMPARE(c1.emails.at(0).value, QStringLiteral("ada@example.com"));
+
+    QCOMPARE(c1.phones.size(), 1);
+    QVERIFY(c1.phones.at(0).label.has_value());
+    QCOMPARE(*c1.phones.at(0).label, QStringLiteral("mobile"));
+    QCOMPARE(c1.phones.at(0).value, QStringLiteral("+1-555-0100"));
+
+    QCOMPARE(c1.addresses.size(), 1);
+    const ContactAddressEntry& addr = c1.addresses.at(0);
+    QVERIFY(addr.label.has_value());
+    QCOMPARE(*addr.label, QStringLiteral("home"));
+    QVERIFY(addr.street.has_value());
+    QCOMPARE(*addr.street, QStringLiteral("1 Main St"));
+    QVERIFY(addr.city.has_value());
+    QCOMPARE(*addr.city, QStringLiteral("London"));
+    QVERIFY(addr.region.has_value());
+    QCOMPARE(*addr.region, QStringLiteral("London"));
+    QVERIFY(addr.postalCode.has_value());
+    QCOMPARE(*addr.postalCode, QStringLiteral("SW1A 1AA"));
+    QVERIFY(addr.country.has_value());
+    QCOMPARE(*addr.country, QStringLiteral("UK"));
+
+    // Contact 2: every optional field and every array key absent from the
+    // wire maps to nullopt / empty vectors, not a parse error.
+    const Contact& c2 = result.changed.at(1);
+    QCOMPARE(c2.uid, QStringLiteral("c-2"));
+    QCOMPARE(c2.rev, qint64(1));
+    QVERIFY(!c2.createdAt.has_value());
+    QVERIFY(!c2.updatedAt.has_value());
+    QVERIFY(!c2.fn.has_value());
+    QVERIFY(!c2.givenName.has_value());
+    QVERIFY(!c2.familyName.has_value());
+    QVERIFY(!c2.middleName.has_value());
+    QVERIFY(!c2.prefix.has_value());
+    QVERIFY(!c2.suffix.has_value());
+    QVERIFY(!c2.nickname.has_value());
+    QVERIFY(!c2.org.has_value());
+    QVERIFY(!c2.title.has_value());
+    QVERIFY(!c2.notes.has_value());
+    QVERIFY(!c2.birthday.has_value());
+    QVERIFY(c2.emails.isEmpty());
+    QVERIFY(c2.phones.isEmpty());
+    QVERIFY(c2.addresses.isEmpty());
+
+    // deletedContacts holds full Contact objects (not bare uids) -- assert
+    // fields, including a nested entry with an absent label.
+    const Contact& deleted = result.deletedContacts.at(0);
+    QCOMPARE(deleted.uid, QStringLiteral("c-3"));
+    QCOMPARE(deleted.rev, qint64(9));
+    QCOMPARE(deleted.emails.size(), 1);
+    QVERIFY(!deleted.emails.at(0).label.has_value());
+    QCOMPARE(deleted.emails.at(0).value, QStringLiteral("nolabel@example.com"));
+}
+
+void ContactSyncClientTest::pullSendsSinceAndAuthAsQueryParams()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"cursor":0,"tooOld":false,"changed":[],"deleted":[]})"));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-9"), QStringLiteral("hash-9") };
+    client.pull(serverBaseUrl, auth, 0);
+
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("GET /api/contacts/sync?"));
+    QVERIFY(request.contains("sub=sub-9"));
+    QVERIFY(request.contains("hash=hash-9"));
+    QVERIFY(request.contains("since=0"));
+}
+
+void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCreate()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"cursor":101,"tooOld":false,"changed":[],"deleted":[]})"));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    Contact created; // empty uid marks a create
+    created.rev = 0;
+    created.fn = QStringLiteral("New Contact");
+    created.emails = { ContactEmailEntry{ QStringLiteral("work"), QStringLiteral("new@example.com") } };
+
+    Contact updated;
+    updated.uid = QStringLiteral("c-existing");
+    updated.rev = 3;
+    updated.givenName = QStringLiteral("Grace");
+    updated.addresses = { ContactAddressEntry{ std::nullopt, QStringLiteral("42 Wallaby Way"), std::nullopt,
+                                                std::nullopt, std::nullopt, std::nullopt } };
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const ContactSyncResult result = client.push(serverBaseUrl, auth, 50, { created, updated });
+
+    QVERIFY(!result.error.has_value());
+    QCOMPARE(result.cursor, qint64(101));
+
+    QVERIFY(fake.receivedRequest().contains("POST /api/contacts/sync?"));
+
+    const QJsonObject sent = fake.receivedJsonBody();
+    QCOMPARE(sent.value(QStringLiteral("baseCursor")).toInt(), 50);
+    QVERIFY(sent.contains(QStringLiteral("changes")));
+    const QJsonArray changes = sent.value(QStringLiteral("changes")).toArray();
+    QCOMPARE(changes.size(), 2);
+
+    const QJsonObject sentCreated = changes.at(0).toObject();
+    QCOMPARE(sentCreated.value(QStringLiteral("uid")).toString(), QString());
+    QVERIFY(sentCreated.contains(QStringLiteral("uid")));
+    QCOMPARE(sentCreated.value(QStringLiteral("rev")).toInt(), 0);
+    QCOMPARE(sentCreated.value(QStringLiteral("fn")).toString(), QStringLiteral("New Contact"));
+    QCOMPARE(sentCreated.value(QStringLiteral("emails")).toArray().size(), 1);
+    const QJsonObject sentEmail = sentCreated.value(QStringLiteral("emails")).toArray().at(0).toObject();
+    QCOMPARE(sentEmail.value(QStringLiteral("label")).toString(), QStringLiteral("work"));
+    QCOMPARE(sentEmail.value(QStringLiteral("value")).toString(), QStringLiteral("new@example.com"));
+    // Optional fields that were never set must not appear on the wire.
+    QVERIFY(!sentCreated.contains(QStringLiteral("createdAt")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("givenName")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("birthday")));
+
+    const QJsonObject sentUpdated = changes.at(1).toObject();
+    QCOMPARE(sentUpdated.value(QStringLiteral("uid")).toString(), QStringLiteral("c-existing"));
+    QCOMPARE(sentUpdated.value(QStringLiteral("rev")).toInt(), 3);
+    QCOMPARE(sentUpdated.value(QStringLiteral("givenName")).toString(), QStringLiteral("Grace"));
+    QCOMPARE(sentUpdated.value(QStringLiteral("addresses")).toArray().size(), 1);
+    const QJsonObject sentAddress = sentUpdated.value(QStringLiteral("addresses")).toArray().at(0).toObject();
+    QCOMPARE(sentAddress.value(QStringLiteral("street")).toString(), QStringLiteral("42 Wallaby Way"));
+    QVERIFY(!sentAddress.contains(QStringLiteral("label")));
+    QVERIFY(!sentAddress.contains(QStringLiteral("city")));
+}
+
+void ContactSyncClientTest::pushSendsBaseCursorAndAuthAsQueryParams()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"cursor":1,"tooOld":false,"changed":[],"deleted":[]})"));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-7"), QStringLiteral("hash-7") };
+    client.push(serverBaseUrl, auth, 0, {});
+
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("sub=sub-7"));
+    QVERIFY(request.contains("hash=hash-7"));
+
+    const QJsonObject sent = fake.receivedJsonBody();
+    QCOMPARE(sent.value(QStringLiteral("baseCursor")).toInt(), 0);
+    QVERIFY(sent.value(QStringLiteral("changes")).toArray().isEmpty());
+}
+
+void ContactSyncClientTest::tooOldTrueSurfacesFlagWithEmptyChangedAndDeleted()
+{
+    // The server omits "changed"/"deleted" entirely when tooOld is true
+    // (writeContactsSyncResponse only sets those keys if !tooOld) -- the
+    // client must treat that as empty vectors, not a parse error, and must
+    // not attempt any reset/wipe logic itself (that's Phase 4).
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"cursor":200,"tooOld":true})"));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const ContactSyncResult result = client.pull(serverBaseUrl, auth, 999999);
+
+    QVERIFY(!result.error.has_value());
+    QCOMPARE(result.tooOld, true);
+    QCOMPARE(result.cursor, qint64(200));
+    QVERIFY(result.changed.isEmpty());
+    QVERIFY(result.deletedContacts.isEmpty());
+}
+
+void ContactSyncClientTest::pullUnauthorizedFrom401PassesErrorThrough()
+{
+    FakeRelayServer fake(httpResponse(401, "Unauthorized", "Unauthorized\n"));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+
+    const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
+    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const ContactSyncResult result = client.pull(serverBaseUrl, auth, 0);
+
+    QVERIFY(result.error.has_value());
+    QCOMPARE(*result.error, NetworkError::Unauthorized);
+    QVERIFY(result.changed.isEmpty());
+    QVERIFY(result.deletedContacts.isEmpty());
+}
+
+QTEST_GUILESS_MAIN(ContactSyncClientTest)
+#include "ContactSyncClientTest.moc"

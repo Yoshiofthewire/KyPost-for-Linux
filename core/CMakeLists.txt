@@ -35,6 +35,8 @@ add_library(llamacore STATIC
   net/PushNotificationClient.h
   net/MfaResponseClient.cpp
   net/MfaResponseClient.h
+  net/ContactSyncClient.cpp
+  net/ContactSyncClient.h
 )
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/db/migrations/001_initial.sql LLAMA_MIGRATION_001_SQL)
