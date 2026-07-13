@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/qml">
+    <file>MobileRoot.qml</file>
+    <file>DesktopRoot.qml</file>
+  </qresource>
+</RCC>
