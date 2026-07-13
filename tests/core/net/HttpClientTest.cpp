@@ -18,6 +18,8 @@ private slots:
     void getSuccessReturnsBodyUnmodifiedAndPreservesExistingQuery();
     void getMapsUnauthorizedFrom401();
     void postSendsJsonBodyAndContentTypeHeader();
+    void putSendsJsonBodyAndContentTypeHeader();
+    void delSendsQueryParamsWithNoBody();
     void transportFailureWhenNothingListens();
 };
 
@@ -79,6 +81,46 @@ void HttpClientTest::postSendsJsonBodyAndContentTypeHeader()
     QVERIFY(request.contains("POST /api/mfa/respond?sub=s1 HTTP/1.1"));
     QVERIFY(request.contains("Content-Type: application/json"));
     QVERIFY(request.endsWith(expectedBody));
+}
+
+void HttpClientTest::putSendsJsonBodyAndContentTypeHeader()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", "{}"));
+    QNetworkAccessManager manager;
+    HttpClient client(manager);
+
+    QJsonObject json;
+    json[QStringLiteral("name")] = QStringLiteral("NewName");
+    const QByteArray expectedBody = QJsonDocument(json).toJson(QJsonDocument::Compact);
+
+    const QUrl url(QStringLiteral("http://127.0.0.1:%1/api/inbox/folders").arg(fake.port()));
+    const HttpClient::HttpResult result =
+        client.put(url, { { QStringLiteral("sub"), QStringLiteral("s1") } }, json);
+
+    QVERIFY(!result.error.has_value());
+    QCOMPARE(result.statusCode, 200);
+
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("PUT /api/inbox/folders?sub=s1 HTTP/1.1"));
+    QVERIFY(request.contains("Content-Type: application/json"));
+    QVERIFY(request.endsWith(expectedBody));
+}
+
+void HttpClientTest::delSendsQueryParamsWithNoBody()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", "{}"));
+    QNetworkAccessManager manager;
+    HttpClient client(manager);
+
+    const QUrl url(QStringLiteral("http://127.0.0.1:%1/api/inbox/folders").arg(fake.port()));
+    const HttpClient::HttpResult result = client.del(url, { { QStringLiteral("folder"), QStringLiteral("OldFolder") } });
+
+    QVERIFY(!result.error.has_value());
+    QCOMPARE(result.statusCode, 200);
+
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("DELETE /api/inbox/folders?folder=OldFolder HTTP/1.1"));
+    QVERIFY(!request.contains("Content-Length:"));
 }
 
 void HttpClientTest::transportFailureWhenNothingListens()

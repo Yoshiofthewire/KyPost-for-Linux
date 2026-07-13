@@ -41,6 +41,35 @@ HttpClient::HttpResult HttpClient::post(const QUrl& url, const QList<QPair<QStri
     return waitForReply(m_manager.post(request, QJsonDocument(jsonBody).toJson(QJsonDocument::Compact)));
 }
 
+HttpClient::HttpResult HttpClient::put(const QUrl& url, const QList<QPair<QString, QString>>& query,
+                                        const QJsonObject& jsonBody, const QList<QPair<QString, QString>>& headers)
+{
+    const QUrl requestUrl = urlWithQuery(url, query);
+    if (!requestUrl.isValid())
+        return HttpResult{ NetworkError::InvalidUrl, 0, {}, QStringLiteral("Invalid URL") };
+
+    QNetworkRequest request(requestUrl);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    for (const auto& header : headers)
+        request.setRawHeader(header.first.toUtf8(), header.second.toUtf8());
+
+    return waitForReply(m_manager.put(request, QJsonDocument(jsonBody).toJson(QJsonDocument::Compact)));
+}
+
+HttpClient::HttpResult HttpClient::del(const QUrl& url, const QList<QPair<QString, QString>>& query,
+                                        const QList<QPair<QString, QString>>& headers)
+{
+    const QUrl requestUrl = urlWithQuery(url, query);
+    if (!requestUrl.isValid())
+        return HttpResult{ NetworkError::InvalidUrl, 0, {}, QStringLiteral("Invalid URL") };
+
+    QNetworkRequest request(requestUrl);
+    for (const auto& header : headers)
+        request.setRawHeader(header.first.toUtf8(), header.second.toUtf8());
+
+    return waitForReply(m_manager.deleteResource(request));
+}
+
 QUrl HttpClient::urlWithQuery(const QUrl& url, const QList<QPair<QString, QString>>& query) const
 {
     if (query.isEmpty())

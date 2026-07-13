@@ -49,6 +49,16 @@ public:
     HttpResult post(const QUrl& url, const QList<QPair<QString, QString>>& query,
                      const QJsonObject& jsonBody, const QList<QPair<QString, QString>>& headers = {});
 
+    // Sets Content-Type: application/json. Mirrors post()'s signature shape
+    // -- added in Task 17 for the folder-rename endpoint.
+    HttpResult put(const QUrl& url, const QList<QPair<QString, QString>>& query,
+                    const QJsonObject& jsonBody, const QList<QPair<QString, QString>>& headers = {});
+
+    // No body -- mirrors get()'s signature shape. Added in Task 17 for the
+    // folder-delete endpoint, which takes its target via query param.
+    HttpResult del(const QUrl& url, const QList<QPair<QString, QString>>& query,
+                    const QList<QPair<QString, QString>>& headers = {});
+
 private:
     // Appends query items to url via QUrlQuery, preserving any query url
     // already has — mirrors the Swift URL.appending(queryOrThrow:) extension.

@@ -30,6 +30,7 @@ llama_add_test(NativeRegistrationClientTest core/net/NativeRegistrationClientTes
 llama_add_test(PushNotificationClientTest core/net/PushNotificationClientTest.cpp)
 llama_add_test(MfaResponseClientTest core/net/MfaResponseClientTest.cpp)
 llama_add_test(ContactSyncClientTest core/net/ContactSyncClientTest.cpp)
+llama_add_test(RelayMailSourceTest core/net/RelayMailSourceTest.cpp)
 
 # SecureStoreKeychain needs QtKeychain + app/ headers, unlike the plain
 # llama_add_test() targets above, so it's its own bespoke add_executable

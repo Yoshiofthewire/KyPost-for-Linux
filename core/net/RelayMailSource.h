@@ -1,0 +1,160 @@
+#pragma once
+
+#include "models/Email.h"
+#include "net/NetworkError.h"
+
+#include <QMap>
+#include <QString>
+#include <QStringList>
+#include <QUrl>
+#include <QVector>
+#include <optional>
+
+class HttpClient;
+struct RelayAuth;
+
+// One entry of GET /api/inbox's byTab[<tab>] array. Wraps core/models/Email
+// (unmodified, per the Task 16/17 rule that plain model headers stay
+// wire-format-agnostic) with the two extra wire fields the inbox endpoint
+// carries that Email has no field for: `detail` (optional error/status
+// detail) and `changeType` (only present in delta/`since=`-mode responses,
+// "new" or "updated"). No delta-merge logic is implemented here -- deciding
+// what "updated" means for a locally-cached row is a Phase 4 domain-layer
+// concern; this type only carries the field through.
+struct InboxEmailItem
+{
+    Email email;
+    QString detail;
+    std::optional<QString> changeType;
+
+    bool operator==(const InboxEmailItem&) const = default;
+};
+
+struct InboxFetchResult
+{
+    std::optional<NetworkError> error;
+    QString detail; // human-readable detail on error; empty otherwise
+    QStringList tabs;
+    QMap<QString, QVector<InboxEmailItem>> byTab;
+};
+
+// One entry of GET /api/inbox/folders's "folders" array.
+struct MailFolderItem
+{
+    QString path;
+    bool deletable = false;
+
+    bool operator==(const MailFolderItem&) const = default;
+};
+
+struct ListFoldersResult
+{
+    std::optional<NetworkError> error;
+    QString detail;
+    QString parent;
+    QVector<MailFolderItem> folders;
+};
+
+// POST /api/inbox/folders response: {ok, parent, name, folder} -- `folder`
+// here is a plain string path (mailClient.CreateFolder returns (string,
+// error)), NOT the {path, deletable} object shape used by the GET list
+// response above -- do not conflate the two.
+struct CreateFolderResult
+{
+    std::optional<NetworkError> error;
+    QString detail;
+    bool ok = false;
+    QString parent;
+    QString name;
+    QString folder;
+};
+
+// PUT /api/inbox/folders (rename) response: {ok, folder, renamed, parent} --
+// all plain strings/bool.
+struct RenameFolderResult
+{
+    std::optional<NetworkError> error;
+    QString detail;
+    bool ok = false;
+    QString folder;
+    QString renamed;
+    QString parent;
+};
+
+// DELETE /api/inbox/folders response: {ok, folder, parent}.
+struct DeleteFolderResult
+{
+    std::optional<NetworkError> error;
+    QString detail;
+    bool ok = false;
+    QString folder;
+    QString parent;
+};
+
+// One entry of POST /api/inbox/actions's "failed" array.
+struct ActionFailure
+{
+    QString messageId;
+    QString error;
+
+    bool operator==(const ActionFailure&) const = default;
+};
+
+// POST /api/inbox/actions response: {ok, action, processed, failed,
+// targetMailbox}. targetMailbox is always present on the wire (echoed back,
+// even as "" when action != "move") -- this is distinct from the request
+// body, where targetMailbox is omitted entirely for non-move actions.
+struct ActionResult
+{
+    std::optional<NetworkError> error;
+    QString detail;
+    bool ok = false;
+    QString action;
+    int processed = 0;
+    QVector<ActionFailure> failed;
+    QString targetMailbox;
+};
+
+// Inbox fetch, folder CRUD, and inbox action calls against the Relay
+// backend's /api/inbox, /api/inbox/folders, and /api/inbox/actions
+// endpoints. Mail send/attachments (the two endpoints with binary/
+// multipart-adjacent payloads) are Task 18, not covered here. sub/hash
+// (RelayAuth) apply uniformly to every method here via query params,
+// confirmed against resolveMailAuthContext in the Go backend.
+class RelayMailSource
+{
+public:
+    explicit RelayMailSource(HttpClient& httpClient);
+
+    // limit/since are passed through only when the caller provides them --
+    // the server enforces its own default (500) / max (5000) bound, this
+    // client never clamps client-side. since present (even 0) puts the
+    // server into delta mode (only new/updated items, with changeType set);
+    // this method doesn't need to know or care about that distinction, it
+    // just parses whatever comes back via InboxEmailItem.
+    InboxFetchResult fetchInbox(const QUrl& serverBaseUrl, const RelayAuth& auth, std::optional<int> limit,
+                                 const QString& mailbox, std::optional<qint64> since) const;
+
+    ListFoldersResult listFolders(const QUrl& serverBaseUrl, const RelayAuth& auth, const QString& parent) const;
+
+    CreateFolderResult createFolder(const QUrl& serverBaseUrl, const RelayAuth& auth, const QString& parent,
+                                     const QString& name) const;
+
+    RenameFolderResult renameFolder(const QUrl& serverBaseUrl, const RelayAuth& auth, const QString& folder,
+                                     const QString& name) const;
+
+    DeleteFolderResult deleteFolder(const QUrl& serverBaseUrl, const RelayAuth& auth, const QString& folder) const;
+
+    // Plain QString action (not an enum) -- mirrors how Email::status/
+    // Email::label are already plain QString wire values, keeping this
+    // client a thin pass-through of whatever action strings the server
+    // defines rather than a second source of truth for the valid action
+    // set. targetMailbox is included in the request body only when it has
+    // a value (omitted entirely otherwise, never sent as "").
+    ActionResult performAction(const QUrl& serverBaseUrl, const RelayAuth& auth, const QString& action,
+                                const QStringList& messageIds, const QString& mailbox,
+                                const std::optional<QString>& targetMailbox) const;
+
+private:
+    HttpClient& m_httpClient;
+};
