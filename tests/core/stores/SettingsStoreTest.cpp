@@ -12,6 +12,7 @@ private slots:
     void themeIdRoundTrips();
     void manualMobileOverrideRoundTrips();
     void pushServerBaseUrlRoundTrips();
+    void pushDeliveryFieldsRoundTrip();
 
 private:
     QString tempFilePath(QTemporaryDir& dir, const QString& name) const;
@@ -69,6 +70,25 @@ void SettingsStoreTest::pushServerBaseUrlRoundTrips()
 
     store.setPushServerBaseUrl(QStringLiteral("https://push.example.com"));
     QCOMPARE(store.pushServerBaseUrl(), QStringLiteral("https://push.example.com"));
+}
+
+void SettingsStoreTest::pushDeliveryFieldsRoundTrip()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    SettingsStore store(tempFilePath(dir, QStringLiteral("settings.ini")));
+
+    QVERIFY(store.deliveryMode().isEmpty());
+    QVERIFY(store.pullEndpoint().isEmpty());
+    QVERIFY(store.transport().isEmpty());
+
+    store.setDeliveryMode(QStringLiteral("pull"));
+    store.setPullEndpoint(QStringLiteral("http://relay.example/api/notifications/native/pull"));
+    store.setTransport(QStringLiteral("unifiedpush"));
+
+    QCOMPARE(store.deliveryMode(), QStringLiteral("pull"));
+    QCOMPARE(store.pullEndpoint(), QStringLiteral("http://relay.example/api/notifications/native/pull"));
+    QCOMPARE(store.transport(), QStringLiteral("unifiedpush"));
 }
 
 QTEST_GUILESS_MAIN(SettingsStoreTest)

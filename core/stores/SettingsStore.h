@@ -25,6 +25,16 @@ public:
     QString pushServerBaseUrl() const;
     void setPushServerBaseUrl(const QString& baseUrl);
 
+    // Push delivery (set by DeviceRegistrationService on successful (re-)registration)
+    QString deliveryMode() const;      // "push" or "pull", empty if never registered
+    void setDeliveryMode(const QString& mode);
+
+    QString pullEndpoint() const;
+    void setPullEndpoint(const QString& endpoint);
+
+    QString transport() const;         // server-normalized value from the last successful registration
+    void setTransport(const QString& transport);
+
 private:
     QSettings m_settings;
 };

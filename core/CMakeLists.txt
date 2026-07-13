@@ -9,6 +9,8 @@ add_library(llamacore STATIC
   domain/DevicePairing.h
   domain/PairingStore.cpp
   domain/PairingStore.h
+  domain/DeviceRegistrationService.cpp
+  domain/DeviceRegistrationService.h
   db/Database.cpp
   db/Database.h
   db/EmailDao.cpp

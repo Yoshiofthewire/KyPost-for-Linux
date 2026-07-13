@@ -4,6 +4,9 @@ namespace {
 constexpr auto kThemeIdKey = "appearance/themeId";
 constexpr auto kManualMobileOverrideKey = "appearance/manualMobileOverride";
 constexpr auto kPushServerBaseUrlKey = "notifications/pushServerBaseUrl";
+constexpr auto kDeliveryModeKey = "push/deliveryMode";
+constexpr auto kPullEndpointKey = "push/pullEndpoint";
+constexpr auto kTransportKey = "push/transport";
 
 const QString kDefaultThemeId = QStringLiteral("Dark Matter");
 const QString kDefaultPushServerBaseUrl = QStringLiteral("https://ntfy.sh");
@@ -47,4 +50,34 @@ QString SettingsStore::pushServerBaseUrl() const
 void SettingsStore::setPushServerBaseUrl(const QString& baseUrl)
 {
     m_settings.setValue(kPushServerBaseUrlKey, baseUrl);
+}
+
+QString SettingsStore::deliveryMode() const
+{
+    return m_settings.value(kDeliveryModeKey, QString()).toString();
+}
+
+void SettingsStore::setDeliveryMode(const QString& mode)
+{
+    m_settings.setValue(kDeliveryModeKey, mode);
+}
+
+QString SettingsStore::pullEndpoint() const
+{
+    return m_settings.value(kPullEndpointKey, QString()).toString();
+}
+
+void SettingsStore::setPullEndpoint(const QString& endpoint)
+{
+    m_settings.setValue(kPullEndpointKey, endpoint);
+}
+
+QString SettingsStore::transport() const
+{
+    return m_settings.value(kTransportKey, QString()).toString();
+}
+
+void SettingsStore::setTransport(const QString& transport)
+{
+    m_settings.setValue(kTransportKey, transport);
 }
