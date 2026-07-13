@@ -85,3 +85,23 @@ add_executable(MailControllerTest
 target_include_directories(MailControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
 target_link_libraries(MailControllerTest PRIVATE llamacore Qt6::Test)
 add_test(NAME MailControllerTest COMMAND MailControllerTest)
+
+# ContactListModel/ContactsController (Task 33) live in app/contacts/, not
+# llamacore -- same bespoke add_executable pattern as EmailListModelTest/
+# MailControllerTest above.
+add_executable(ContactListModelTest
+  app/contacts/ContactListModelTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/contacts/ContactListModel.cpp
+)
+target_include_directories(ContactListModelTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(ContactListModelTest PRIVATE llamacore Qt6::Test)
+add_test(NAME ContactListModelTest COMMAND ContactListModelTest)
+
+add_executable(ContactsControllerTest
+  app/contacts/ContactsControllerTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/contacts/ContactListModel.cpp
+  ${CMAKE_SOURCE_DIR}/app/contacts/ContactsController.cpp
+)
+target_include_directories(ContactsControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(ContactsControllerTest PRIVATE llamacore Qt6::Test)
+add_test(NAME ContactsControllerTest COMMAND ContactsControllerTest)

@@ -1,3 +1,4 @@
+#include "contacts/ContactsController.h"
 #include "mail/MailController.h"
 #include "platform/SecureStoreKeychain.h"
 #include "push/UnifiedPushConnector.h"
@@ -253,6 +254,15 @@ int main(int argc, char* argv[])
     MailController mailController(mailRepository, relayMailSource, keywordRepository, pairingStore);
     qmlRegisterSingletonInstance<MailController>(
         "com.urlxl.LlamaMail", 1, 0, "MailApp", &mailController);
+
+    // Task 33: QML-facing bridge over contactSyncRepository (constructed
+    // above). Owns its ContactListModel (parented to itself); sync() blocks
+    // the GUI thread synchronously, same accepted tradeoff as MailController
+    // above (see global constraint 2). Its model starts empty until QML
+    // calls load()/sync() -- see ContactsController's constructor comment.
+    ContactsController contactsController(contactSyncRepository);
+    qmlRegisterSingletonInstance<ContactsController>(
+        "com.urlxl.LlamaMail", 1, 0, "ContactsApp", &contactsController);
 
     QQmlApplicationEngine engine;
     engine.load(QUrl(QStringLiteral("qrc:/qml/MobileRoot.qml")));

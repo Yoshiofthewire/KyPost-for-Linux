@@ -39,6 +39,17 @@ target_sources(llamamail PRIVATE
   mail/MailController.h
 )
 
+# ContactsController/ContactListModel (Task 33) wrap core/domain's
+# ContactSyncRepository as a QML singleton ("ContactsApp") -- QObject/
+# QAbstractListModel/QVariant, so app/ per the core/ boundary rule, same as
+# MailController/EmailListModel above. No extra find_package needed.
+target_sources(llamamail PRIVATE
+  contacts/ContactListModel.cpp
+  contacts/ContactListModel.h
+  contacts/ContactsController.cpp
+  contacts/ContactsController.h
+)
+
 # SecureStoreKeychain talks to the Secret Service over QtDBus, so it belongs
 # in the app executable, never in llamacore.
 find_package(Qt6Keychain REQUIRED)
