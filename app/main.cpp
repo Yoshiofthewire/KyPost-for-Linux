@@ -1,5 +1,7 @@
 #include "contacts/ContactsController.h"
 #include "mail/MailController.h"
+#include "pairing/MfaController.h"
+#include "pairing/PairingController.h"
 #include "platform/SecureStoreKeychain.h"
 #include "push/UnifiedPushConnector.h"
 #include "theme/ThemeController.h"
@@ -68,28 +70,56 @@ static void loadBundledFonts()
     }
 }
 
-// Task 12 stub router: scans a set of command-line-style arguments for a
-// llamalabels:// deep link and logs it. Real pairing-URL parsing (token
-// extraction, routing to a QML page, etc.) is a later phase -- this proof
-// only needs to demonstrate that the URL reaches application code, whether
-// via a fresh launch's argv or via KDBusService::activateRequested relaying
-// a second launch's argv to the already-running instance.
-static void routeDeepLink(const QStringList& arguments)
+// Task 34: replaces the Task 12 log-only stub -- scans a set of
+// command-line-style arguments for a llamalabels:// deep link and, for a
+// recognized llamalabels://native-pair link, actually routes it to
+// PairingController::pairFromDeepLink() instead of just logging it (see
+// PairingController.cpp's parseNativePairLink() for the full sub/hash/srv/
+// pt/reg parsing contract). Reachable both via a fresh launch's argv and via
+// KDBusService::activateRequested relaying a second launch's argv to the
+// already-running instance -- same dual call-site shape Task 12 established.
+//
+// llamalabels://desktop-pair (or any other llamalabels:// host) is
+// unrecognized here, per Phase 6 global constraint 6 (desktop pairing is
+// out of scope for this client family) -- it falls through to the same
+// redacted-query-string qDebug() Task 11's security review required,
+// unchanged. Never logs sub/hash/pt (or the query string of any
+// unrecognized llamalabels:// link) -- those are real authentication
+// credentials.
+//
+// pairingController is a plain (non-owning) pointer rather than a
+// reference: see main()'s comment on pairingControllerForDeepLinks for why
+// it can transiently be nullptr between KDBusService's construction and
+// PairingController's.
+static void routeDeepLink(const QStringList& arguments, PairingController* pairingController)
 {
     for (const QString& argument : arguments) {
         const QUrl url(argument);
-        if (url.scheme() == QStringLiteral("llamalabels")) {
-            // Only scheme+host+path are logged, never the query string. Today this URL
-            // only ever carries a test token, but the plan's real contract is
-            // llamalabels://native-pair?sub=...&hash=...&pt=... -- subscriber id, subscriber
-            // hash, and pairing token, all real authentication credentials once native
-            // pairing lands. Logging the full URL now would set a precedent that leaks
-            // those to the journal later, so strip the query up front instead.
-            QUrl redacted = url;
-            redacted.setQuery(QString());
-            qDebug() << "StubRouter: received deep link:" << redacted;
+        if (url.scheme() != QStringLiteral("llamalabels"))
+            continue;
+
+        if (url.host() == QStringLiteral("native-pair")) {
+            if (pairingController == nullptr) {
+                // Should not happen in practice -- see main()'s comment on
+                // pairingControllerForDeepLinks -- but a dropped pairing
+                // attempt is much better than a null dereference.
+                qWarning() << "routeDeepLink: native-pair link arrived before PairingController was ready, dropping";
+                return;
+            }
+            qDebug() << "routeDeepLink: routing llamalabels://native-pair link to PairingController";
+            pairingController->pairFromDeepLink(url);
             return;
         }
+
+        // Any other llamalabels:// host (including desktop-pair, which
+        // Phase 6 global constraint 6 puts explicitly out of scope) is
+        // unrecognized -- strip the query string before logging, same as
+        // the Task 11 stub did, so a real credential never lands in the
+        // journal.
+        QUrl redacted = url;
+        redacted.setQuery(QString());
+        qDebug() << "routeDeepLink: received unrecognized deep link:" << redacted;
+        return;
     }
 }
 
@@ -128,22 +158,36 @@ int main(int argc, char* argv[])
     // UnifiedPushConnector grab the name first, and KDBusService::Unique
     // would then think another instance is already running and relay-and-quit
     // on every launch.
+    //
+    // Task 34: PairingController doesn't exist yet at this point in main()
+    // (it's constructed further down, after the core/domain composition
+    // root it wraps) but the lambda below needs to be able to reach it once
+    // a second launch is relayed here -- which can only happen once this
+    // process has entered app.exec(), by which point main() has long since
+    // finished constructing pairingController and pointed
+    // pairingControllerForDeepLinks at it. The lambda captures this pointer
+    // variable by reference (not the not-yet-existing controller itself),
+    // so it always sees the up-to-date value whenever activateRequested
+    // actually fires.
+    PairingController* pairingControllerForDeepLinks = nullptr;
     KDBusService dbusService(KDBusService::Unique);
     QObject::connect(&dbusService, &KDBusService::activateRequested, &dbusService,
-                      [](const QStringList& arguments, const QString& workingDirectory) {
-                          qDebug() << "KDBusService: activateRequested -- arguments:" << arguments
+                      [&pairingControllerForDeepLinks](const QStringList& arguments, const QString& workingDirectory) {
+                          // Task 34 security fix: this used to log the raw `arguments` list
+                          // (Task 11/12), which is fine while every llamalabels:// URL only
+                          // ever carries a fake test token, but arguments can now carry a
+                          // real llamalabels://native-pair link -- sub/hash/pt are real
+                          // authentication credentials once pairFromDeepLink() below
+                          // succeeds. Log only the count and workingDirectory here;
+                          // routeDeepLink() below does its own properly-redacted logging of
+                          // the link itself.
+                          qDebug() << "KDBusService: activateRequested -- argument count:" << arguments.size()
                                     << "workingDirectory:" << workingDirectory;
-                          // Task 12: a second `llamamail llamalabels://...` invocation gets
+                          // Task 12/34: a second `llamamail llamalabels://...` invocation gets
                           // redirected here instead of spawning a duplicate process -- route
-                          // its argv through the same stub deep-link handler used at startup.
-                          routeDeepLink(arguments);
+                          // its argv through the same deep-link router used at startup.
+                          routeDeepLink(arguments, pairingControllerForDeepLinks);
                       });
-
-    // Task 12: this process is the one that "won" KDBusService's Unique-mode
-    // registration, so also check its own argv for a llamalabels:// URL --
-    // covers the case where xdg-open launches llamamail fresh (nothing was
-    // running yet to redirect to).
-    routeDeepLink(app.arguments());
 
     // Task 28: bundled fonts must be registered with QFontDatabase before
     // the QQmlApplicationEngine below parses any QML that might reference
@@ -242,8 +286,8 @@ int main(int argc, char* argv[])
     // above); full push-arrival wiring is deferred to Phase 7 per the
     // Phase 4 final-review note.
     //
-    // 10. Nothing above is registered with QML yet -- Tasks 32-34 add
-    // "construct controller X, register it" here, right above
+    // 10. Nothing above is registered with QML yet -- Tasks 32-34 each add
+    // "construct controller X, register it" below, right above
     // QQmlApplicationEngine, without reordering anything in this block.
 
     // Task 32: QML-facing bridge over mailRepository/relayMailSource/
@@ -263,6 +307,38 @@ int main(int argc, char* argv[])
     ContactsController contactsController(contactSyncRepository);
     qmlRegisterSingletonInstance<ContactsController>(
         "com.urlxl.LlamaMail", 1, 0, "ContactsApp", &contactsController);
+
+    // Task 34: QML-facing bridge over deviceRegistrationService/pairingStore
+    // (both constructed above). Refreshes its isPaired/pairedServerHost/
+    // deviceId from pairingStore eagerly on construction (see its
+    // constructor comment) -- unlike Mail/ContactsController, there's no
+    // reasonable "empty until QML asks" state for "are we paired".
+    PairingController pairingController(deviceRegistrationService, pairingStore);
+    qmlRegisterSingletonInstance<PairingController>(
+        "com.urlxl.LlamaMail", 1, 0, "Pairing", &pairingController);
+
+    // pairingController now exists -- point the pointer the KDBusService
+    // activateRequested lambda above captured (by reference) at it, so a
+    // second launch relaying a llamalabels://native-pair link over D-Bus can
+    // actually reach PairingController. See that lambda's comment for why
+    // this ordering is safe.
+    pairingControllerForDeepLinks = &pairingController;
+
+    // Task 34: this process is the one that "won" KDBusService's Unique-mode
+    // registration (construction above already guarantees that -- a losing
+    // instance relays its argv and exits at that point, it doesn't reach
+    // here), so also check its own argv for a llamalabels:// URL -- covers
+    // the case where xdg-open launches llamamail fresh (nothing was running
+    // yet to redirect to). Moved here (versus immediately after KDBusService,
+    // where the Task 12 stub ran this) so PairingController already exists
+    // to route a native-pair link to.
+    routeDeepLink(app.arguments(), pairingControllerForDeepLinks);
+
+    // Task 34: QML-facing bridge over mfaResponseClient/pairingStore (both
+    // constructed above).
+    MfaController mfaController(mfaResponseClient, pairingStore);
+    qmlRegisterSingletonInstance<MfaController>(
+        "com.urlxl.LlamaMail", 1, 0, "Mfa", &mfaController);
 
     QQmlApplicationEngine engine;
     engine.load(QUrl(QStringLiteral("qrc:/qml/MobileRoot.qml")));

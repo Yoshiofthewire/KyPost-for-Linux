@@ -105,3 +105,22 @@ add_executable(ContactsControllerTest
 target_include_directories(ContactsControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
 target_link_libraries(ContactsControllerTest PRIVATE llamacore Qt6::Test)
 add_test(NAME ContactsControllerTest COMMAND ContactsControllerTest)
+
+# PairingController/MfaController (Task 34) live in app/pairing/, not
+# llamacore -- same bespoke add_executable pattern as MailControllerTest/
+# ContactsControllerTest above.
+add_executable(PairingControllerTest
+  app/pairing/PairingControllerTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/pairing/PairingController.cpp
+)
+target_include_directories(PairingControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(PairingControllerTest PRIVATE llamacore Qt6::Test)
+add_test(NAME PairingControllerTest COMMAND PairingControllerTest)
+
+add_executable(MfaControllerTest
+  app/pairing/MfaControllerTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/pairing/MfaController.cpp
+)
+target_include_directories(MfaControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(MfaControllerTest PRIVATE llamacore Qt6::Test)
+add_test(NAME MfaControllerTest COMMAND MfaControllerTest)

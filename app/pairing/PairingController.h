@@ -1,0 +1,91 @@
+#pragma once
+
+#include <QObject>
+#include <QString>
+
+class QUrl;
+class DeviceRegistrationService;
+class PairingStore;
+
+// QML-facing bridge (Task 34) over core/domain's DeviceRegistrationService/
+// PairingStore. Registered as the "Pairing" QML singleton in main.cpp.
+// pairFromDeepLink/pairFromPastedLink are the real replacement for the
+// Task 12 routeDeepLink stub -- see main.cpp's routeDeepLink for the
+// llamalabels://native-pair wiring. pairFromParsedParams (and therefore any
+// successful pair) runs deviceRegistrationService.pair() synchronously on
+// the calling (GUI) thread -- see Phase 6 global constraint 2, this is a
+// known, accepted freeze-the-UI tradeoff for this phase, not a bug.
+//
+// Known gap (see task-34-report.md): pair()'s deviceToken argument is always
+// an empty QString() from this controller. This client's push transport is
+// UnifiedPush, and UnifiedPushConnector isn't wired to a stable,
+// ready-before-pairing endpoint value yet (it's constructed after
+// engine.load() in main.cpp, and threading a real endpoint through to this
+// call is Phase 7 territory). A live pairing attempt against a real backend
+// will therefore fail (the backend's register endpoint requires a non-empty
+// deviceToken) until that wiring lands -- this is expected, not a bug to fix
+// in this task.
+class PairingController : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool isPaired READ isPaired NOTIFY pairingChanged)
+    // Host-only, never the full URL with token -- matches the existing
+    // "never log the full endpoint" precedent from Task 11's post-push
+    // security review.
+    Q_PROPERTY(QString pairedServerHost READ pairedServerHost NOTIFY pairingChanged)
+    Q_PROPERTY(QString deviceId READ deviceId NOTIFY pairingChanged)
+    Q_PROPERTY(QString pairingState READ pairingState NOTIFY pairingStateChanged) // "idle" | "working" | "paired" | "failed"
+    Q_PROPERTY(QString pairingError READ pairingError NOTIFY pairingStateChanged) // meaningful only when pairingState == "failed"
+
+public:
+    PairingController(DeviceRegistrationService& service, PairingStore& pairingStore, QObject* parent = nullptr);
+
+    bool isPaired() const;
+    QString pairedServerHost() const;
+    QString deviceId() const;
+    QString pairingState() const;
+    QString pairingError() const;
+
+public slots:
+    // Re-reads pairingStore.load(), updates isPaired/pairedServerHost/
+    // deviceId. Called once from the constructor, and again by
+    // pairFromParsedParams() on a successful pair and by removePairing().
+    void refreshFromStore();
+    // Parses a llamalabels://native-pair URL per the wire format documented
+    // on PairingController.cpp's parseNativePairLink(): sub/hash/srv/pt
+    // query params required (hash may be present-but-empty -- matches
+    // DevicePairing::subscriberHash's own "may be empty" contract; sub/srv/
+    // pt must be present AND non-empty), reg optional (empty/absent derives
+    // the registration endpoint from srv). On parse failure sets
+    // pairingState="failed"+pairingError and returns false without any
+    // network call; on success calls pairFromParsedParams internally.
+    bool pairFromDeepLink(const QUrl& url);
+    // Same as pairFromDeepLink but the input is a pasted string the user
+    // typed/pasted into a TextField -- wrapped in QUrl(text), same
+    // validation path.
+    bool pairFromPastedLink(const QString& text);
+    void reset();         // sets pairingState back to "idle" (for a "Try Again" button after a failure)
+    void removePairing(); // pairingStore.clear() + refreshFromStore()
+
+signals:
+    void pairingChanged();
+    void pairingStateChanged();
+
+private:
+    // Builds a PairingParams from already-validated fields, sets
+    // pairingState="working", calls
+    // deviceRegistrationService.pair(params, QString()), maps
+    // RegistrationOutcome to pairingState/pairingError, calls
+    // refreshFromStore() on success.
+    bool pairFromParsedParams(const QString& sub, const QString& hash, const QString& srv, const QString& pt,
+                               const QString& reg);
+    void setPairingState(const QString& state, const QString& error = QString());
+
+    DeviceRegistrationService& m_service;
+    PairingStore& m_pairingStore;
+    QString m_pairingState = QStringLiteral("idle");
+    QString m_pairingError;
+    bool m_isPaired = false;
+    QString m_pairedServerHost;
+    QString m_deviceId;
+};

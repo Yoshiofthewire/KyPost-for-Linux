@@ -50,6 +50,19 @@ target_sources(llamamail PRIVATE
   contacts/ContactsController.h
 )
 
+# PairingController/MfaController (Task 34) wrap core/domain's
+# DeviceRegistrationService/PairingStore and core/net's MfaResponseClient as
+# QML singletons ("Pairing"/"Mfa") -- QObject/QUrl parsing, so app/ per the
+# core/ boundary rule, same as MailController/ContactsController above. No
+# extra find_package needed: QUrlQuery is already part of Qt6::Core,
+# transitively available via Qt6::Quick.
+target_sources(llamamail PRIVATE
+  pairing/MfaController.cpp
+  pairing/MfaController.h
+  pairing/PairingController.cpp
+  pairing/PairingController.h
+)
+
 # SecureStoreKeychain talks to the Secret Service over QtDBus, so it belongs
 # in the app executable, never in llamacore.
 find_package(Qt6Keychain REQUIRED)
