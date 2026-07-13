@@ -11,6 +11,8 @@ private slots:
     void init();
     void roundTripsInsertUpdateDelete();
     void findsUnconsumedAndMarksConsumed();
+    void existsWithSeqReflectsCurrentRows();
+    void findRecentOrdersBySeqDescendingWithLimit();
 
 private:
     Database m_db;
@@ -63,6 +65,30 @@ void PushDaoTest::findsUnconsumedAndMarksConsumed()
 
     QVERIFY(dao.deleteAll());
     QCOMPARE(dao.findUnconsumed().size(), 0);
+}
+
+void PushDaoTest::existsWithSeqReflectsCurrentRows()
+{
+    PushDao dao(m_db.handle());
+
+    QVERIFY(!dao.existsWithSeq(100));
+    QVERIFY(dao.insertOrReplace(QStringLiteral("msg-1"), 100, QStringLiteral("2026-01-01T00:00:00Z"), false));
+    QVERIFY(dao.existsWithSeq(100));
+    QVERIFY(!dao.existsWithSeq(101));
+}
+
+void PushDaoTest::findRecentOrdersBySeqDescendingWithLimit()
+{
+    PushDao dao(m_db.handle());
+
+    QVERIFY(dao.insertOrReplace(QStringLiteral("msg-a"), 1, QStringLiteral("2026-01-01T00:00:00Z"), false));
+    QVERIFY(dao.insertOrReplace(QStringLiteral("msg-b"), 3, QStringLiteral("2026-01-03T00:00:00Z"), false));
+    QVERIFY(dao.insertOrReplace(QStringLiteral("msg-c"), 2, QStringLiteral("2026-01-02T00:00:00Z"), false));
+
+    const QVector<PushRecord> recent = dao.findRecent(2);
+    QCOMPARE(recent.size(), 2);
+    QCOMPARE(recent.at(0).messageId, QStringLiteral("msg-b"));
+    QCOMPARE(recent.at(1).messageId, QStringLiteral("msg-c"));
 }
 
 QTEST_GUILESS_MAIN(PushDaoTest)

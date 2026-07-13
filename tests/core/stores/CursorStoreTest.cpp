@@ -12,6 +12,8 @@ private slots:
     void mailCursorRoundTrips();
     void contactBaseCursorRoundTrips();
     void resetClearsBothCursors();
+    void notificationCursorDefaultsToZeroAndRoundTrips();
+    void resetDoesNotTouchNotificationCursor();
 
 private:
     QString tempFilePath(QTemporaryDir& dir, const QString& name) const;
@@ -66,6 +68,35 @@ void CursorStoreTest::resetClearsBothCursors()
     store.reset();
     QVERIFY(store.mailCursor().isEmpty());
     QVERIFY(store.contactBaseCursor().isEmpty());
+}
+
+void CursorStoreTest::notificationCursorDefaultsToZeroAndRoundTrips()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    CursorStore store(tempFilePath(dir, QStringLiteral("cursors.ini")));
+
+    QCOMPARE(store.notificationCursor(), qint64(0));
+
+    store.setNotificationCursor(12345);
+    QCOMPARE(store.notificationCursor(), qint64(12345));
+}
+
+void CursorStoreTest::resetDoesNotTouchNotificationCursor()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    CursorStore store(tempFilePath(dir, QStringLiteral("cursors.ini")));
+
+    store.setMailCursor(QStringLiteral("100"));
+    store.setContactBaseCursor(QStringLiteral("200"));
+    store.setNotificationCursor(300);
+
+    store.reset();
+
+    QVERIFY(store.mailCursor().isEmpty());
+    QVERIFY(store.contactBaseCursor().isEmpty());
+    QCOMPARE(store.notificationCursor(), qint64(300));
 }
 
 QTEST_GUILESS_MAIN(CursorStoreTest)

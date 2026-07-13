@@ -19,6 +19,14 @@ public:
     QString contactBaseCursor() const;
     void setContactBaseCursor(const QString& cursor);
 
+    // Independent of mailCursor/contactBaseCursor -- not touched by reset(),
+    // which stays scoped to mail+contact (see PushRepository, task 23).
+    // Stored as qint64 (not QString like the other two cursors) since
+    // PushNotificationClient::pull's cursor is always a numeric seq, never a
+    // bare-string form.
+    qint64 notificationCursor() const; // 0 if never set
+    void setNotificationCursor(qint64 cursor);
+
     // Clears both cursors back to empty/absent. Storage primitive for a
     // future ContactSyncRepository's tooOld-response reconciliation.
     void reset();

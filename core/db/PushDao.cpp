@@ -56,6 +56,27 @@ QVector<PushRecord> PushDao::findUnconsumed() const
     return results;
 }
 
+bool PushDao::existsWithSeq(qint64 seq) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("SELECT 1 FROM push_notifications WHERE seq = :seq LIMIT 1"));
+    query.bindValue(QStringLiteral(":seq"), seq);
+    return query.exec() && query.next();
+}
+
+QVector<PushRecord> PushDao::findRecent(int limit) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("SELECT * FROM push_notifications ORDER BY seq DESC LIMIT :limit"));
+    query.bindValue(QStringLiteral(":limit"), limit);
+    if (!query.exec())
+        return {};
+    QVector<PushRecord> results;
+    while (query.next())
+        results.append(pushFromQuery(query));
+    return results;
+}
+
 bool PushDao::markConsumed(const QString& messageId)
 {
     QSqlQuery query(m_db);

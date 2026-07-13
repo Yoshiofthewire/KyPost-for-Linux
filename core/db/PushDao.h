@@ -28,6 +28,8 @@ public:
                           bool consumed);
     std::optional<PushRecord> findById(const QString& messageId) const;
     QVector<PushRecord> findUnconsumed() const;
+    bool existsWithSeq(qint64 seq) const;
+    QVector<PushRecord> findRecent(int limit) const; // ORDER BY seq DESC LIMIT limit
     bool markConsumed(const QString& messageId);
     bool deleteAll();
 
