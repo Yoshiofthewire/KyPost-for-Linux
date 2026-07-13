@@ -56,6 +56,8 @@ add_library(llamacore STATIC
   net/ContactSyncClient.h
   net/RelayMailSource.cpp
   net/RelayMailSource.h
+  net/NtfySubscriber.cpp
+  net/NtfySubscriber.h
 )
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/db/migrations/001_initial.sql LLAMA_MIGRATION_001_SQL)
