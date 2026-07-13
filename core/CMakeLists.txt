@@ -21,6 +21,8 @@ add_library(llamacore STATIC
   domain/ContactSyncRepository.h
   domain/PushRepository.cpp
   domain/PushRepository.h
+  domain/TransportStateMachine.cpp
+  domain/TransportStateMachine.h
   db/Database.cpp
   db/Database.h
   db/EmailDao.cpp

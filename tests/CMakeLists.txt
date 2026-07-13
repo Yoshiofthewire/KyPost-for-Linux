@@ -32,6 +32,7 @@ llama_add_test(KeywordRepositoryTest core/domain/KeywordRepositoryTest.cpp)
 llama_add_test(ContactSyncReconciliationTest core/domain/ContactSyncReconciliationTest.cpp)
 llama_add_test(ContactSyncRepositoryTest core/domain/ContactSyncRepositoryTest.cpp)
 llama_add_test(PushRepositoryTest core/domain/PushRepositoryTest.cpp)
+llama_add_test(TransportStateMachineTest core/domain/TransportStateMachineTest.cpp)
 
 llama_add_test(NetworkErrorTest core/net/NetworkErrorTest.cpp)
 llama_add_test(HttpClientTest core/net/HttpClientTest.cpp)
