@@ -15,5 +15,7 @@
     <file>pages/Compose.qml</file>
     <file>pages/ContactsList.qml</file>
     <file>pages/ContactDetail.qml</file>
+    <file>pages/Pairing.qml</file>
+    <file>pages/MfaApproval.qml</file>
   </qresource>
 </RCC>
