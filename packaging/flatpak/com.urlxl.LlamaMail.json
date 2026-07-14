@@ -7,7 +7,46 @@
     "finish-args": [
         "--socket=wayland",
         "--socket=fallback-x11",
-        "--share=network"
+        "--share=network",
+
+        /* KDBusService(KDBusService::Unique) in app/main.cpp claims this
+           well-known bus name for duplicate-launch detection and D-Bus
+           activation (packaging/dbus/com.urlxl.LlamaMail.service, wired by
+           Task 45). KUnifiedPush::Connector (app/push/UnifiedPushConnector.cpp)
+           registers under this same serviceName on the session bus without
+           claiming it itself -- its constructor's own comment documents
+           "Destination=<serviceName> Path=/org/unifiedpush/Connector" as the
+           address the distributor uses to deliver push wake-ups. Without
+           --own-name, KDBusService::Unique's RequestName call is denied by
+           the sandbox and every launch (plus D-Bus activation and
+           UnifiedPush delivery) breaks. */
+        "--own-name=com.urlxl.LlamaMail",
+
+        /* Qt6Keychain (app/platform/SecureStoreKeychain.cpp, used to persist
+           pairing credentials) talks to the Secret Service D-Bus API on
+           Linux, i.e. org.freedesktop.secrets, exported by
+           gnome-keyring/kwalletd's ksecretd. Without this the keychain reads
+           and writes on every pairing/credential operation fail. */
+        "--talk-name=org.freedesktop.secrets"
+
+        /* Desktop notifications (KF6::Notifications, NotificationDispatcher.cpp,
+           KNotification("newMail")): deliberately NOT adding
+           --talk-name=org.freedesktop.Notifications here. Researched Task 47
+           (2026-07-14) against the locally installed KF6::Notifications 6.27.0:
+           KNotificationManager::pluginForAction() (knotificationmanager.cpp,
+           invent.kde.org/frameworks/knotifications) calls isInsideSandbox()
+           -- QFileInfo::exists("/.flatpak-info") || qEnvironmentVariableIsSet
+           ("SNAP") -- and when that is true *and*
+           org.freedesktop.portal.Desktop is registered on the session bus, it
+           instantiates NotifyByPortal (talks to
+           org.freedesktop.portal.Notification) instead of NotifyByPopup
+           (which would talk to org.freedesktop.Notifications directly).
+           Confirmed locally too: `strings -e l libKF6Notifications.so.6.27.0`
+           contains the literal UTF-16 string "/.flatpak-info" alongside
+           "org.freedesktop.portal.Desktop", matching that source. Inside this
+           Flatpak, KNotifications therefore auto-routes through the portal,
+           and portals never need finish-args entries -- adding a talk-name
+           for the raw interface here would be dead permission surface. */
     ],
     "modules": [
         {
