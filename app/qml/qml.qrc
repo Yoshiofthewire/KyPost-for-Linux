@@ -13,5 +13,7 @@
     <file>components/ThemedTextField.qml</file>
     <file>pages/EmailDetail.qml</file>
     <file>pages/Compose.qml</file>
+    <file>pages/ContactsList.qml</file>
+    <file>pages/ContactDetail.qml</file>
   </qresource>
 </RCC>
