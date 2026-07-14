@@ -124,3 +124,24 @@ add_executable(MfaControllerTest
 target_include_directories(MfaControllerTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
 target_link_libraries(MfaControllerTest PRIVATE llamacore Qt6::Test)
 add_test(NAME MfaControllerTest COMMAND MfaControllerTest)
+
+# PushPayloadParser (Task 40) lives in app/push/, not llamacore -- same
+# bespoke add_executable pattern as EmailListModelTest/MailControllerTest
+# above. Pure C++ over QJsonDocument (already part of Qt6::Core, transitively
+# available via llamacore), no extra find_package needed.
+#
+# NotificationDispatcher (also Task 40, app/push/) has no test here
+# deliberately: like UnifiedPushConnector (Task 10, same directory), it's a
+# thin wrapper around a concrete, un-mockable system integration point
+# (KNotification's real D-Bus round-trip to whatever org.freedesktop.
+# Notifications service is reachable, plus the notification server's own
+# ActionInvoked callback for the "View" action) -- there's no fake/injectable
+# seam to test through without building a mock notification server, which is
+# out of this task's scope. See task-40-report.md.
+add_executable(PushPayloadParserTest
+  app/push/PushPayloadParserTest.cpp
+  ${CMAKE_SOURCE_DIR}/app/push/PushPayloadParser.cpp
+)
+target_include_directories(PushPayloadParserTest PRIVATE ${CMAKE_SOURCE_DIR}/app)
+target_link_libraries(PushPayloadParserTest PRIVATE llamacore Qt6::Test)
+add_test(NAME PushPayloadParserTest COMMAND PushPayloadParserTest)

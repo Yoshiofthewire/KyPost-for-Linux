@@ -97,6 +97,22 @@ target_sources(llamamail PRIVATE
 )
 target_link_libraries(llamamail PRIVATE KUnifiedPush Qt6::DBus)
 
+# PushPayloadParser (pure JSON-bytes -> PushNotification parsing, no QObject)
+# and NotificationDispatcher (wraps KNotification) (Task 40) live in
+# app/push/, alongside UnifiedPushConnector -- KNotifications is a KF6 system
+# library, never linked into llamacore, same core/ boundary rule. The
+# KF6NotificationsConfig.cmake package exports a "KF6::Notifications" target
+# (confirmed via `pacman -Ql knotifications | grep cmake` and its Targets
+# .cmake file this session), same naming pattern as KF6::DBusAddons below.
+find_package(KF6Notifications REQUIRED)
+target_sources(llamamail PRIVATE
+  push/NotificationDispatcher.cpp
+  push/NotificationDispatcher.h
+  push/PushPayloadParser.cpp
+  push/PushPayloadParser.h
+)
+target_link_libraries(llamamail PRIVATE KF6::Notifications)
+
 # KDBusService (KF6DBusAddons) wraps app startup in main.cpp to claim the
 # com.urlxl.LlamaMail well-known bus name in Unique mode and emit
 # activateRequested on duplicate-instance launches -- confirmed installed via
