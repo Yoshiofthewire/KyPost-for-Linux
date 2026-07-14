@@ -10,5 +10,8 @@
     <file>components/Avatar.qml</file>
     <file>components/EmptyState.qml</file>
     <file>components/SectionLabel.qml</file>
+    <file>components/ThemedTextField.qml</file>
+    <file>pages/EmailDetail.qml</file>
+    <file>pages/Compose.qml</file>
   </qresource>
 </RCC>

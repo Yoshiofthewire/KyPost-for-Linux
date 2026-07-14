@@ -27,6 +27,7 @@ private slots:
     void refreshFolderMessageInTwoTabsProducesOneRowWithBothKeywords();
     void refreshFolderNotPairedReturnsNotPairedWithNoRequest();
     void refreshFolderForceFullResyncOmitsSinceAndReplacesFolderCache();
+    void findCachedEmailReturnsValueWhenPresentAndNulloptWhenMissing();
 
 private:
     static void savePairing(PairingStore& pairingStore, quint16 port);
@@ -397,6 +398,46 @@ void MailRepositoryTest::refreshFolderForceFullResyncOmitsSinceAndReplacesFolder
     const QVector<Email> cached = emailDao.findByFolder(QStringLiteral("INBOX"));
     QCOMPARE(cached.size(), 1);
     QCOMPARE(cached.at(0).messageId, QStringLiteral("fresh-1"));
+}
+
+void MailRepositoryTest::findCachedEmailReturnsValueWhenPresentAndNulloptWhenMissing()
+{
+    // Task 35: findCachedEmail() is a pure local-cache lookup by messageId
+    // (EmailDao's SQLite PRIMARY KEY), independent of folder -- unlike
+    // cachedEmails(folder) above, it doesn't need the caller to already
+    // know which folder the message lives in. No network call is involved,
+    // so no FakeRelayServer/pairing setup is needed for this test.
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    Email seed;
+    seed.messageId = QStringLiteral("m-cached");
+    seed.folder = QStringLiteral("INBOX");
+    seed.subject = QStringLiteral("Cached subject");
+    seed.sender = QStringLiteral("Alice <alice@example.com>");
+    QVERIFY(emailDao.insertOrReplace(seed));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository repository(source, emailDao, pairingStore, cursorStore);
+
+    const std::optional<Email> found = repository.findCachedEmail(QStringLiteral("m-cached"));
+    QVERIFY(found.has_value());
+    QCOMPARE(found->subject, QStringLiteral("Cached subject"));
+    QCOMPARE(found->sender, QStringLiteral("Alice <alice@example.com>"));
+
+    QVERIFY(!repository.findCachedEmail(QStringLiteral("no-such-id")).has_value());
 }
 
 QTEST_GUILESS_MAIN(MailRepositoryTest)

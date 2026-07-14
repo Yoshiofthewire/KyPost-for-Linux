@@ -365,6 +365,31 @@ bool MailController::downloadAttachment(const QString& mailbox, const QString& m
     return true;
 }
 
+QVariantMap MailController::findByMessageId(const QString& messageId) const
+{
+    const std::optional<Email> email = m_mailRepository.findCachedEmail(messageId);
+    if (!email.has_value())
+        return {};
+
+    QVariantMap map;
+    map[QStringLiteral("messageId")] = email->messageId;
+    map[QStringLiteral("folder")] = email->folder;
+    map[QStringLiteral("sender")] = email->sender;
+    map[QStringLiteral("sentTo")] = email->sentTo;
+    map[QStringLiteral("cc")] = email->cc;
+    map[QStringLiteral("bcc")] = email->bcc;
+    map[QStringLiteral("subject")] = email->subject;
+    map[QStringLiteral("preview")] = email->preview;
+    map[QStringLiteral("body")] = email->body.value_or(QString());
+    map[QStringLiteral("label")] = email->label;
+    map[QStringLiteral("keywords")] = QVariant::fromValue(email->keywords);
+    map[QStringLiteral("status")] = email->status;
+    map[QStringLiteral("atUtc")] = email->atUtc;
+    map[QStringLiteral("hasAttachments")] = email->hasAttachments;
+    map[QStringLiteral("sourceMode")] = email->sourceMode;
+    return map;
+}
+
 QVariantList MailController::standardFolders() const
 {
     static constexpr StandardFolder kFolders[] = {

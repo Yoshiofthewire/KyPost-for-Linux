@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QVector>
 #include <optional>
 
@@ -73,6 +74,16 @@ public slots:
     bool downloadAttachment(const QString& mailbox, const QString& messageId, int index,
                              const QString& suggestedName);
     QVariantList standardFolders() const; // [{wireName, displayName}, ...], enum order
+    // Task 35: looks up a single cached Email by messageId (independent of
+    // folder, see MailRepository::findCachedEmail) as a QVariantMap keyed
+    // the same way as EmailListModel::roleNames() (messageId/folder/sender/
+    // sentTo/cc/bcc/subject/preview/body/label/keywords/status/atUtc/
+    // hasAttachments/sourceMode), so EmailDetail.qml can bind to
+    // result.subject/result.sender/etc. the same way it already binds to
+    // emailModel row properties. Returns an empty map if the messageId
+    // isn't cached locally -- this is a pure local-cache read (no network
+    // call), so a miss just means "not fetched/cached yet", not an error.
+    Q_INVOKABLE QVariantMap findByMessageId(const QString& messageId) const;
 
 signals:
     void currentFolderChanged();

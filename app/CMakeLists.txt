@@ -13,6 +13,16 @@ target_link_libraries(llamamail PRIVATE
   KF6::Kirigami
 )
 
+# EmailDetail.qml's body WebEngineView (Task 35) -- Qt6::WebEngineQuick
+# provides the "QtWebEngine" QML module (WebEngineView/
+# WebEngineNavigationRequest) at runtime; confirmed installed
+# (qt6-webengine 6.11.1) this session. No app/*.cpp source touches this
+# API directly -- it's QML-only, so no target_sources entry is needed here,
+# just the find_package/target_link_libraries to make the plugin available
+# at runtime and satisfy qmllint/IDE tooling.
+find_package(Qt6 REQUIRED COMPONENTS WebEngineQuick)
+target_link_libraries(llamamail PRIVATE Qt6::WebEngineQuick)
+
 # ThemeController wraps core::ThemeManager as a QML singleton (Q_PROPERTY/
 # QColor/qmlRegisterSingletonInstance), so it belongs in the app executable,
 # never in llamacore -- Qt6::Gui (QColor) and Qt6::Qml (qmlRegisterSingleton*)

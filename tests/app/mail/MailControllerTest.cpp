@@ -33,6 +33,7 @@ private slots:
     void sendMailOverAttachmentCapRejectsBeforeAnyNetworkCall();
     void downloadAttachmentSanitizesPathTraversalInSuggestedName();
     void downloadAttachmentSanitizesPathTraversalInServerFilename();
+    void findByMessageIdReturnsMapForCachedEmailAndEmptyMapWhenMissing();
 
 private:
     static void savePairing(PairingStore& pairingStore, quint16 port);
@@ -337,6 +338,57 @@ void MailControllerTest::downloadAttachmentSanitizesPathTraversalInServerFilenam
 
     const QString sanitizedPath = QDir(downloadDir).filePath(QStringLiteral("evil2.txt"));
     QVERIFY(QFile::exists(sanitizedPath));
+}
+
+void MailControllerTest::findByMessageIdReturnsMapForCachedEmailAndEmptyMapWhenMissing()
+{
+    // Task 35: findByMessageId() is the QML-facing wrapper EmailDetail.qml
+    // calls to look up a full Email by messageId -- a pure local-cache read
+    // (MailController::findByMessageId -> MailRepository::findCachedEmail
+    // -> EmailDao::findById), no network/pairing involved.
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    Email seed;
+    seed.messageId = QStringLiteral("m-1");
+    seed.folder = QStringLiteral("INBOX");
+    seed.sender = QStringLiteral("Alice <alice@example.com>");
+    seed.subject = QStringLiteral("Hello");
+    seed.preview = QStringLiteral("Preview text");
+    seed.keywords = QStringList{ QStringLiteral("Work") };
+    seed.hasAttachments = true;
+    QVERIFY(emailDao.insertOrReplace(seed));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+    KeywordRepository keywordRepository(settingsStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository mailRepository(source, emailDao, pairingStore, cursorStore);
+
+    MailController controller(mailRepository, source, keywordRepository, pairingStore);
+
+    const QVariantMap found = controller.findByMessageId(QStringLiteral("m-1"));
+    QCOMPARE(found.value(QStringLiteral("messageId")).toString(), QStringLiteral("m-1"));
+    QCOMPARE(found.value(QStringLiteral("sender")).toString(), QStringLiteral("Alice <alice@example.com>"));
+    QCOMPARE(found.value(QStringLiteral("subject")).toString(), QStringLiteral("Hello"));
+    QCOMPARE(found.value(QStringLiteral("hasAttachments")).toBool(), true);
+    QCOMPARE(found.value(QStringLiteral("keywords")).toStringList(), QStringList{ QStringLiteral("Work") });
+
+    QVERIFY(controller.findByMessageId(QStringLiteral("no-such-id")).isEmpty());
 }
 
 QTEST_GUILESS_MAIN(MailControllerTest)

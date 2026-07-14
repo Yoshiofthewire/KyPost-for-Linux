@@ -48,6 +48,11 @@ QVector<Email> MailRepository::cachedEmails(const QString& folder) const
     return m_emailDao.findByFolder(folder);
 }
 
+std::optional<Email> MailRepository::findCachedEmail(const QString& messageId) const
+{
+    return m_emailDao.findById(messageId);
+}
+
 MailFetchOutcome MailRepository::refreshFolder(const QString& folder, bool forceFullResync)
 {
     const std::optional<DevicePairing> pairing = m_pairingStore.load();

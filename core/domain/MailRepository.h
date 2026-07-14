@@ -4,6 +4,7 @@
 
 #include <QString>
 #include <QVector>
+#include <optional>
 
 class RelayMailSource;
 class EmailDao;
@@ -34,6 +35,15 @@ public:
                     CursorStore& cursorStore);
 
     QVector<Email> cachedEmails(const QString& folder) const;
+
+    // Task 35: looks up a single cached Email by its globally-unique
+    // messageId (message_id is EmailDao's SQLite PRIMARY KEY), independent
+    // of which folder it happens to be cached under -- unlike
+    // cachedEmails(folder) above, a caller navigating straight to a
+    // messageId (e.g. EmailDetail.qml, reached via MailController::
+    // findByMessageId) doesn't need to already know/guess the folder just
+    // to look one email up. Purely a local cache read, no network call.
+    std::optional<Email> findCachedEmail(const QString& messageId) const;
 
     // forceFullResync omits `since` from the request entirely (std::nullopt)
     // for a user-initiated manual refresh, which is what triggers a true
