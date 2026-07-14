@@ -3,6 +3,8 @@
 #include "pairing/MfaController.h"
 #include "pairing/PairingController.h"
 #include "platform/SecureStoreKeychain.h"
+#include "push/NotificationDispatcher.h"
+#include "push/PushPayloadParser.h"
 #include "push/UnifiedPushConnector.h"
 #include "theme/ThemeController.h"
 
@@ -17,18 +19,25 @@
 #include "domain/KeywordRepository.h"
 #include "domain/MailRepository.h"
 #include "domain/PairingStore.h"
+#include "domain/PushRepository.h"
+#include "domain/TransportStateMachine.h"
+#include "models/PushNotification.h"
 #include "net/ContactSyncClient.h"
 #include "net/HttpClient.h"
 #include "net/MfaResponseClient.h"
 #include "net/NativeRegistrationClient.h"
+#include "net/NtfySubscriber.h"
+#include "net/PushNotificationClient.h"
 #include "net/RelayMailSource.h"
 #include "stores/CursorStore.h"
 #include "stores/SettingsStore.h"
 
+#include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QQmlApplicationEngine>
 #include <QStandardPaths>
@@ -280,12 +289,47 @@ int main(int argc, char* argv[])
                                                  cursorStore, pairingStore);
     DeviceRegistrationService deviceRegistrationService(nativeRegistrationClient, pairingStore, settingsStore);
 
-    // 9. Deliberately NOT wired here: PushRepository/PushNotificationClient/
-    // NtfySubscriber/TransportStateMachine. Settings->Notifications only
-    // needs SettingsStore::deliveryMode()/transport() (already available
-    // above); full push-arrival wiring is deferred to Phase 7 per the
-    // Phase 4 final-review note.
+    // 9. Task 41: the push domain graph deferred by the Phase 4 final-review
+    // note above -- PushNotificationClient (over httpClient, same
+    // construction pattern as RelayMailSource/ContactSyncClient just above),
+    // NtfySubscriber (over networkManager), PushRepository (over pushDao/
+    // cursorStore/the new PushNotificationClient/pairingStore/settingsStore,
+    // all already constructed above), TransportStateMachine (over the new
+    // NtfySubscriber+PushRepository), and NotificationDispatcher (Task 40,
+    // app/push/ -- KNotifications wrapper, no core/ dependency).
+    // PushPayloadParser (also Task 40) is a pure namespace, not a class --
+    // no instance to construct.
     //
+    // The actual signal wiring (UnifiedPushConnector's distributor-tier
+    // arrivals/re-registration, TransportStateMachine's embedded-subscriber
+    // and polling-tier arrivals, foreground/background reporting) lives
+    // further down, after pushConnector (KUnifiedPush) is constructed --
+    // see the comment block right before pushConnector's construction.
+    //
+    // NtfySubscriber's topic argument is empty here: this app has no
+    // existing source for it. Linux_QT_Client_Plan.md's design calls for a
+    // client-generated >=128-bit random ntfy topic, persisted in
+    // SecureStore (SecureStore.h documents an aspirational "ntfy-topic" key)
+    // and registered with the backend as the deviceToken via
+    // DeviceRegistrationService -- none of that generation/persistence/
+    // registration exists yet anywhere in this codebase (confirmed:
+    // DevicePairing.h's seven persisted fields have no topic among them,
+    // and nothing calls SecureStore with an "ntfy-topic" key). This is the
+    // same kind of orphaned plumbing as SettingsStore::pushServerBaseUrl()
+    // itself (see PairingController.h's comment on that gap) -- baseUrl
+    // below reads a real, already-tested getter; topic has no equivalent to
+    // read yet. An empty topic does not crash anything: NtfySubscriber's GET
+    // against an invalid path just fails, and TransportStateMachine's
+    // already-tested connectionLost handling drops straight to Polling, the
+    // same graceful fallback as a genuinely unreachable subscriber. See
+    // task-41-report.md for the full analysis; this is flagged there as a
+    // concern for a future task, not silently worked around here.
+    PushNotificationClient pushNotificationClient(httpClient);
+    NtfySubscriber ntfySubscriber(networkManager, settingsStore.pushServerBaseUrl(), QString());
+    PushRepository pushRepository(pushDao, cursorStore, pushNotificationClient, pairingStore, settingsStore);
+    TransportStateMachine transportStateMachine(ntfySubscriber, pushRepository);
+    NotificationDispatcher notificationDispatcher;
+
     // 10. Nothing above is registered with QML yet -- Tasks 32-34 each add
     // "construct controller X, register it" below, right above
     // QQmlApplicationEngine, without reordering anything in this block.
@@ -350,10 +394,127 @@ int main(int argc, char* argv[])
     if (engine.rootObjects().isEmpty())
         return -1;
 
-    // Task 10 proof-of-concept: exercise the KUnifiedPush connector so its
-    // endpoint/state/message signals can be observed via qDebug(). Not wired
-    // into real push handling yet -- see app/push/UnifiedPushConnector.h.
+    // Task 41: UnifiedPushConnector is now a real emitting wrapper (see
+    // app/push/UnifiedPushConnector.h/.cpp) -- the live entry point for the
+    // Distributor tier of the three-tier push pipeline
+    // (core/domain/TransportStateMachine.h: Distributor -> EmbeddedSubscriber
+    // -> Polling). registerClient() below (moved to just before app.exec(),
+    // after every wiring connection below is already in place) is safe to
+    // call on every startup -- KUnifiedPush persists registration state
+    // itself.
     UnifiedPushConnector pushConnector(QStringLiteral("com.urlxl.LlamaMail"));
+
+    // Distributor-tier availability: only KUnifiedPush::Connector::Registered
+    // means "available" (phase7-global-constraints.md item 5) -- Registering
+    // is transient, Unregistered/NoDistributor/Error all mean unavailable.
+    // This is the only TransportStateMachine input pushConnector drives --
+    // the Distributor tier's own message arrivals are wired directly below,
+    // never routed through TransportStateMachine (constraint item 4).
+    QObject::connect(&pushConnector, &UnifiedPushConnector::stateChanged, &pushConnector,
+                      [&transportStateMachine](KUnifiedPush::Connector::State state) {
+                          // No secrets in a connector state value -- safe to log in full,
+                          // same as Task 10's original stub did.
+                          qDebug() << "main: UnifiedPushConnector state changed:" << state;
+                          transportStateMachine.setDistributorAvailable(state == KUnifiedPush::Connector::Registered);
+                      });
+
+    // Re-registers the already-paired device with the relay whenever the
+    // distributor hands out a new (or rotated) endpoint. reregisterIfPaired()
+    // is a documented no-op when there is no stored pairing yet
+    // (DeviceRegistrationService.cpp: returns std::nullopt without calling
+    // the client, confirmed by reading it) -- first-time pairing stays the
+    // existing Pairing.qml/llamalabels://native-pair flow from Phase 6 and
+    // is never triggered from here, even though this signal can fire before
+    // the user has ever paired.
+    QObject::connect(&pushConnector, &UnifiedPushConnector::endpointChanged, &pushConnector,
+                      [&deviceRegistrationService](const QString& endpoint) {
+                          deviceRegistrationService.reregisterIfPaired(endpoint);
+                      });
+
+    // Distributor-tier arrival path -- independent of TransportStateMachine,
+    // per constraint item 4. Parses the raw UnifiedPush message bytes with
+    // Task 40's PushPayloadParser; on success, persists+dedupes via
+    // PushRepository::recordPushArrival() and hands the parsed payload to
+    // NotificationDispatcher; on failure, logs byte count only (never
+    // content) and does nothing else.
+    QObject::connect(&pushConnector, &UnifiedPushConnector::messageReceived, &pushConnector,
+                      [&pushRepository, &notificationDispatcher](const QByteArray& message) {
+                          const std::optional<PushNotification> payload = PushPayloadParser::parse(message);
+                          if (!payload.has_value()) {
+                              qWarning() << "main: UnifiedPushConnector::messageReceived: failed to parse push"
+                                            " payload,"
+                                         << message.size() << "bytes";
+                              return;
+                          }
+                          pushRepository.recordPushArrival(*payload, QDateTime::currentMSecsSinceEpoch());
+                          notificationDispatcher.notify(*payload);
+                      });
+
+    // EmbeddedSubscriber-tier arrival path. NtfySubscriber emits ntfy's own
+    // flat JSON-stream envelope (id/time/event/topic/title/message -- see
+    // core/net/NtfySubscriber.cpp's processLine() and
+    // tests/core/net/NtfySubscriberTest.cpp's fixtures), which is NOT the
+    // nested {title,body,data:{messageId,...}} envelope PushPayloadParser.h
+    // documents -- the two shapes were confirmed different by reading both,
+    // so this maps ntfy's fields directly instead of round-tripping through
+    // PushPayloadParser (see task-41-report.md for the full analysis: ntfy's
+    // own message id is the only reasonable messageId source here, and the
+    // custom data.* fields this app cares about are not necessarily
+    // preserved by a real ntfy relay). Unlike the Polling tier below,
+    // nothing upstream of this signal persists the arrival -- NtfySubscriber
+    // has no PushDao, and TransportStateMachine's own notificationReceived
+    // forwarding in its .cpp constructor does no persistence either
+    // (verified by reading both files) -- so this lambda calls
+    // recordPushArrival() itself, mirroring the Distributor-tier lambda
+    // above.
+    QObject::connect(&transportStateMachine, &TransportStateMachine::notificationReceived, &transportStateMachine,
+                      [&pushRepository, &notificationDispatcher](const QJsonObject& data) {
+                          PushNotification payload;
+                          payload.messageId = data.value(QStringLiteral("id")).toString();
+                          payload.title = data.value(QStringLiteral("title")).toString();
+                          payload.body = data.value(QStringLiteral("message")).toString();
+                          pushRepository.recordPushArrival(payload, QDateTime::currentMSecsSinceEpoch());
+                          notificationDispatcher.notify(payload);
+                      });
+
+    // Polling-tier arrivals: PushRepository::pullOnce() (invoked internally
+    // by TransportStateMachine's own poll timer) already persists each
+    // delivered item before this signal fires (core/domain/
+    // PushRepository.cpp's pullOnce() calls m_pushDao.insertOrReplace() per
+    // item) -- do not call recordPushArrival() again here.
+    QObject::connect(&transportStateMachine, &TransportStateMachine::pollTick, &transportStateMachine,
+                      [&notificationDispatcher](const QVector<PushNotification>& delivered) {
+                          for (const PushNotification& payload : delivered)
+                              notificationDispatcher.notify(payload);
+                      });
+
+    // Observability only -- TransportStateMachine.cpp itself has no logging
+    // of its own tier transitions (and constraint item 4/task brief says
+    // don't touch that file), so this is the only place a developer can see
+    // Distributor/EmbeddedSubscriber/Polling transitions in the journal.
+    // TransportTier is a plain "enum class" (no Q_ENUM), hence the int cast
+    // rather than relying on a QDebug enum streaming operator that doesn't
+    // exist for it.
+    QObject::connect(&transportStateMachine, &TransportStateMachine::tierChanged, &transportStateMachine,
+                      [](TransportTier tier) {
+                          qDebug() << "main: TransportStateMachine tier changed:" << static_cast<int>(tier);
+                      });
+
+    // Foreground/background is app-layer-owned state TransportStateMachine
+    // needs (constraint item 4's setForegrounded input) -- QGuiApplication
+    // already tracks this natively, no QML binding needed.
+    // TransportStateMachine::m_foregrounded defaults to false (see its
+    // header), so an initial call right after the connection above is
+    // required even though nothing has "changed" yet -- otherwise a launch
+    // that starts already-active would incorrectly stay treated as
+    // backgrounded until the next real focus event.
+    QObject::connect(&app, &QGuiApplication::applicationStateChanged, &app,
+                      [&transportStateMachine](Qt::ApplicationState state) {
+                          qDebug() << "main: applicationStateChanged:" << state;
+                          transportStateMachine.setForegrounded(state == Qt::ApplicationActive);
+                      });
+    transportStateMachine.setForegrounded(app.applicationState() == Qt::ApplicationActive);
+
     pushConnector.registerClient(QStringLiteral("Llama Mail push notifications"));
 
     return app.exec();

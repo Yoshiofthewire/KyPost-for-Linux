@@ -20,7 +20,7 @@ UnifiedPushConnector::UnifiedPushConnector(const QString& serviceName, QObject* 
     // same D-Bus connection, so no registration call belongs here. See the
     // comment at the KDBusService construction site in main.cpp.
 
-    connect(m_connector, &KUnifiedPush::Connector::endpointChanged, this, [](const QString& endpoint) {
+    connect(m_connector, &KUnifiedPush::Connector::endpointChanged, this, [this](const QString& endpoint) {
         // The endpoint URL's path/query (e.g. https://unifiedpush.kde.org/upezZkYjE4N2E2?up=1)
         // is a bearer secret -- see Linux_QT_Client_Plan.md's ntfy-topic discussion, same
         // property applies here: anyone who obtains it can push arbitrary notifications to
@@ -28,14 +28,15 @@ UnifiedPushConnector::UnifiedPushConnector(const QString& serviceName, QObject* 
         // unifiedpush.kde.org are public) so distributor choice is still debuggable without
         // writing the credential to the journal.
         qDebug() << "UnifiedPushConnector: endpoint changed, host:" << QUrl(endpoint).host();
+        emit endpointChanged(endpoint);
     });
 
-    connect(m_connector, &KUnifiedPush::Connector::messageReceived, this, [](const QByteArray& msg) {
-        qDebug() << "UnifiedPushConnector: message received (" << msg.size() << "bytes ):" << msg;
+    connect(m_connector, &KUnifiedPush::Connector::messageReceived, this, [this](const QByteArray& msg) {
+        emit messageReceived(msg);
     });
 
-    connect(m_connector, &KUnifiedPush::Connector::stateChanged, this, [](KUnifiedPush::Connector::State state) {
-        qDebug() << "UnifiedPushConnector: state changed:" << state;
+    connect(m_connector, &KUnifiedPush::Connector::stateChanged, this, [this](KUnifiedPush::Connector::State state) {
+        emit stateChanged(state);
     });
 }
 
@@ -46,4 +47,14 @@ void UnifiedPushConnector::registerClient(const QString& description)
     qDebug() << "UnifiedPushConnector: registering client, current state:" << m_connector->state()
               << "current endpoint host:" << QUrl(m_connector->endpoint()).host();
     m_connector->registerClient(description);
+}
+
+QString UnifiedPushConnector::endpoint() const
+{
+    return m_connector->endpoint();
+}
+
+KUnifiedPush::Connector::State UnifiedPushConnector::state() const
+{
+    return m_connector->state();
 }
