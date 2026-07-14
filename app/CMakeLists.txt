@@ -203,3 +203,11 @@ install(FILES
   ${PROJECT_SOURCE_DIR}/packaging/flatpak/LlamaMail.notifyrc
   DESTINATION ${CMAKE_INSTALL_DATADIR}/knotifications6
 )
+
+# Install AppStream metainfo (Task 46): software-center metadata (name,
+# summary, description, categories, release history) consumed by app
+# stores/software centers such as KDE Discover and GNOME Software.
+install(FILES
+  ${PROJECT_SOURCE_DIR}/packaging/flatpak/com.urlxl.LlamaMail.metainfo.xml
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
+)
