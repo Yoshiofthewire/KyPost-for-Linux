@@ -181,3 +181,25 @@ install(FILES
   ${PROJECT_SOURCE_DIR}/packaging/flatpak/icons/hicolor/256x256/apps/com.urlxl.LlamaMail.png
   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
 )
+
+# Install desktop entry (Task 45): app metadata for the application menu and
+# D-Bus service activation.
+install(FILES
+  ${PROJECT_SOURCE_DIR}/packaging/flatpak/com.urlxl.LlamaMail.desktop
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+# Install D-Bus service file (Task 45): activation metadata. The Exec= path
+# (/usr/bin/llamamail) is only correct once make install puts the binary
+# there, which is now the case for real system installs.
+install(FILES
+  ${PROJECT_SOURCE_DIR}/packaging/dbus/com.urlxl.LlamaMail.service
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
+)
+
+# Install KNotifications config (Task 45): defines notification event types
+# (newMail popup) that NotificationDispatcher (app/push/) can use.
+install(FILES
+  ${PROJECT_SOURCE_DIR}/packaging/flatpak/LlamaMail.notifyrc
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/knotifications6
+)
