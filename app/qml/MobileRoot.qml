@@ -87,24 +87,33 @@ Kirigami.ApplicationWindow {
     // llamalabels://native-pair link arrives, whether or not this window
     // is already up. autoNavigatedForAttempt guards against
     // double-pushing Pairing.qml: pairingStateChanged can fire more than
-    // once per attempt ("idle" -> "working" -> "paired"/"failed" each emit
-    // it), so only the *first* transition away from "idle" pushes; the
-    // flag resets back to false once pairingState returns to "idle" (a
-    // fresh reset()/"Try Again", or removePairing()), arming the guard
-    // again for the next attempt. Also checked against the currently
-    // active page's objectName so a user who has already manually
-    // navigated to Pairing.qml (via the global drawer) doesn't get a
-    // second copy pushed on top of the one they're already looking at.
+    // once per attempt ("working" -> "paired"/"failed" each emit it), so
+    // only the *first* transition of a given attempt pushes.
+    //
+    // The flag rearms on a transition INTO "working", not on a return to
+    // "idle": per PairingController.cpp, pairFromParsedParams() sets
+    // pairingState to "working" unconditionally from whatever state it was
+    // already in -- it never passes back through "idle" first. The ONLY
+    // path that ever sets pairingState back to "idle" is reset(), whose
+    // only caller is Pairing.qml's own "Try Again" button. So rearming on
+    // "idle" meant this guard only ever fired for the FIRST pairing
+    // attempt of a session (or one right after a manual "Try Again");
+    // every subsequent real attempt updated pairingState correctly but had
+    // its auto-navigate silently swallowed. Rearming on "working" fires
+    // exactly once per real attempt, regardless of what state preceded it.
+    //
+    // Also checked against the currently active page's objectName so a
+    // user who has already manually navigated to Pairing.qml (via the
+    // global drawer) doesn't get a second copy pushed on top of the one
+    // they're already looking at.
     property bool autoNavigatedForAttempt: false
 
     Connections {
         target: Pairing
         function onPairingStateChanged() {
-            if (Pairing.pairingState === "idle") {
+            if (Pairing.pairingState === "working")
                 root.autoNavigatedForAttempt = false
-                return
-            }
-            if (root.autoNavigatedForAttempt)
+            if (Pairing.pairingState === "idle" || root.autoNavigatedForAttempt)
                 return
             root.autoNavigatedForAttempt = true
             if (!root.pageStack.currentItem || root.pageStack.currentItem.objectName !== "pairingPage")
@@ -533,8 +542,20 @@ Kirigami.ApplicationWindow {
                             SwipeDelegate.onClicked: {
                                 if (emailRow.actionTriggered)
                                     return
-                                emailRow.actionTriggered = true
-                                MailApp.deleteEmails([model.messageId])
+                                // Only latch the guard once the action has
+                                // actually committed (mirrors EmailDetail.qml's
+                                // own Archive/Junk/Delete handlers). deleteEmails
+                                // returns false without touching the cached list
+                                // when requirePairing()/the network call fails
+                                // (see MailController::performActionCommon), and
+                                // this delegate instance survives that failure
+                                // (reuseItems: false only recreates delegates
+                                // when the model itself rebuilds) -- latching
+                                // unconditionally here would permanently disable
+                                // this row's swipe actions after any transient
+                                // failure, e.g. "Not paired" on first launch.
+                                if (MailApp.deleteEmails([model.messageId]))
+                                    emailRow.actionTriggered = true
                             }
                         }
                     }
@@ -559,8 +580,12 @@ Kirigami.ApplicationWindow {
                             SwipeDelegate.onClicked: {
                                 if (emailRow.actionTriggered)
                                     return
-                                emailRow.actionTriggered = true
-                                MailApp.archiveEmails([model.messageId])
+                                // See the matching comment on the Delete
+                                // handler above -- only latch on success so a
+                                // failed archive (e.g. "Not paired") can be
+                                // retried on this same row instance.
+                                if (MailApp.archiveEmails([model.messageId]))
+                                    emailRow.actionTriggered = true
                             }
                         }
                     }
