@@ -67,6 +67,56 @@ Kirigami.ApplicationWindow {
             root.pageStack.pop()
     }
 
+    // Task 42: shared by the Inbox ListView's own row-tap (below) and the
+    // notification tap-through Connections block further down -- "find and
+    // reuse that exact push logic, don't duplicate it" per the task-42
+    // brief. Pops back to the Inbox root and re-selects the Inbox tab
+    // first: a plain in-app row tap always fires from pageStack depth 1
+    // already (the email rows only exist inside inboxPage), so that reset
+    // is a no-op for that call site, but notification tap-through can land
+    // while the user is anywhere else in the stack (Contacts, a pushed
+    // ContactDetail/Compose/Pairing/Settings page) and needs the same
+    // "return to a clean Inbox-rooted stack" behavior goInbox()/goContacts()
+    // already established elsewhere in this file.
+    function openEmailDetail(messageId, folder) {
+        while (root.pageStack.depth > 1)
+            root.pageStack.pop()
+        root.activeTab = "inbox"
+        root.pageStack.push(emailDetailPageComponent, { messageId: messageId, folder: folder })
+    }
+
+    // ---- notification tap-through ---------------------------------------
+    // MailController::openEmailRequested (Task 42) is forwarded from
+    // NotificationDispatcher::openRequested (Task 40) via a direct
+    // signal-to-signal connect in main.cpp -- see that connect's own
+    // comment. messageId is bare (no folder), so this hydrates the full
+    // cached email via MailApp.findByMessageId() the same way
+    // EmailDetail.qml itself already does, purely to recover the folder
+    // for the push() below (EmailDetail re-fetches by messageId on its own
+    // reload() regardless). An empty folder (message not yet locally
+    // cached -- e.g. a push arrived for mail this client hasn't synced yet)
+    // is not an error here: EmailDetail.qml's own reload() already handles
+    // an empty/miss findByMessageId() result gracefully (renders blank
+    // until the user next refreshes), same as it does for any other
+    // not-yet-cached messageId.
+    //
+    // raise()/requestActivate() (Window's own base-type methods, per
+    // Kirigami.ApplicationWindow extending QtQuick's Window) run
+    // unconditionally here because this handler only ever fires from a
+    // genuine user click on the notification's "View" action -- never from
+    // NotificationDispatcher.notify() itself, which only builds/sends the
+    // KNotification and touches no window state (confirmed by reading
+    // NotificationDispatcher.h/.cpp and main.cpp's Task 41 wiring).
+    Connections {
+        target: MailApp
+        function onOpenEmailRequested(messageId) {
+            const email = MailApp.findByMessageId(messageId)
+            root.openEmailDetail(messageId, email.folder || "")
+            root.raise()
+            root.requestActivate()
+        }
+    }
+
     function goContacts() {
         if (root.activeTab === "contacts") {
             // Already in the Contacts section -- pop back to its root
@@ -605,8 +655,7 @@ Kirigami.ApplicationWindow {
                         }
                     }
 
-                    onClicked: root.pageStack.push(emailDetailPageComponent,
-                        { messageId: model.messageId, folder: model.folder })
+                    onClicked: root.openEmailDetail(model.messageId, model.folder)
                 }
             }
         }

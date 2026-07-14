@@ -116,6 +116,18 @@ signals:
     void keywordTabsChanged();
     void isBusyChanged();
     void lastErrorChanged();
+    // Task 42: forwarded straight from NotificationDispatcher::openRequested
+    // (main.cpp connects the two directly -- signal-to-signal, no lambda,
+    // since the shapes already match) when the user activates a
+    // notification's "View" action. MailController itself has no window/
+    // pageStack access (same constraint every other controller in this repo
+    // respects -- see PairingController's deep-link routing for the closest
+    // precedent), so this only carries the bare messageId to QML;
+    // MobileRoot.qml/DesktopRoot.qml each have a
+    // `Connections { target: MailApp }` block that hydrates the full email
+    // via findByMessageId() and does the actual navigation + window
+    // raise/focus.
+    void openEmailRequested(const QString& messageId);
 
 private:
     void applyFilter(); // recomputes m_model from m_currentFolderEmails + m_selectedKeyword

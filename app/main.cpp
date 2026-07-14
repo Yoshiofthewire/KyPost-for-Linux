@@ -343,6 +343,26 @@ int main(int argc, char* argv[])
     qmlRegisterSingletonInstance<MailController>(
         "com.urlxl.LlamaMail", 1, 0, "MailApp", &mailController);
 
+    // Task 42: notification tap-through. NotificationDispatcher (Task 40,
+    // already constructed above as part of the Task 41 push graph) emits
+    // openRequested(messageId) when the user activates a KNotification's
+    // "View" action; forwarded straight to MailController::openEmailRequested
+    // -- a direct signal-to-signal connect, no lambda needed, since both
+    // signals already carry the same (const QString&) shape. Neither
+    // NotificationDispatcher nor MailController has window/pageStack access
+    // (by design -- see both classes' doc comments), so this connect only
+    // gets the bare messageId to QML; MobileRoot.qml/DesktopRoot.qml each
+    // have their own `Connections { target: MailApp }` block that hydrates
+    // the full email via MailApp.findByMessageId() and does the actual
+    // navigation + window raise/focus. Deliberately NOT connected here for
+    // NotificationDispatcher::notify() itself (Task 41's Step 3 wiring,
+    // above) -- a background push arriving must only show the KNotification,
+    // never steal focus; only this openRequested (a genuine user click) may
+    // ever result in a window raise, and even that raise happens on the QML
+    // side, not here.
+    QObject::connect(&notificationDispatcher, &NotificationDispatcher::openRequested, &mailController,
+                      &MailController::openEmailRequested);
+
     // Task 33: QML-facing bridge over contactSyncRepository (constructed
     // above). Owns its ContactListModel (parented to itself); sync() blocks
     // the GUI thread synchronously, same accepted tradeoff as MailController

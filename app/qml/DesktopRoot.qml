@@ -103,6 +103,40 @@ Kirigami.ApplicationWindow {
 
     Component.onCompleted: MailApp.refresh()
 
+    // ---- notification tap-through ---------------------------------------
+    // MailController::openEmailRequested (Task 42) is forwarded from
+    // NotificationDispatcher::openRequested (Task 40) via a direct
+    // signal-to-signal connect in main.cpp -- see that connect's own
+    // comment. Reuses selectEmail() unchanged (the exact function the mail
+    // list's own TapHandler below already calls) rather than a second,
+    // parallel way to set detail-pane selection state; currentSection is
+    // set to "mail" first since selectEmail() alone only ever fires today
+    // from within the mail list (visible only when currentSection ===
+    // "mail" already), so a tap-through arriving while the Contacts section
+    // is showing needs that switch made explicit here. messageId is bare
+    // (no folder), so this hydrates the full cached email via
+    // MailApp.findByMessageId() the same way EmailDetail.qml itself already
+    // does, purely to recover the folder -- an empty folder (message not
+    // yet locally cached) is not an error, see EmailDetail.qml's own
+    // reload(), which already handles a miss gracefully.
+    //
+    // raise()/requestActivate() run unconditionally here because this
+    // handler only ever fires from a genuine user click on the
+    // notification's "View" action -- never from NotificationDispatcher.
+    // notify() itself, which only builds/sends the KNotification and
+    // touches no window state (confirmed by reading
+    // NotificationDispatcher.h/.cpp and main.cpp's Task 41 wiring).
+    Connections {
+        target: MailApp
+        function onOpenEmailRequested(messageId) {
+            const email = MailApp.findByMessageId(messageId)
+            root.currentSection = "mail"
+            root.selectEmail(messageId, email.folder || "")
+            root.raise()
+            root.requestActivate()
+        }
+    }
+
     // ---- keyboard shortcuts ----------------------------------------------
     // Small, non-exhaustive set per the task-39 brief ("don't feel obligated
     // to replicate Mac's full shortcut set") -- refresh-current-section and
