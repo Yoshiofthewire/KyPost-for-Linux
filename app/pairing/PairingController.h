@@ -17,15 +17,17 @@ class SettingsStore;
 // the calling (GUI) thread -- see Phase 6 global constraint 2, this is a
 // known, accepted freeze-the-UI tradeoff for this phase, not a bug.
 //
-// Known gap (see task-34-report.md): pair()'s deviceToken argument is always
-// an empty QString() from this controller. This client's push transport is
-// UnifiedPush, and UnifiedPushConnector isn't wired to a stable,
-// ready-before-pairing endpoint value yet (it's constructed after
-// engine.load() in main.cpp, and threading a real endpoint through to this
-// call is Phase 7 territory). A live pairing attempt against a real backend
-// will therefore fail (the backend's register endpoint requires a non-empty
-// deviceToken) until that wiring lands -- this is expected, not a bug to fix
-// in this task.
+// deviceToken wiring (Task 43, see task-43-report.md): pair()'s deviceToken
+// argument is m_deviceToken, populated via setDeviceToken() below rather
+// than always QString() as it was up through Task 34. This client's push
+// transport is UnifiedPush; main.cpp calls setDeviceToken() whenever
+// UnifiedPushConnector reports its endpoint (constructed after engine.load(),
+// so this is late-bound the same way pairingControllerForDeepLinks is --
+// see setDeviceToken()'s own doc comment below), including once immediately
+// after pushConnector's construction with whatever endpoint is already
+// known. A live pairing attempt against a real backend was previously
+// rejected with HTTP 400 (the register endpoint requires a non-empty
+// deviceToken); this wiring, live-verified in Task 43, fixed that.
 class PairingController : public QObject
 {
     Q_OBJECT

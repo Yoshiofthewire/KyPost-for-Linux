@@ -319,10 +319,13 @@ int main(int argc, char* argv[])
     //
     // Registering this topic with the backend as a deviceToken (so the relay
     // actually knows where to publish) is a separate gap this task does not
-    // close -- DeviceRegistrationService::pair()'s deviceToken argument is
-    // still always QString() from PairingController (see its own "Known gap"
-    // doc comment), and wiring a second deviceToken source in for this tier
-    // would mean changing core/domain call signatures, out of this task's
+    // close -- DeviceRegistrationService::pair()'s deviceToken argument now
+    // carries the UnifiedPush distributor endpoint (PairingController::
+    // setDeviceToken(), wired up ~150 lines below where
+    // pairingController.setDeviceToken(...) is called -- Task 43 fix, see
+    // PairingController.h's own doc comment), not ntfyTopic. Wiring this
+    // ntfy topic in as a second deviceToken source for this tier would mean
+    // changing core/domain call signatures, out of this task's
     // app/-layer-only scope. Without that, the EmbeddedSubscriber tier still
     // cannot receive a real push end-to-end; only the fallback-to-Polling
     // path (already tested) is reachable live today. Flagged here, not

@@ -25,6 +25,7 @@ class PairingControllerTest : public QObject
 
 private slots:
     void pairFromDeepLinkHappyPathPairsAndPersists();
+    void pairFromDeepLinkSendsDeviceTokenWhenSet();
     void pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenRegOmitted();
     void pairFromDeepLinkAllowsPresentButEmptyHashValue();
     void pairFromDeepLinkMissingRequiredParam_data();
@@ -120,9 +121,61 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("subscriberId")).toString(), QStringLiteral("sub-1"));
     QCOMPARE(sent.value(QStringLiteral("pairingToken")).toString(), QStringLiteral("pair-tok"));
-    // Known-gap regression guard: this controller always sends an empty
-    // deviceToken until Phase 7 wires a real UnifiedPush endpoint through.
+    // This test never calls setDeviceToken(), so m_deviceToken stays at its
+    // default-constructed empty QString() -- verifies the no-endpoint-yet
+    // case (e.g. pairing completes before UnifiedPushConnector has ever
+    // reported an endpoint). See pairFromDeepLinkSendsDeviceTokenWhenSet
+    // below for the real-endpoint case.
     QCOMPARE(sent.value(QStringLiteral("deviceToken")).toString(), QString());
+}
+
+void PairingControllerTest::pairFromDeepLinkSendsDeviceTokenWhenSet()
+{
+    // Task 43 regression guard: when setDeviceToken() has been called (as
+    // main.cpp does whenever UnifiedPushConnector reports an endpoint,
+    // including once immediately after pushConnector's construction --
+    // see PairingController.h's class doc comment), pairFromParsedParams()
+    // must send that value as deviceToken rather than QString(). Reverting
+    // the Task 43 fix (passing QString() unconditionally instead of
+    // m_deviceToken) would fail this test while leaving
+    // pairFromDeepLinkHappyPathPairsAndPersists above green.
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-4","devices":1,)"
+                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
+                             R"("transport":"unifiedpush"})";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    NativeRegistrationClient client(http);
+    DeviceRegistrationService service(client, pairingStore, settingsStore);
+
+    PairingController controller(service, pairingStore, settingsStore);
+    controller.setDeviceToken(QStringLiteral("some-real-endpoint"));
+
+    const QString serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
+    const QString registrationUrl = serverBaseUrl + QStringLiteral("/api/notifications/native/register");
+
+    QMap<QString, QString> params;
+    params[QStringLiteral("sub")] = QStringLiteral("sub-4");
+    params[QStringLiteral("hash")] = QStringLiteral("hash-4");
+    params[QStringLiteral("srv")] = serverBaseUrl;
+    params[QStringLiteral("pt")] = QStringLiteral("pair-tok-4");
+    params[QStringLiteral("reg")] = registrationUrl;
+
+    QVERIFY(controller.pairFromDeepLink(buildLink(params)));
+    QCOMPARE(controller.pairingState(), QStringLiteral("paired"));
+
+    const QJsonObject sent = fake.receivedJsonBody();
+    QCOMPARE(sent.value(QStringLiteral("deviceToken")).toString(), QStringLiteral("some-real-endpoint"));
 }
 
 void PairingControllerTest::pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenRegOmitted()
