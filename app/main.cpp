@@ -313,7 +313,12 @@ int main(int argc, char* argv[])
     // deviceId from pairingStore eagerly on construction (see its
     // constructor comment) -- unlike Mail/ContactsController, there's no
     // reasonable "empty until QML asks" state for "are we paired".
-    PairingController pairingController(deviceRegistrationService, pairingStore);
+    // Task 39: also takes settingsStore directly (constructed at the very
+    // top of main()) so its read-only deliveryMode()/transport()/
+    // pushServerBaseUrl() properties (Settings > Notifications) can read
+    // straight from it -- see PairingController.h's doc comment on why
+    // those three reuse pairingChanged() rather than a new signal.
+    PairingController pairingController(deviceRegistrationService, pairingStore, settingsStore);
     qmlRegisterSingletonInstance<PairingController>(
         "com.urlxl.LlamaMail", 1, 0, "Pairing", &pairingController);
 

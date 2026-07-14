@@ -34,6 +34,7 @@ private slots:
     void downloadAttachmentSanitizesPathTraversalInSuggestedName();
     void downloadAttachmentSanitizesPathTraversalInServerFilename();
     void findByMessageIdReturnsMapForCachedEmailAndEmptyMapWhenMissing();
+    void allKeywordSettingsReflectsInboxCacheAndSetKeywordVisibleRoundTrips();
 
 private:
     static void savePairing(PairingStore& pairingStore, quint16 port);
@@ -389,6 +390,67 @@ void MailControllerTest::findByMessageIdReturnsMapForCachedEmailAndEmptyMapWhenM
     QCOMPARE(found.value(QStringLiteral("keywords")).toStringList(), QStringList{ QStringLiteral("Work") });
 
     QVERIFY(controller.findByMessageId(QStringLiteral("no-such-id")).isEmpty());
+}
+
+void MailControllerTest::allKeywordSettingsReflectsInboxCacheAndSetKeywordVisibleRoundTrips()
+{
+    // Task 39: allKeywordSettings()/setKeywordVisible() (Settings > Keywords
+    // pane) are pure local reads/writes over EmailDao + SettingsStore --
+    // no network/pairing involved, same shape as
+    // findByMessageId's test above.
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    Email seed;
+    seed.messageId = QStringLiteral("m-1");
+    seed.folder = QStringLiteral("INBOX");
+    seed.sender = QStringLiteral("Alice <alice@example.com>");
+    seed.subject = QStringLiteral("Hello");
+    seed.preview = QStringLiteral("Preview text");
+    seed.keywords = QStringList{ QStringLiteral("Work") };
+    QVERIFY(emailDao.insertOrReplace(seed));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+    KeywordRepository keywordRepository(settingsStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository mailRepository(source, emailDao, pairingStore, cursorStore);
+
+    MailController controller(mailRepository, source, keywordRepository, pairingStore);
+
+    // "Work" was never toggled -- SettingsStore::keywordVisible() defaults
+    // to true (see its own doc comment), so it should show up as visible.
+    const QVariantList before = controller.allKeywordSettings();
+    QCOMPARE(before.size(), 1);
+    const QVariantMap workEntry = before.at(0).toMap();
+    QCOMPARE(workEntry.value(QStringLiteral("keyword")).toString(), QStringLiteral("Work"));
+    QCOMPARE(workEntry.value(QStringLiteral("visible")).toBool(), true);
+
+    QSignalSpy keywordTabsChangedSpy(&controller, &MailController::keywordTabsChanged);
+    controller.setKeywordVisible(QStringLiteral("Work"), false);
+    QVERIFY(keywordTabsChangedSpy.count() >= 1);
+
+    const QVariantList after = controller.allKeywordSettings();
+    QCOMPARE(after.size(), 1);
+    QCOMPARE(after.at(0).toMap().value(QStringLiteral("visible")).toBool(), false);
+
+    // Also persisted through to SettingsStore directly, independent of this
+    // controller.
+    QCOMPARE(settingsStore.keywordVisible(QStringLiteral("Work")), false);
 }
 
 QTEST_GUILESS_MAIN(MailControllerTest)

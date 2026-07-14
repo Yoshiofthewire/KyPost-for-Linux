@@ -26,6 +26,12 @@ class QUrl;
 // network runs synchronously on the calling (GUI) thread -- see Phase 6
 // global constraint 2, this is a known, accepted freeze-the-UI tradeoff for
 // this phase, not a bug.
+//
+// Task 39: allKeywordSettings()/setKeywordVisible() (Settings > Keywords
+// pane) are folded in here rather than a new KeywordSettingsController --
+// this class already holds the keywordRepository reference and a cached
+// email set to derive the keyword universe from, so a second controller
+// would just be a thin pass-through with no state of its own.
 class MailController : public QObject
 {
     Q_OBJECT
@@ -84,6 +90,25 @@ public slots:
     // isn't cached locally -- this is a pure local-cache read (no network
     // call), so a miss just means "not fetched/cached yet", not an error.
     Q_INVOKABLE QVariantMap findByMessageId(const QString& messageId) const;
+    // Task 39: Settings > Keywords pane. Wraps keywordRepository.allSettings()
+    // over the Inbox's cached emails specifically (m_mailRepository.
+    // cachedEmails("INBOX")), NOT m_currentFolderEmails/whatever folder is
+    // currently selected -- this is the one deliberate exception to "read
+    // from the already-filtered current folder" elsewhere in this class,
+    // since a Settings screen should show a stable keyword universe
+    // independent of whatever folder the mail list happens to be showing.
+    // Known limitation (matches the task-39 brief's own note): a keyword
+    // only ever seen on emails in folders OTHER than Inbox won't appear
+    // here -- deriving the universe from every folder's cache would need a
+    // repository method this task doesn't add (Global Constraint 7). Result
+    // shape: [{keyword, visible}, ...], alphabetical (case-insensitive),
+    // same ordering as keywordTabs()/allSettings() itself.
+    Q_INVOKABLE QVariantList allKeywordSettings() const;
+    // Task 39: KeywordRepository::setVisible() -- also re-emits
+    // keywordTabsChanged() since toggling a keyword's visibility can change
+    // whether it appears in the currently-filtered folder's keyword tab row
+    // (see keywordTabs()'s own doc comment).
+    Q_INVOKABLE void setKeywordVisible(const QString& keyword, bool visible);
 
 signals:
     void currentFolderChanged();

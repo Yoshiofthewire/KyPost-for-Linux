@@ -3,6 +3,7 @@
 #include "domain/DeviceRegistrationService.h"
 #include "domain/DevicePairing.h"
 #include "domain/PairingStore.h"
+#include "stores/SettingsStore.h"
 
 #include <QUrl>
 #include <QUrlQuery>
@@ -64,10 +65,12 @@ std::optional<ParsedPairingLink> parseNativePairLink(const QUrl& url)
 
 } // namespace
 
-PairingController::PairingController(DeviceRegistrationService& service, PairingStore& pairingStore, QObject* parent)
+PairingController::PairingController(DeviceRegistrationService& service, PairingStore& pairingStore,
+                                       SettingsStore& settingsStore, QObject* parent)
     : QObject(parent)
     , m_service(service)
     , m_pairingStore(pairingStore)
+    , m_settingsStore(settingsStore)
 {
     // Unlike MailController/ContactsController (which deliberately start
     // empty until QML calls a load slot), the pairing badge/menu entries
@@ -100,6 +103,21 @@ QString PairingController::pairingState() const
 QString PairingController::pairingError() const
 {
     return m_pairingError;
+}
+
+QString PairingController::deliveryMode() const
+{
+    return m_settingsStore.deliveryMode();
+}
+
+QString PairingController::transport() const
+{
+    return m_settingsStore.transport();
+}
+
+QString PairingController::pushServerBaseUrl() const
+{
+    return m_settingsStore.pushServerBaseUrl();
 }
 
 void PairingController::setPairingState(const QString& state, const QString& error)

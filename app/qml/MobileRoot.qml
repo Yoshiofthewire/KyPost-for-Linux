@@ -225,6 +225,25 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // Task 39: Settings.qml landed -- wraps it in the same thin
+    // Kirigami.Page shell pattern as every other pushed page above. Settings
+    // itself emits closed() from its own "Done" button (same signal shape
+    // as Pairing.qml/ContactDetail.qml above), which just pops back here,
+    // same as those.
+    Component {
+        id: settingsPageComponent
+        Kirigami.Page {
+            id: settingsPage
+            objectName: "settingsPage"
+            title: "Settings"
+
+            Settings {
+                anchors.fill: parent
+                onClosed: root.safePop()
+            }
+        }
+    }
+
     // ---- global drawer (hamburger menu): Settings + Pair Device --------
     globalDrawer: Kirigami.GlobalDrawer {
         title: "Llama Mail"
@@ -235,11 +254,7 @@ Kirigami.ApplicationWindow {
             },
             Kirigami.Action {
                 text: "Settings"
-                // Task 39 (Settings.qml / the Settings dialog) hasn't
-                // landed in this branch state yet -- stubbed to do nothing
-                // per the task-38 brief's explicit "don't block on it"
-                // instruction.
-                onTriggered: {}
+                onTriggered: root.pageStack.push(settingsPageComponent)
             }
         ]
     }

@@ -73,7 +73,7 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
     QVERIFY(!controller.isPaired());
     QCOMPARE(controller.pairingState(), QStringLiteral("idle"));
 
@@ -97,6 +97,15 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
     QVERIFY(controller.isPaired());
     QCOMPARE(controller.deviceId(), QStringLiteral("dev-1"));
     QCOMPARE(controller.pairedServerHost(), QStringLiteral("127.0.0.1"));
+    // Task 39: deliveryMode/transport read straight through SettingsStore,
+    // written by DeviceRegistrationService::pair() from this same response
+    // body ("deliveryMode":"pull","transport":"unifiedpush" above).
+    QCOMPARE(controller.deliveryMode(), QStringLiteral("pull"));
+    QCOMPARE(controller.transport(), QStringLiteral("unifiedpush"));
+    // Nothing in this codebase writes pushServerBaseUrl yet (see
+    // PairingController.h's doc comment) -- still SettingsStore's baked-in
+    // default after a successful pair.
+    QCOMPARE(controller.pushServerBaseUrl(), QStringLiteral("https://ntfy.sh"));
     // "working" then "paired" -- at least two transitions.
     QVERIFY(stateChangedSpy.count() >= 2);
     QVERIFY(pairingChangedSpy.count() >= 1);
@@ -137,7 +146,7 @@ void PairingControllerTest::pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenReg
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     // Trailing slash on srv exercises the strip-trailing-slash rule too.
     const QString serverBaseUrl = QStringLiteral("http://127.0.0.1:%1/").arg(fake.port());
@@ -185,7 +194,7 @@ void PairingControllerTest::pairFromDeepLinkAllowsPresentButEmptyHashValue()
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-3");
@@ -232,7 +241,7 @@ void PairingControllerTest::pairFromDeepLinkMissingRequiredParam()
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-x");
@@ -273,7 +282,7 @@ void PairingControllerTest::pairFromDeepLinkRejectsNonNativePairHost()
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QUrl link;
     link.setScheme(QStringLiteral("llamalabels"));
@@ -308,7 +317,7 @@ void PairingControllerTest::pairFromPastedLinkRejectsNonLinkTextWithNoNetworkCal
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QVERIFY(!controller.pairFromPastedLink(QStringLiteral("this is not a pairing link")));
     QCOMPARE(controller.pairingState(), QStringLiteral("failed"));
@@ -344,11 +353,18 @@ void PairingControllerTest::refreshFromStoreReflectsPreSeededPairingStoreAndRemo
     // Construction alone must reflect the pre-seeded pairing -- see
     // PairingController's constructor comment; no explicit refreshFromStore()
     // call needed here.
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QVERIFY(controller.isPaired());
     QCOMPARE(controller.deviceId(), QStringLiteral("dev-seed"));
     QCOMPARE(controller.pairedServerHost(), QStringLiteral("relay.example.com"));
+    // Task 39: this seed only touches PairingStore, never
+    // DeviceRegistrationService::pair() -- SettingsStore's delivery fields
+    // stay at their "never registered" empty default regardless of
+    // isPaired, matching Settings.qml's Notifications pane "Not yet
+    // registered" fallback.
+    QVERIFY(controller.deliveryMode().isEmpty());
+    QVERIFY(controller.transport().isEmpty());
 
     controller.removePairing();
 
@@ -374,7 +390,7 @@ void PairingControllerTest::resetReturnsToIdleAfterFailure()
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
 
-    PairingController controller(service, pairingStore);
+    PairingController controller(service, pairingStore, settingsStore);
 
     QVERIFY(!controller.pairFromPastedLink(QStringLiteral("not a link")));
     QCOMPARE(controller.pairingState(), QStringLiteral("failed"));

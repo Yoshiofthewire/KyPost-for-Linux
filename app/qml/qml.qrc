@@ -17,5 +17,6 @@
     <file>pages/ContactDetail.qml</file>
     <file>pages/Pairing.qml</file>
     <file>pages/MfaApproval.qml</file>
+    <file>pages/Settings.qml</file>
   </qresource>
 </RCC>

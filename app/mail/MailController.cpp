@@ -4,6 +4,7 @@
 #include "domain/KeywordRepository.h"
 #include "domain/MailRepository.h"
 #include "domain/PairingStore.h"
+#include "models/KeywordSettings.h"
 #include "models/StandardFolder.h"
 #include "net/RelayAuth.h"
 #include "net/RelayMailSource.h"
@@ -388,6 +389,30 @@ QVariantMap MailController::findByMessageId(const QString& messageId) const
     map[QStringLiteral("hasAttachments")] = email->hasAttachments;
     map[QStringLiteral("sourceMode")] = email->sourceMode;
     return map;
+}
+
+QVariantList MailController::allKeywordSettings() const
+{
+    // See the header doc comment: deliberately INBOX's cache, not
+    // m_currentFolderEmails.
+    const QVector<Email> inboxEmails = m_mailRepository.cachedEmails(QStringLiteral("INBOX"));
+    const QVector<KeywordSettings> settings = m_keywordRepository.allSettings(inboxEmails);
+
+    QVariantList list;
+    list.reserve(settings.size());
+    for (const KeywordSettings& entry : settings) {
+        QVariantMap map;
+        map[QStringLiteral("keyword")] = entry.keyword;
+        map[QStringLiteral("visible")] = entry.visible;
+        list.append(map);
+    }
+    return list;
+}
+
+void MailController::setKeywordVisible(const QString& keyword, bool visible)
+{
+    m_keywordRepository.setVisible(keyword, visible);
+    emit keywordTabsChanged();
 }
 
 QVariantList MailController::standardFolders() const

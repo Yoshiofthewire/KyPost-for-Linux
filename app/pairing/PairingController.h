@@ -6,6 +6,7 @@
 class QUrl;
 class DeviceRegistrationService;
 class PairingStore;
+class SettingsStore;
 
 // QML-facing bridge (Task 34) over core/domain's DeviceRegistrationService/
 // PairingStore. Registered as the "Pairing" QML singleton in main.cpp.
@@ -36,15 +37,36 @@ class PairingController : public QObject
     Q_PROPERTY(QString deviceId READ deviceId NOTIFY pairingChanged)
     Q_PROPERTY(QString pairingState READ pairingState NOTIFY pairingStateChanged) // "idle" | "working" | "paired" | "failed"
     Q_PROPERTY(QString pairingError READ pairingError NOTIFY pairingStateChanged) // meaningful only when pairingState == "failed"
+    // Task 39: read-only display fields for Settings > Notifications.
+    // Sourced straight from SettingsStore on every read (no local cache).
+    // deliveryMode/transport only ever change together with isPaired/
+    // pairedServerHost/deviceId above (DeviceRegistrationService::pair()
+    // writes all of them atomically on RegistrationOutcome::Success, per its
+    // own class doc comment), so reusing pairingChanged() as NOTIFY here is
+    // correct rather than adding a second signal that would always fire in
+    // lockstep with it anyway. pushServerBaseUrl is different: nothing in
+    // this codebase calls SettingsStore::setPushServerBaseUrl() yet (it's
+    // orphaned plumbing -- see NtfySubscriber.h's own comment) other than
+    // SettingsStore's own baked-in "https://ntfy.sh" default, so this
+    // property always reads that value today, never empty. It's still
+    // wired here read-only (never an editable field, per the task-39
+    // brief's explicit scope cut) so Settings.qml can display it honestly.
+    Q_PROPERTY(QString deliveryMode READ deliveryMode NOTIFY pairingChanged)     // "push" | "pull" | "" (never registered)
+    Q_PROPERTY(QString transport READ transport NOTIFY pairingChanged)          // server-normalized transport name, "" if never registered
+    Q_PROPERTY(QString pushServerBaseUrl READ pushServerBaseUrl NOTIFY pairingChanged) // "https://ntfy.sh" default; read-only display only, see Settings.qml's Notifications pane
 
 public:
-    PairingController(DeviceRegistrationService& service, PairingStore& pairingStore, QObject* parent = nullptr);
+    PairingController(DeviceRegistrationService& service, PairingStore& pairingStore, SettingsStore& settingsStore,
+                       QObject* parent = nullptr);
 
     bool isPaired() const;
     QString pairedServerHost() const;
     QString deviceId() const;
     QString pairingState() const;
     QString pairingError() const;
+    QString deliveryMode() const;
+    QString transport() const;
+    QString pushServerBaseUrl() const;
 
 public slots:
     // Re-reads pairingStore.load(), updates isPaired/pairedServerHost/
@@ -83,6 +105,7 @@ private:
 
     DeviceRegistrationService& m_service;
     PairingStore& m_pairingStore;
+    SettingsStore& m_settingsStore;
     QString m_pairingState = QStringLiteral("idle");
     QString m_pairingError;
     bool m_isPaired = false;
