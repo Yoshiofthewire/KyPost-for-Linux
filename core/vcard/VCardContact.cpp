@@ -1,0 +1,389 @@
+#include "vcard/VCardContact.h"
+
+#include <QStringList>
+#include <optional>
+
+namespace {
+
+constexpr int kFoldLimitOctets = 75; // RFC 6350 sec 3.2 soft line-fold limit
+
+std::optional<QString> emptyToNullopt(const QString& s)
+{
+    return s.isEmpty() ? std::nullopt : std::optional<QString>(s);
+}
+
+bool isUtf8ContinuationByte(char b)
+{
+    return (static_cast<unsigned char>(b) & 0xC0) == 0x80;
+}
+
+// Folds one logical "NAME[;PARAM=...]:value" content line into RFC
+// 6350-style CRLF + single-space continuations at 75 octets. Byte- (not
+// QChar-) based so a multi-byte UTF-8 character is never split across a
+// fold boundary -- back off the cut point while it lands mid-sequence.
+QString foldLine(const QString& line)
+{
+    const QByteArray utf8 = line.toUtf8();
+    if (utf8.size() <= kFoldLimitOctets)
+        return line;
+
+    QString result;
+    int pos = 0;
+    bool first = true;
+    while (pos < utf8.size()) {
+        // A continuation line's leading space itself counts toward its own
+        // 75-octet budget, so continuations get one fewer content octet.
+        const int budget = first ? kFoldLimitOctets : kFoldLimitOctets - 1;
+        int end = qMin(pos + budget, utf8.size());
+        while (end > pos && end < utf8.size() && isUtf8ContinuationByte(utf8.at(end)))
+            --end;
+        if (end <= pos)
+            end = pos + 1; // pathological safety net, not expected in practice
+        if (!first)
+            result += QStringLiteral("\r\n ");
+        result += QString::fromUtf8(utf8.mid(pos, end - pos));
+        pos = end;
+        first = false;
+    }
+    return result;
+}
+
+// Reverses foldLine() across a whole vCard blob: normalizes CRLF/CR/LF line
+// endings, then treats any line starting with a space/tab as a continuation
+// of the previous logical line (RFC 6350 unfolding), dropping just the one
+// leading whitespace character.
+QStringList unfoldLines(const QString& vcard)
+{
+    QString normalized = vcard;
+    normalized.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    normalized.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+    const QStringList rawLines = normalized.split(QLatin1Char('\n'));
+
+    QStringList logical;
+    for (const QString& raw : rawLines) {
+        if (raw.isEmpty())
+            continue;
+        if ((raw.at(0) == QLatin1Char(' ') || raw.at(0) == QLatin1Char('\t')) && !logical.isEmpty())
+            logical.last() += raw.mid(1);
+        else
+            logical << raw;
+    }
+    return logical;
+}
+
+// TEXT-value escaping shared by every scalar/structured-component property
+// (FN, NICKNAME, ORG, TITLE, NOTE, BDAY, REV, and each N/ADR component) --
+// RFC 6350 sec 3.4 requires backslash/comma/semicolon/newline escaping
+// uniformly across these, not just NOTE (NOTE just happens to be the field
+// most likely to contain them in practice).
+QString escapeText(const QString& value)
+{
+    QString out;
+    out.reserve(value.size());
+    for (const QChar ch : value) {
+        if (ch == QLatin1Char('\n')) {
+            out += QStringLiteral("\\n");
+            continue;
+        }
+        if (ch == QLatin1Char('\\') || ch == QLatin1Char(',') || ch == QLatin1Char(';'))
+            out += QLatin1Char('\\');
+        out += ch;
+    }
+    return out;
+}
+
+QString unescapeText(const QString& value)
+{
+    QString out;
+    out.reserve(value.size());
+    for (int i = 0; i < value.size(); ++i) {
+        const QChar ch = value.at(i);
+        if (ch == QLatin1Char('\\') && i + 1 < value.size()) {
+            const QChar next = value.at(i + 1);
+            if (next == QLatin1Char('n') || next == QLatin1Char('N')) {
+                out += QLatin1Char('\n');
+                ++i;
+                continue;
+            }
+            if (next == QLatin1Char(',') || next == QLatin1Char(';') || next == QLatin1Char('\\')) {
+                out += next;
+                ++i;
+                continue;
+            }
+        }
+        out += ch;
+    }
+    return out;
+}
+
+// Splits a still-escaped value on an unescaped delimiter (used for N/ADR's
+// ";"-separated components and N's additional-names ","-separated
+// sub-values) without disturbing any "\," / "\;" / "\\" sequences -- those
+// get resolved later by unescapeText() on each leaf token.
+QStringList splitUnescaped(const QString& value, QChar delimiter)
+{
+    QStringList parts;
+    QString current;
+    bool escaped = false;
+    for (const QChar ch : value) {
+        if (escaped) {
+            current += ch;
+            escaped = false;
+            continue;
+        }
+        if (ch == QLatin1Char('\\')) {
+            current += ch;
+            escaped = true;
+            continue;
+        }
+        if (ch == delimiter) {
+            parts << current;
+            current.clear();
+            continue;
+        }
+        current += ch;
+    }
+    parts << current;
+    return parts;
+}
+
+// N's additional-names (3rd) component supports its own "," multi-value
+// convention per RFC 6350 (e.g. "Philip,Paul"). Contact.middleName has no
+// multi-valued concept, so multiple sub-values are deliberately collapsed
+// by joining with a space -- documented lossy-mapping decision, not solved.
+QString joinCommaMultiValue(const QString& rawComponent)
+{
+    const QStringList subParts = splitUnescaped(rawComponent, QLatin1Char(','));
+    QStringList unescaped;
+    unescaped.reserve(subParts.size());
+    for (const QString& part : subParts)
+        unescaped << unescapeText(part);
+    return unescaped.join(QLatin1Char(' '));
+}
+
+void appendTextProperty(QStringList& lines, const QString& name, const std::optional<QString>& value)
+{
+    if (!value)
+        return;
+    lines << foldLine(name + QLatin1Char(':') + escapeText(*value));
+}
+
+// EMAIL/TEL/ADR share this TYPE= handling: on write, a present label is
+// uppercased into a single TYPE= token; PREF is never synthesized here.
+QString typeParamForWrite(const std::optional<QString>& label)
+{
+    if (!label || label->isEmpty())
+        return QString();
+    return QStringLiteral(";TYPE=") + label->toUpper();
+}
+
+// On read, take the first non-PREF token, lowercased -- multi-type
+// (TYPE=HOME,VOICE) collapses to the first token because Contact's
+// label field has no secondary-type concept. If every token is PREF (or
+// there are none), the label is nullopt rather than inventing one.
+std::optional<QString> firstNonPrefTypeLower(const QStringList& tokens)
+{
+    for (const QString& token : tokens) {
+        if (token.isEmpty())
+            continue;
+        if (token.compare(QStringLiteral("PREF"), Qt::CaseInsensitive) == 0)
+            continue;
+        return token.toLower();
+    }
+    return std::nullopt;
+}
+
+struct ContentLine
+{
+    QString name;
+    QStringList typeTokens;
+    QString value; // still escaped; caller unescapes per-field
+};
+
+// Splits one already-unfolded logical line into property name, TYPE=
+// parameter tokens (the only parameter this converter needs), and raw
+// value. The first ':' always separates head from value because property
+// names/parameters never contain a literal colon.
+ContentLine parseContentLine(const QString& line)
+{
+    ContentLine result;
+    const int colonIdx = line.indexOf(QLatin1Char(':'));
+    if (colonIdx < 0) {
+        result.name = line;
+        return result;
+    }
+
+    const QString head = line.left(colonIdx);
+    result.value = line.mid(colonIdx + 1);
+
+    const QStringList headParts = head.split(QLatin1Char(';'));
+    result.name = headParts.isEmpty() ? QString() : headParts.first();
+    for (int i = 1; i < headParts.size(); ++i) {
+        const QString& param = headParts.at(i);
+        const int eq = param.indexOf(QLatin1Char('='));
+        if (eq < 0)
+            continue;
+        if (param.left(eq).compare(QStringLiteral("TYPE"), Qt::CaseInsensitive) == 0)
+            result.typeTokens = param.mid(eq + 1).split(QLatin1Char(','));
+    }
+    return result;
+}
+
+ContactEmailEntry parseEmailLine(const ContentLine& cl)
+{
+    ContactEmailEntry entry;
+    entry.label = firstNonPrefTypeLower(cl.typeTokens);
+    entry.value = unescapeText(cl.value);
+    return entry;
+}
+
+ContactPhoneEntry parsePhoneLine(const ContentLine& cl)
+{
+    ContactPhoneEntry entry;
+    entry.label = firstNonPrefTypeLower(cl.typeTokens);
+    entry.value = unescapeText(cl.value);
+    return entry;
+}
+
+ContactAddressEntry parseAddressLine(const ContentLine& cl)
+{
+    ContactAddressEntry entry;
+    entry.label = firstNonPrefTypeLower(cl.typeTokens);
+    const QStringList parts = splitUnescaped(cl.value, QLatin1Char(';'));
+    auto at = [&](int i) { return i < parts.size() ? parts.at(i) : QString(); };
+    // parts[0] = PO box, parts[1] = extended address -- always ignored on
+    // read; Contact has no fields for them (see write side for the mirror
+    // decision).
+    entry.street = emptyToNullopt(unescapeText(at(2)));
+    entry.city = emptyToNullopt(unescapeText(at(3)));
+    entry.region = emptyToNullopt(unescapeText(at(4)));
+    entry.postalCode = emptyToNullopt(unescapeText(at(5)));
+    entry.country = emptyToNullopt(unescapeText(at(6)));
+    return entry;
+}
+
+} // namespace
+
+namespace VCardContact {
+
+QString contactToVCard(const Contact& contact)
+{
+    QStringList lines;
+    lines << QStringLiteral("BEGIN:VCARD");
+    lines << QStringLiteral("VERSION:3.0");
+
+    // uid: Contact.uid is NEVER written as vCard UID -- the native item's
+    // identity lives entirely in NativeContactLinkDao.native_item_id
+    // (Task 2), a separate namespace from Contact.uid (relay identity).
+    // rev: relay-only revision counter, no vCard equivalent -- never
+    // written.
+    // createdAt: no vCard equivalent -- never written (see read side for
+    // the nullopt-on-absence mirror).
+    // deleted: tombstones are expressed at the provider-adapter level
+    // (Task 6+), never encoded in vCard text -- never written here.
+
+    lines << foldLine(QStringLiteral("N:") + escapeText(contact.familyName.value_or(QString())) + QLatin1Char(';')
+        + escapeText(contact.givenName.value_or(QString())) + QLatin1Char(';')
+        // middleName: single Contact field written as N's 3rd component
+        // as-is -- lossy only for genuinely multi-valued middle names,
+        // which this app has no way to represent on write (see read side).
+        + escapeText(contact.middleName.value_or(QString())) + QLatin1Char(';')
+        + escapeText(contact.prefix.value_or(QString())) + QLatin1Char(';')
+        + escapeText(contact.suffix.value_or(QString())));
+
+    appendTextProperty(lines, QStringLiteral("FN"), contact.fn);
+    appendTextProperty(lines, QStringLiteral("NICKNAME"), contact.nickname);
+    appendTextProperty(lines, QStringLiteral("ORG"), contact.org);
+    appendTextProperty(lines, QStringLiteral("TITLE"), contact.title);
+    appendTextProperty(lines, QStringLiteral("NOTE"), contact.notes);
+    appendTextProperty(lines, QStringLiteral("BDAY"), contact.birthday);
+    // updatedAt -> REV: written whenever present; appendTextProperty's
+    // no-op-when-absent covers the "absence never means now" half of the
+    // decision, the read side covers the other half.
+    appendTextProperty(lines, QStringLiteral("REV"), contact.updatedAt);
+
+    for (const ContactEmailEntry& email : contact.emails) {
+        lines << foldLine(QStringLiteral("EMAIL") + typeParamForWrite(email.label) + QLatin1Char(':')
+            + escapeText(email.value));
+    }
+    for (const ContactPhoneEntry& phone : contact.phones) {
+        lines << foldLine(
+            QStringLiteral("TEL") + typeParamForWrite(phone.label) + QLatin1Char(':') + escapeText(phone.value));
+    }
+    for (const ContactAddressEntry& addr : contact.addresses) {
+        // PO box / extended-address (ADR's first two components) are
+        // always empty on write -- Contact has no fields for them; read
+        // side ignores whatever a real-world vCard puts there.
+        lines << foldLine(QStringLiteral("ADR") + typeParamForWrite(addr.label) + QStringLiteral(":;;")
+            + escapeText(addr.street.value_or(QString())) + QLatin1Char(';')
+            + escapeText(addr.city.value_or(QString())) + QLatin1Char(';')
+            + escapeText(addr.region.value_or(QString())) + QLatin1Char(';')
+            + escapeText(addr.postalCode.value_or(QString())) + QLatin1Char(';')
+            + escapeText(addr.country.value_or(QString())));
+    }
+
+    lines << QStringLiteral("END:VCARD");
+    return lines.join(QStringLiteral("\r\n")) + QStringLiteral("\r\n");
+}
+
+Contact contactFromVCard(const QString& vcard)
+{
+    Contact contact;
+    // rev: relay-only concept, never appears in vCard text -- left at
+    // Contact{}'s default (0).
+    // createdAt: never round-tripped through vCard -- left nullopt so the
+    // caller-side merge (ContactSyncRepository.cpp's mergeContact pattern)
+    // can fall back to any cached value, per the decision table.
+    // uid: Contact.uid stays default-constructed (empty); a parsed UID
+    // property is intentionally dropped below, never conflated with it.
+    // deleted: no vCard representation -- left at Contact{}'s default
+    // (false).
+
+    for (const QString& rawLine : unfoldLines(vcard)) {
+        const ContentLine cl = parseContentLine(rawLine);
+        const QString name = cl.name.toUpper();
+
+        if (name == QStringLiteral("N")) {
+            const QStringList parts = splitUnescaped(cl.value, QLatin1Char(';'));
+            auto at = [&](int i) { return i < parts.size() ? parts.at(i) : QString(); };
+            contact.familyName = emptyToNullopt(unescapeText(at(0)));
+            contact.givenName = emptyToNullopt(unescapeText(at(1)));
+            // middleName: N's 3rd (additional-names) component may itself
+            // be a ","-separated multi-value list -- joined with a space
+            // since Contact.middleName has no multi-valued concept.
+            contact.middleName = emptyToNullopt(joinCommaMultiValue(at(2)));
+            contact.prefix = emptyToNullopt(unescapeText(at(3)));
+            contact.suffix = emptyToNullopt(unescapeText(at(4)));
+        } else if (name == QStringLiteral("FN")) {
+            contact.fn = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("NICKNAME")) {
+            contact.nickname = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("ORG")) {
+            contact.org = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("TITLE")) {
+            contact.title = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("NOTE")) {
+            contact.notes = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("BDAY")) {
+            contact.birthday = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("REV")) {
+            // updatedAt: present -> Some(value); absent -> stays nullopt
+            // (Contact{}'s default) -- never defaulted to "now".
+            contact.updatedAt = emptyToNullopt(unescapeText(cl.value));
+        } else if (name == QStringLiteral("EMAIL")) {
+            contact.emails.append(parseEmailLine(cl));
+        } else if (name == QStringLiteral("TEL")) {
+            contact.phones.append(parsePhoneLine(cl));
+        } else if (name == QStringLiteral("ADR")) {
+            contact.addresses.append(parseAddressLine(cl));
+        }
+        // BEGIN/VERSION/END/UID and anything unrecognized (PHOTO,
+        // CATEGORIES, IMPP, ... -- out of scope, no Contact field): ignored.
+        // UID specifically is never conflated with Contact.uid regardless
+        // of what a real-world exporter puts there (see decision table).
+    }
+
+    return contact;
+}
+
+} // namespace VCardContact

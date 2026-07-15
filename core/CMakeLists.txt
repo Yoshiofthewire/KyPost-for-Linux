@@ -62,6 +62,8 @@ add_library(llamacore STATIC
   net/RelayMailSource.h
   net/NtfySubscriber.cpp
   net/NtfySubscriber.h
+  vcard/VCardContact.cpp
+  vcard/VCardContact.h
   theme/ThemePalette.cpp
   theme/ThemePalette.h
   theme/AppTheme.cpp

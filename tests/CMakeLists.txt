@@ -44,6 +44,8 @@ llama_add_test(ContactSyncClientTest core/net/ContactSyncClientTest.cpp)
 llama_add_test(RelayMailSourceTest core/net/RelayMailSourceTest.cpp)
 llama_add_test(NtfySubscriberTest core/net/NtfySubscriberTest.cpp)
 
+llama_add_test(VCardContactTest core/vcard/VCardContactTest.cpp)
+
 llama_add_test(ThemePaletteTest core/theme/ThemePaletteTest.cpp)
 llama_add_test(AppThemeTest core/theme/AppThemeTest.cpp)
 llama_add_test(ThemeManagerTest core/theme/ThemeManagerTest.cpp)
