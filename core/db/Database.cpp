@@ -40,8 +40,8 @@ bool Database::open(const QString& path)
         return false;
     const int version = versionQuery.value(0).toInt();
 
-    if (version == 0) {
-        const QString sql = llamaMigrationSql001();
+    for (int nextVersion = version + 1; nextVersion <= kLlamaMigrationCount; ++nextVersion) {
+        const QString sql = kLlamaMigrationSql[nextVersion - 1]();
         const QStringList statements = sql.split(QLatin1Char(';'), Qt::SkipEmptyParts);
         for (const QString& rawStatement : statements) {
             const QString statement = rawStatement.trimmed();
@@ -52,7 +52,7 @@ bool Database::open(const QString& path)
                 return false;
         }
         QSqlQuery setVersionQuery(m_db);
-        if (!setVersionQuery.exec(QStringLiteral("PRAGMA user_version = 1")))
+        if (!setVersionQuery.exec(QStringLiteral("PRAGMA user_version = %1").arg(nextVersion)))
             return false;
     }
 

@@ -4,7 +4,7 @@
 #include <QString>
 
 // Opens a SQLite connection (":memory:" or a real file path) and applies
-// core/db/migrations/001_initial.sql idempotently, guarded by
+// core/db/migrations/*.sql in order, idempotently, guarded by
 // `PRAGMA user_version`. Each Database owns a uniquely-named QSqlDatabase
 // connection (Qt requires unique connection names) and removes it on
 // destruction.
