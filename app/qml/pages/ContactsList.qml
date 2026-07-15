@@ -59,18 +59,18 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: "Contacts"
+                text: i18n("Contacts")
                 color: Theme.inkStrong
                 font.family: Theme.fontUi
                 font.pixelSize: 20
                 font.weight: Font.Bold
             }
             GhostButton {
-                text: "Add"
+                text: i18n("Add")
                 onClicked: root.contactSelected("")
             }
             PrimaryButton {
-                text: "Sync"
+                text: i18n("Sync")
                 enabled: !ContactsApp.isBusy
                 onClicked: {
                     ContactsApp.sync()
@@ -94,7 +94,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: listView.count === 0
-            text: "No contacts yet — sync or add one."
+            text: i18n("No contacts yet — sync or add one.")
         }
 
         ListView {
@@ -133,7 +133,7 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: model.fn && model.fn.length > 0 ? model.fn : "Unnamed"
+                            text: model.fn && model.fn.length > 0 ? model.fn : i18n("Unnamed")
                             color: Theme.inkStrong
                             font.family: Theme.fontUi
                             font.pixelSize: 15

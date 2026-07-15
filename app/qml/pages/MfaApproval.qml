@@ -40,7 +40,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: "Sign-in request"
+                text: i18n("Sign-in request")
                 color: Theme.inkStrong
                 font.family: Theme.fontUi
                 font.pixelSize: 22
@@ -49,7 +49,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "A sign-in is waiting for approval from this device."
+                text: i18n("A sign-in is waiting for approval from this device.")
                 color: Theme.ink
                 font.family: Theme.fontUi
                 font.pixelSize: 14
@@ -85,11 +85,11 @@ Item {
                 spacing: 12
 
                 DangerButton {
-                    text: "Deny"
+                    text: i18n("Deny")
                     onClicked: Mfa.respond(root.challengeId, false)
                 }
                 PrimaryButton {
-                    text: "Approve"
+                    text: i18n("Approve")
                     onClicked: Mfa.respond(root.challengeId, true)
                 }
             }
@@ -107,7 +107,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Sending…"
+                text: i18n("Sending…")
                 color: Theme.ink
                 font.family: Theme.fontUi
                 font.pixelSize: 15
@@ -144,7 +144,7 @@ Item {
             }
             PrimaryButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Close"
+                text: i18n("Close")
                 onClicked: root.closed()
             }
         }
@@ -174,7 +174,7 @@ Item {
             }
             GhostButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Try Again"
+                text: i18n("Try Again")
                 onClicked: Mfa.reset()
             }
         }

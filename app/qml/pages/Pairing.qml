@@ -60,7 +60,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Pair Device"
+                text: i18n("Pair Device")
                 color: Theme.inkStrong
                 font.family: Theme.fontUi
                 font.pixelSize: 22
@@ -69,7 +69,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Open a pairing link from the web app, or paste it below."
+                text: i18n("Open a pairing link from the web app, or paste it below.")
                 color: Theme.ink
                 font.family: Theme.fontUi
                 font.pixelSize: 14
@@ -80,13 +80,17 @@ Item {
             ThemedTextField {
                 id: pasteField
                 Layout.fillWidth: true
+                // Not wrapped in i18n() -- this is an example of the
+                // llamalabels:// URL scheme itself (a technical wire format,
+                // not natural-language prose), same reasoning as leaving
+                // StandardFolder wire names untranslated.
                 placeholderText: "llamalabels://native-pair?…"
                 inputField.font.family: Theme.fontMono
             }
 
             PrimaryButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Pair"
+                text: i18n("Pair")
                 enabled: pasteField.text.trim() !== ""
                 onClicked: Pairing.pairFromPastedLink(pasteField.text)
             }
@@ -104,7 +108,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Pairing…"
+                text: i18n("Pairing…")
                 color: Theme.ink
                 font.family: Theme.fontUi
                 font.pixelSize: 15
@@ -127,7 +131,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Device paired"
+                text: i18n("Device paired")
                 color: Theme.inkStrong
                 font.family: Theme.fontUi
                 font.pixelSize: 22
@@ -141,7 +145,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
-                    SectionLabel { Layout.preferredWidth: 70; text: "Server" }
+                    SectionLabel { Layout.preferredWidth: 70; text: i18n("Server") }
                     Text {
                         Layout.fillWidth: true
                         text: Pairing.pairedServerHost
@@ -154,7 +158,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
-                    SectionLabel { Layout.preferredWidth: 70; text: "Device" }
+                    SectionLabel { Layout.preferredWidth: 70; text: i18n("Device") }
                     Text {
                         Layout.fillWidth: true
                         text: Pairing.deviceId
@@ -167,7 +171,7 @@ Item {
             }
             PrimaryButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Done"
+                text: i18n("Done")
                 onClicked: root.closed()
             }
         }
@@ -187,7 +191,7 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
-                text: "Pairing failed"
+                text: i18n("Pairing failed")
                 color: Theme.dangerColor
                 font.family: Theme.fontUi
                 font.pixelSize: 22
@@ -196,6 +200,12 @@ Item {
             }
             Text {
                 Layout.fillWidth: true
+                // Pairing.pairingError is set by PairingController from a
+                // fixed set of i18n()-wrapped chrome messages (see
+                // PairingController.cpp) or, on RegistrationOutcome::Failure,
+                // from the relay's own free-text detail -- either way the
+                // string arriving here is already final display text, not a
+                // literal to wrap a second time.
                 text: Pairing.pairingError
                 color: Theme.dangerColor
                 font.family: Theme.fontUi
@@ -205,7 +215,7 @@ Item {
             }
             GhostButton {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Try Again"
+                text: i18n("Try Again")
                 onClicked: Pairing.reset()
             }
         }

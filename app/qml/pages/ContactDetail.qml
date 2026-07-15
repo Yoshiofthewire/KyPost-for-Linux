@@ -79,10 +79,10 @@ Item {
     // Email/Phone/Org/Notes order. A Repeater over this avoids writing the
     // same RowLayout{SectionLabel+Text} block out four times by hand.
     readonly property var detailRows: [
-        { label: "Email", value: (root.contact.emails && root.contact.emails.length > 0) ? root.contact.emails[0].value : "" },
-        { label: "Phone", value: (root.contact.phones && root.contact.phones.length > 0) ? root.contact.phones[0].value : "" },
-        { label: "Org", value: root.contact.org || "" },
-        { label: "Notes", value: root.contact.notes || "" },
+        { label: i18n("Email"), value: (root.contact.emails && root.contact.emails.length > 0) ? root.contact.emails[0].value : "" },
+        { label: i18n("Phone"), value: (root.contact.phones && root.contact.phones.length > 0) ? root.contact.phones[0].value : "" },
+        { label: i18n("Org"), value: root.contact.org || "" },
+        { label: i18n("Notes"), value: root.contact.notes || "" },
     ]
 
     Component.onCompleted: loadContact()
@@ -232,7 +232,7 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: (root.contact.fn && root.contact.fn.length > 0) ? root.contact.fn : "Unnamed"
+                            text: (root.contact.fn && root.contact.fn.length > 0) ? root.contact.fn : i18n("Unnamed")
                             color: Theme.inkStrong
                             font.family: Theme.fontUi
                             font.pixelSize: 22
@@ -241,7 +241,7 @@ Item {
                         }
                         StatusBadge {
                             active: root.synced
-                            text: root.synced ? "Synced" : "Local"
+                            text: root.synced ? i18n("Synced") : i18n("Local")
                         }
                     }
                 }
@@ -277,11 +277,11 @@ Item {
                     spacing: 8
 
                     GhostButton {
-                        text: "Edit"
+                        text: i18n("Edit")
                         onClicked: root.beginEdit()
                     }
                     DangerButton {
-                        text: "Delete"
+                        text: i18n("Delete")
                         visible: root.uid !== ""
                         onClicked: root.doDelete()
                     }
@@ -297,28 +297,28 @@ Item {
                 spacing: 10
 
                 SectionLabel {
-                    text: root.wasNew ? "Add contact" : "Edit contact"
+                    text: root.wasNew ? i18n("Add contact") : i18n("Edit contact")
                 }
 
                 ThemedTextField {
                     id: nameField
                     Layout.fillWidth: true
-                    placeholderText: "Name"
+                    placeholderText: i18n("Name")
                 }
                 ThemedTextField {
                     id: orgField
                     Layout.fillWidth: true
-                    placeholderText: "Org"
+                    placeholderText: i18n("Org")
                 }
                 ThemedTextField {
                     id: emailField
                     Layout.fillWidth: true
-                    placeholderText: "Email"
+                    placeholderText: i18n("Email")
                 }
                 ThemedTextField {
                     id: phoneField
                     Layout.fillWidth: true
-                    placeholderText: "Phone"
+                    placeholderText: i18n("Phone")
                 }
 
                 Rectangle {
@@ -350,7 +350,7 @@ Item {
                             font.pixelSize: 14
                             background: null
                             selectByMouse: true
-                            placeholderText: "Notes…"
+                            placeholderText: i18n("Notes…")
                         }
                     }
                 }
@@ -370,12 +370,12 @@ Item {
                     spacing: 8
 
                     GhostButton {
-                        text: "Cancel"
+                        text: i18n("Cancel")
                         onClicked: root.cancelEdit()
                     }
                     Item { Layout.fillWidth: true }
                     PrimaryButton {
-                        text: "Save"
+                        text: i18n("Save")
                         enabled: nameField.text.trim() !== ""
                         onClicked: root.trySave()
                     }

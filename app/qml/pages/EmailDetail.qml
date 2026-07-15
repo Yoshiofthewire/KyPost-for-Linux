@@ -114,10 +114,10 @@ Item {
 
     function formatSize(size) {
         if (size < 1024)
-            return size + " B"
+            return i18n("%1 B", size)
         if (size < 1048576)
-            return (size / 1024).toFixed(1) + " KB"
-        return (size / 1048576).toFixed(1) + " MB"
+            return i18n("%1 KB", (size / 1024).toFixed(1))
+        return i18n("%1 MB", (size / 1048576).toFixed(1))
     }
 
     // ---- body HTML scaffold --------------------------------------------
@@ -256,17 +256,17 @@ Item {
             spacing: 8
 
             PrimaryButton {
-                text: "Reply"
+                text: i18n("Reply")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const to = root.extractAddress(root.email.sender)
                     const subject = root.withPrefix(root.email.subject, "Re:")
-                    const body = "\n\n" + root.email.sender + " wrote:\n" + root.email.preview
+                    const body = "\n\n" + i18n("%1 wrote:", root.email.sender) + "\n" + root.email.preview
                     root.composeRequested(to, subject, body)
                 }
             }
             GhostButton {
-                text: "Reply All"
+                text: i18n("Reply All")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const addrs = [root.extractAddress(root.email.sender)]
@@ -282,22 +282,24 @@ Item {
                         }
                     }
                     const subject = root.withPrefix(root.email.subject, "Re:")
-                    const body = "\n\n" + root.email.sender + " wrote:\n" + root.email.preview
+                    const body = "\n\n" + i18n("%1 wrote:", root.email.sender) + "\n" + root.email.preview
                     root.composeRequested(deduped.join(", "), subject, body)
                 }
             }
             GhostButton {
-                text: "Forward"
+                text: i18n("Forward")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const subject = root.withPrefix(root.email.subject, "Fwd:")
-                    const body = "\n\n---------- Forwarded message ----------\nFrom: " + root.email.sender
-                        + "\nSubject: " + root.email.subject + "\n\n" + root.email.preview
+                    const body = "\n\n" + i18n("---------- Forwarded message ----------")
+                        + "\n" + i18n("From: %1", root.email.sender)
+                        + "\n" + i18n("Subject: %1", root.email.subject)
+                        + "\n\n" + root.email.preview
                     root.composeRequested("", subject, body)
                 }
             }
             GhostButton {
-                text: "Archive"
+                text: i18n("Archive")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.archiveEmails([root.messageId]))
@@ -305,7 +307,7 @@ Item {
                 }
             }
             GhostButton {
-                text: "Junk"
+                text: i18n("Junk")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.markSpam([root.messageId]))
@@ -313,7 +315,7 @@ Item {
                 }
             }
             DangerButton {
-                text: "Delete"
+                text: i18n("Delete")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.deleteEmails([root.messageId]))
@@ -365,7 +367,7 @@ Item {
             spacing: 8
             visible: root.email.hasAttachments === true
 
-            SectionLabel { text: "Attachments" }
+            SectionLabel { text: i18n("Attachments") }
 
             Flow {
                 Layout.fillWidth: true
@@ -387,7 +389,7 @@ Item {
                             spacing: 8
 
                             Text {
-                                text: modelData.name + " (" + root.formatSize(modelData.size) + ")"
+                                text: i18n("%1 (%2)", modelData.name, root.formatSize(modelData.size))
                                 color: Theme.inkStrong
                                 font.family: Theme.fontUi
                                 font.pixelSize: 12
@@ -398,7 +400,7 @@ Item {
                             onTapped: {
                                 const ok = MailApp.downloadAttachment(
                                     root.folder, root.messageId, modelData.index, modelData.name)
-                                root.attachmentStatus = ok ? "Saved to Downloads" : MailApp.lastError
+                                root.attachmentStatus = ok ? i18n("Saved to Downloads") : MailApp.lastError
                                 attachmentStatusTimer.restart()
                             }
                         }

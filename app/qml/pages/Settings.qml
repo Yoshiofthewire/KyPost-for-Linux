@@ -49,7 +49,7 @@ Item {
     implicitHeight: 560
 
     property int currentPane: 0 // 0 Connection, 1 Appearance, 2 Keywords, 3 Contacts, 4 Notifications
-    readonly property var paneNames: ["Connection", "Appearance", "Keywords", "Contacts", "Notifications"]
+    readonly property var paneNames: [i18n("Connection"), i18n("Appearance"), i18n("Keywords"), i18n("Contacts"), i18n("Notifications")]
 
     // MailApp.allKeywordSettings() is a Q_INVOKABLE snapshot, not a
     // NOTIFY-bound property (see MailController.h's doc comment on why) --
@@ -76,14 +76,14 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: "Settings"
+                text: i18n("Settings")
                 color: Theme.inkStrong
                 font.family: Theme.fontUi
                 font.pixelSize: 20
                 font.weight: Font.Bold
             }
             GhostButton {
-                text: "Done"
+                text: i18n("Done")
                 onClicked: root.closed()
             }
         }
@@ -128,7 +128,7 @@ Item {
 
                     StatusBadge {
                         active: Pairing.isPaired
-                        text: Pairing.isPaired ? "Paired" : "Not paired"
+                        text: Pairing.isPaired ? i18n("Paired") : i18n("Not paired")
                     }
                     Item { Layout.fillWidth: true }
                 }
@@ -141,7 +141,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        SectionLabel { Layout.preferredWidth: 70; text: "Server" }
+                        SectionLabel { Layout.preferredWidth: 70; text: i18n("Server") }
                         Text {
                             Layout.fillWidth: true
                             text: Pairing.pairedServerHost
@@ -154,7 +154,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        SectionLabel { Layout.preferredWidth: 70; text: "Device" }
+                        SectionLabel { Layout.preferredWidth: 70; text: i18n("Device") }
                         Text {
                             Layout.fillWidth: true
                             text: Pairing.deviceId
@@ -176,12 +176,12 @@ Item {
                     // sub/hash native pairing, no separate desktop-session
                     // flow) and the task-39 brief's Connection pane spec.
                     PrimaryButton {
-                        text: "Pair This Device…"
+                        text: i18n("Pair This Device…")
                         visible: !Pairing.isPaired
                         onClicked: pairingPopup.open()
                     }
                     DangerButton {
-                        text: "Remove Pairing"
+                        text: i18n("Remove Pairing")
                         visible: Pairing.isPaired
                         onClicked: Pairing.removePairing()
                     }
@@ -219,6 +219,16 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
+                            // modelData is a theme's proper name (e.g. "Dark
+                            // Matter", "Cyber Punk" -- see core/theme/
+                            // AppTheme.cpp), NOT wrapped in i18n(): these are
+                            // brand-style palette names (same "don't
+                            // translate the product name" reasoning as
+                            // "Llama Mail" itself), AND they live in core/,
+                            // which the Phase 8 global-constraints boundary
+                            // (item 3) forbids linking KI18n into -- they're
+                            // also the literal identifier Theme.setTheme()
+                            // stores/compares, not just display text.
                             text: modelData
                             color: Theme.inkStrong
                             font.family: Theme.fontUi
@@ -245,7 +255,7 @@ Item {
                 EmptyState {
                     anchors.fill: parent
                     visible: keywordListView.count === 0
-                    text: "No keywords yet."
+                    text: i18n("No keywords yet.")
                 }
 
                 ListView {
@@ -268,7 +278,7 @@ Item {
                             font.pixelSize: 14
                         }
                         PillTab {
-                            text: modelData.visible ? "Visible" : "Hidden"
+                            text: modelData.visible ? i18n("Visible") : i18n("Hidden")
                             selected: modelData.visible
                             onClicked: {
                                 MailApp.setKeywordVisible(modelData.keyword, !modelData.visible)
@@ -294,7 +304,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: ContactsApp.lastError !== "" ? ContactsApp.lastError
-                        : (ContactsApp.statusMessage !== "" ? ContactsApp.statusMessage : "No sync yet.")
+                        : (ContactsApp.statusMessage !== "" ? ContactsApp.statusMessage : i18n("No sync yet."))
                     color: ContactsApp.lastError !== "" ? Theme.dangerColor : Theme.ink
                     font.family: Theme.fontUi
                     font.pixelSize: 13
@@ -306,7 +316,7 @@ Item {
                     spacing: 8
 
                     PrimaryButton {
-                        text: "Sync Now"
+                        text: i18n("Sync Now")
                         enabled: !ContactsApp.isBusy
                         onClicked: ContactsApp.sync()
                     }
@@ -329,7 +339,7 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     visible: Pairing.deliveryMode === "" && Pairing.transport === ""
-                    text: "Not yet registered"
+                    text: i18n("Not yet registered")
                     color: Theme.ink
                     font.family: Theme.fontUi
                     font.pixelSize: 13
@@ -343,7 +353,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        SectionLabel { Layout.preferredWidth: 100; text: "Delivery Mode" }
+                        SectionLabel { Layout.preferredWidth: 100; text: i18n("Delivery Mode") }
                         Text {
                             Layout.fillWidth: true
                             text: Pairing.deliveryMode
@@ -355,7 +365,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
-                        SectionLabel { Layout.preferredWidth: 100; text: "Transport" }
+                        SectionLabel { Layout.preferredWidth: 100; text: i18n("Transport") }
                         Text {
                             Layout.fillWidth: true
                             text: Pairing.transport
@@ -369,7 +379,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
-                    SectionLabel { Layout.preferredWidth: 100; text: "Push Server" }
+                    SectionLabel { Layout.preferredWidth: 100; text: i18n("Push Server") }
                     Text {
                         Layout.fillWidth: true
                         text: Pairing.pushServerBaseUrl

@@ -39,7 +39,7 @@ Item {
         // Mirrors Android's "Please fill in all fields" check -- Cc/Bcc
         // stay optional, only To/Subject/Body are required.
         if (toField.text.trim() === "" || subjectField.text.trim() === "" || bodyArea.text.trim() === "") {
-            root.validationError = "Please fill in all fields"
+            root.validationError = i18n("Please fill in all fields")
             return
         }
         root.validationError = ""
@@ -74,22 +74,22 @@ Item {
         ThemedTextField {
             id: toField
             Layout.fillWidth: true
-            placeholderText: "To"
+            placeholderText: i18n("To")
         }
         ThemedTextField {
             id: ccField
             Layout.fillWidth: true
-            placeholderText: "Cc"
+            placeholderText: i18n("Cc")
         }
         ThemedTextField {
             id: bccField
             Layout.fillWidth: true
-            placeholderText: "Bcc"
+            placeholderText: i18n("Bcc")
         }
         ThemedTextField {
             id: subjectField
             Layout.fillWidth: true
-            placeholderText: "Subject"
+            placeholderText: i18n("Subject")
         }
 
         // Body -- plain multi-line TextArea (global constraint 5: no
@@ -127,7 +127,7 @@ Item {
                     font.pixelSize: 14
                     background: null
                     selectByMouse: true
-                    placeholderText: "Write your message…"
+                    placeholderText: i18n("Write your message…")
                 }
             }
         }
@@ -137,7 +137,7 @@ Item {
             spacing: 8
 
             GhostButton {
-                text: "Attach files"
+                text: i18n("Attach files")
                 onClicked: fileDialog.open()
             }
             Item { Layout.fillWidth: true }
@@ -204,14 +204,14 @@ Item {
 
             Text {
                 visible: MailApp.isBusy
-                text: "Sending…"
+                text: i18n("Sending…")
                 color: Theme.ink
                 font.family: Theme.fontUi
                 font.pixelSize: 13
             }
             Item { Layout.fillWidth: true }
             PrimaryButton {
-                text: "Send"
+                text: i18n("Send")
                 enabled: !MailApp.isBusy
                 onClicked: root.trySend()
             }
@@ -220,7 +220,7 @@ Item {
 
     FileDialog {
         id: fileDialog
-        title: "Attach files"
+        title: i18n("Attach files")
         fileMode: FileDialog.OpenFiles
         onAccepted: {
             const paths = []
