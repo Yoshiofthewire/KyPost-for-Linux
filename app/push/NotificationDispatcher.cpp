@@ -2,6 +2,7 @@
 
 #include "models/PushNotification.h"
 
+#include <KLocalizedString>
 #include <KNotification>
 
 #include <QDebug>
@@ -53,7 +54,13 @@ void NotificationDispatcher::notify(const PushNotification& payload)
     notification->setText(text);
 
     const QString messageId = payload.messageId;
-    KNotificationAction* viewAction = notification->addDefaultAction(QStringLiteral("View"));
+    // "View" is this notification's own action-button chrome label, not
+    // content derived from the mail message -- the one literal in this file
+    // that the task-49 brief's "don't wrap NotificationDispatcher's dynamic
+    // title/body" rule doesn't cover (that rule is about pickTitle()/
+    // pickText() above, which stay untouched since they return mail
+    // content).
+    KNotificationAction* viewAction = notification->addDefaultAction(i18n("View"));
     connect(viewAction, &KNotificationAction::activated, this, [this, messageId]() {
         emit openRequested(messageId);
     });

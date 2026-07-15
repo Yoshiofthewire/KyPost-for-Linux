@@ -5,6 +5,8 @@
 #include "domain/PairingStore.h"
 #include "stores/SettingsStore.h"
 
+#include <KLocalizedString>
+
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -149,7 +151,7 @@ bool PairingController::pairFromDeepLink(const QUrl& url)
 {
     const std::optional<ParsedPairingLink> parsed = parseNativePairLink(url);
     if (!parsed.has_value()) {
-        setPairingState(QStringLiteral("failed"), QStringLiteral("This pairing link is invalid or incomplete."));
+        setPairingState(QStringLiteral("failed"), i18n("This pairing link is invalid or incomplete."));
         return false;
     }
 
@@ -211,15 +213,14 @@ bool PairingController::pairFromParsedParams(const QString& sub, const QString& 
         return true;
     case RegistrationOutcome::Unauthorized:
         setPairingState(QStringLiteral("failed"),
-                         QStringLiteral("This pairing link was rejected. Check the link and try again."));
+                         i18n("This pairing link was rejected. Check the link and try again."));
         return false;
     case RegistrationOutcome::BackendMisconfigured:
-        setPairingState(QStringLiteral("failed"), QStringLiteral("The server is not configured for pairing yet."));
+        setPairingState(QStringLiteral("failed"), i18n("The server is not configured for pairing yet."));
         return false;
     case RegistrationOutcome::Failure:
         setPairingState(QStringLiteral("failed"),
-                         result.detail.isEmpty() ? QStringLiteral("Pairing failed, please try again.")
-                                                  : result.detail);
+                         result.detail.isEmpty() ? i18n("Pairing failed, please try again.") : result.detail);
         return false;
     }
     return false;

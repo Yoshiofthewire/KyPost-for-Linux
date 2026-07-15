@@ -4,6 +4,8 @@
 #include "domain/PairingStore.h"
 #include "net/MfaResponseClient.h"
 
+#include <KLocalizedString>
+
 #include <QUrl>
 
 MfaController::MfaController(MfaResponseClient& client, PairingStore& pairingStore, QObject* parent)
@@ -36,7 +38,7 @@ void MfaController::respond(const QString& challengeId, bool approve)
 {
     const std::optional<DevicePairing> pairing = m_pairingStore.load();
     if (!pairing.has_value()) {
-        setRespondState(QStringLiteral("failed"), QStringLiteral("Not paired"));
+        setRespondState(QStringLiteral("failed"), i18n("Not paired"));
         return;
     }
 
@@ -48,27 +50,29 @@ void MfaController::respond(const QString& challengeId, bool approve)
 
     switch (result.outcome) {
     case MfaResponseOutcome::Success:
-        setRespondState(QStringLiteral("done"), approve ? QStringLiteral("Approved") : QStringLiteral("Denied"));
+        setRespondState(QStringLiteral("done"), approve ? i18n("Approved") : i18n("Denied"));
         break;
     case MfaResponseOutcome::Rejected:
         // status is populated from the response body when the server
         // included one (always on Success, optionally on a 409 Rejected --
         // see MfaResponseResult's doc comment); its presence is what lets
         // us tell "this challenge was already resolved" apart from "this
-        // device's credentials were refused" (401/403, no status).
+        // device's credentials were refused" (401/403, no status). The
+        // status value itself is server-supplied free text (data), only the
+        // surrounding sentence is i18n()-wrapped chrome.
         if (result.status.has_value() && !result.status->isEmpty()) {
             setRespondState(QStringLiteral("failed"),
-                             QStringLiteral("This request was already resolved (%1).").arg(*result.status));
+                             i18n("This request was already resolved (%1).", *result.status));
         } else {
             setRespondState(QStringLiteral("failed"),
-                             QStringLiteral("This request was already handled or denied."));
+                             i18n("This request was already handled or denied."));
         }
         break;
     case MfaResponseOutcome::Failure:
         setRespondState(QStringLiteral("failed"),
                          result.detail.has_value() && !result.detail->isEmpty()
                              ? *result.detail
-                             : QStringLiteral("Failed to send response, please try again."));
+                             : i18n("Failed to send response, please try again."));
         break;
     }
 }

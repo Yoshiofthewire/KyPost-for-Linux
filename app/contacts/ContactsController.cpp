@@ -3,6 +3,8 @@
 #include "domain/ContactSyncRepository.h"
 #include "models/Contact.h"
 
+#include <KLocalizedString>
+
 #include <QVariantList>
 #include <algorithm>
 
@@ -147,26 +149,24 @@ void ContactsController::sync()
     switch (outcome.status) {
     case ContactSyncStatus::Success:
         setLastError(QString());
-        setStatusMessage(QStringLiteral("Synced -- %1 pushed, %2 applied")
-                              .arg(outcome.summary.pushed)
-                              .arg(outcome.summary.applied));
+        setStatusMessage(i18n("Synced -- %1 pushed, %2 applied", outcome.summary.pushed, outcome.summary.applied));
         load();
         break;
     case ContactSyncStatus::NotPaired:
         setStatusMessage(QString());
-        setLastError(QStringLiteral("Not paired"));
+        setLastError(i18n("Not paired"));
         break;
     case ContactSyncStatus::Unauthorized:
         setStatusMessage(QString());
-        setLastError(QStringLiteral("Unauthorized -- please re-pair this device"));
+        setLastError(i18n("Unauthorized -- please re-pair this device"));
         break;
     case ContactSyncStatus::ServiceUnavailable:
         setStatusMessage(QString());
-        setLastError(outcome.detail.isEmpty() ? QStringLiteral("Service unavailable") : outcome.detail);
+        setLastError(outcome.detail.isEmpty() ? i18n("Service unavailable") : outcome.detail);
         break;
     case ContactSyncStatus::Retry:
         setStatusMessage(QString());
-        setLastError(outcome.detail.isEmpty() ? QStringLiteral("Sync failed, try again") : outcome.detail);
+        setLastError(outcome.detail.isEmpty() ? i18n("Sync failed, try again") : outcome.detail);
         break;
     }
 }
@@ -221,7 +221,7 @@ QString ContactsController::createContact(const QVariantMap& fields)
 {
     const QString fn = fields.value(QStringLiteral("fn")).toString().trimmed();
     if (fn.isEmpty()) {
-        setLastError(QStringLiteral("Name is required"));
+        setLastError(i18n("Name is required"));
         return QString();
     }
 
@@ -244,13 +244,13 @@ bool ContactsController::updateContact(const QString& uid, const QVariantMap& fi
 {
     const QString fn = fields.value(QStringLiteral("fn")).toString().trimmed();
     if (fn.isEmpty()) {
-        setLastError(QStringLiteral("Name is required"));
+        setLastError(i18n("Name is required"));
         return false;
     }
 
     const std::optional<Contact> found = findByUid(m_repository.contacts(), uid);
     if (!found) {
-        setLastError(QStringLiteral("Contact not found"));
+        setLastError(i18n("Contact not found"));
         return false;
     }
 

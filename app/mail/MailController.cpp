@@ -9,6 +9,8 @@
 #include "net/RelayAuth.h"
 #include "net/RelayMailSource.h"
 
+#include <KLocalizedString>
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -104,7 +106,7 @@ bool MailController::requirePairing(QUrl& serverBaseUrl, RelayAuth& auth)
 {
     const std::optional<DevicePairing> pairing = m_pairingStore.load();
     if (!pairing) {
-        setLastError(QStringLiteral("Not paired"));
+        setLastError(i18n("Not paired"));
         return false;
     }
     serverBaseUrl = QUrl(pairing->serverBaseUrl);
@@ -144,7 +146,7 @@ void MailController::refresh(bool forceFullResync)
     setBusy(false);
 
     if (outcome.outcome != MailRepositoryOutcome::Success)
-        setLastError(outcome.detail.isEmpty() ? QStringLiteral("Refresh failed") : outcome.detail);
+        setLastError(outcome.detail.isEmpty() ? i18n("Refresh failed") : outcome.detail);
     else
         setLastError(QString());
 
@@ -167,7 +169,7 @@ bool MailController::performActionCommon(const QStringList& messageIds, const QS
     setBusy(false);
 
     if (result.error.has_value() || !result.ok) {
-        setLastError(result.detail.isEmpty() ? QStringLiteral("Action failed") : result.detail);
+        setLastError(result.detail.isEmpty() ? i18n("Action failed") : result.detail);
         return false;
     }
 
@@ -241,13 +243,13 @@ bool MailController::sendMail(const QString& to, const QString& cc, const QStrin
     for (const QString& path : attachmentFilePaths) {
         QFile file(path);
         if (!file.open(QIODevice::ReadOnly)) {
-            setLastError(QStringLiteral("Could not open attachment: %1").arg(path));
+            setLastError(i18n("Could not open attachment: %1", path));
             return false;
         }
         const QByteArray data = file.readAll();
         totalBytes += data.size();
         if (totalBytes > kMaxAttachmentBytes) {
-            setLastError(QStringLiteral("Attachments exceed the 25 MB limit"));
+            setLastError(i18n("Attachments exceed the 25 MB limit"));
             return false;
         }
         MailAttachmentUpload upload;
@@ -263,7 +265,7 @@ bool MailController::sendMail(const QString& to, const QString& cc, const QStrin
     setBusy(false);
 
     if (result.error.has_value() || !result.ok) {
-        setLastError(result.detail.isEmpty() ? QStringLiteral("Send failed") : result.detail);
+        setLastError(result.detail.isEmpty() ? i18n("Send failed") : result.detail);
         return false;
     }
     setLastError(QString());
@@ -282,7 +284,7 @@ QVariantList MailController::listAttachments(const QString& mailbox, const QStri
     setBusy(false);
 
     if (result.error.has_value()) {
-        setLastError(result.detail.isEmpty() ? QStringLiteral("Could not list attachments") : result.detail);
+        setLastError(result.detail.isEmpty() ? i18n("Could not list attachments") : result.detail);
         return {};
     }
     setLastError(QString());
@@ -331,7 +333,7 @@ bool MailController::downloadAttachment(const QString& mailbox, const QString& m
     setBusy(false);
 
     if (result.error.has_value()) {
-        setLastError(result.detail.isEmpty() ? QStringLiteral("Download failed") : result.detail);
+        setLastError(result.detail.isEmpty() ? i18n("Download failed") : result.detail);
         return false;
     }
 
@@ -356,7 +358,7 @@ bool MailController::downloadAttachment(const QString& mailbox, const QString& m
 
     QFile outFile(targetPath);
     if (!outFile.open(QIODevice::WriteOnly)) {
-        setLastError(QStringLiteral("Could not write attachment to %1").arg(targetPath));
+        setLastError(i18n("Could not write attachment to %1", targetPath));
         return false;
     }
     outFile.write(result.data);

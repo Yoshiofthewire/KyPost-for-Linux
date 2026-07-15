@@ -23,7 +23,7 @@ Kirigami.ApplicationWindow {
     width: 360
     height: 640
     visible: true
-    title: "Llama Mail"
+    title: "Llama Mail" // product name -- not translated, same as Firefox/Thunderbird's own names
 
     // ---- bottom tab bar selection state --------------------------------
     // "inbox" | "contacts" -- Compose is action-only and deliberately never
@@ -186,7 +186,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: emailDetailPage
             objectName: "emailDetailPage"
-            title: "Email"
+            title: i18n("Email")
             property string messageId: ""
             property string folder: ""
 
@@ -214,7 +214,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: composePage
             objectName: "composePage"
-            title: "Compose"
+            title: i18n("Compose")
             property string initialTo: ""
             property string initialSubject: ""
             property string initialBody: ""
@@ -234,7 +234,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: contactsListPage
             objectName: "contactsListPage"
-            title: "Contacts"
+            title: i18n("Contacts")
 
             ContactsList {
                 anchors.fill: parent
@@ -250,7 +250,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: contactDetailPage
             objectName: "contactDetailPage"
-            title: "Contact"
+            title: i18n("Contact")
             property string uid: ""
 
             ContactDetail {
@@ -266,7 +266,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: pairingPage
             objectName: "pairingPage"
-            title: "Pair Device"
+            title: i18n("Pair Device")
 
             Pairing {
                 anchors.fill: parent
@@ -285,7 +285,7 @@ Kirigami.ApplicationWindow {
         Kirigami.Page {
             id: settingsPage
             objectName: "settingsPage"
-            title: "Settings"
+            title: i18n("Settings")
 
             Settings {
                 anchors.fill: parent
@@ -296,14 +296,14 @@ Kirigami.ApplicationWindow {
 
     // ---- global drawer (hamburger menu): Settings + Pair Device --------
     globalDrawer: Kirigami.GlobalDrawer {
-        title: "Llama Mail"
+        title: "Llama Mail" // product name -- not translated, see ApplicationWindow.title above
         actions: [
             Kirigami.Action {
-                text: "Pair Device"
+                text: i18n("Pair Device")
                 onTriggered: root.pageStack.push(pairingPageComponent)
             },
             Kirigami.Action {
-                text: "Settings"
+                text: i18n("Settings")
                 onTriggered: root.pageStack.push(settingsPageComponent)
             }
         ]
@@ -335,19 +335,19 @@ Kirigami.ApplicationWindow {
 
             PillTab {
                 Layout.fillWidth: true
-                text: "Inbox"
+                text: i18n("Inbox")
                 selected: root.activeTab === "inbox"
                 onClicked: root.goInbox()
             }
             PillTab {
                 Layout.fillWidth: true
-                text: "Compose"
+                text: i18n("Compose")
                 selected: false // action-only -- never participates in tab selection
                 onClicked: root.pageStack.push(composePageComponent)
             }
             PillTab {
                 Layout.fillWidth: true
-                text: "Contacts"
+                text: i18n("Contacts")
                 selected: root.activeTab === "contacts"
                 onClicked: root.goContacts()
             }
@@ -358,7 +358,7 @@ Kirigami.ApplicationWindow {
     pageStack.initialPage: Kirigami.Page {
         id: inboxPage
         objectName: "inboxPage"
-        title: "Inbox"
+        title: i18n("Inbox")
 
         // Populates MailApp's model from the on-disk cache (and attempts a
         // network refresh -- see MailController::selectFolder/refresh's
@@ -413,7 +413,7 @@ Kirigami.ApplicationWindow {
                 spacing: 8
 
                 GhostButton {
-                    text: "Folder: " + inboxPage.currentFolderDisplayName()
+                    text: i18n("Folder: %1", inboxPage.currentFolderDisplayName())
                     onClicked: folderPopup.open()
                 }
                 Item { Layout.fillWidth: true }
@@ -424,7 +424,7 @@ Kirigami.ApplicationWindow {
                     implicitHeight: 28
                 }
                 GhostButton {
-                    text: "Refresh"
+                    text: i18n("Refresh")
                     enabled: !MailApp.isBusy
                     onClicked: MailApp.refresh()
                 }
@@ -462,14 +462,18 @@ Kirigami.ApplicationWindow {
                     spacing: 8
 
                     PillTab {
-                        text: "All"
+                        text: i18n("All")
                         selected: MailApp.selectedKeyword === ""
                         onClicked: MailApp.selectKeyword("")
                     }
                     Repeater {
                         model: MailApp.keywordTabs
                         delegate: PillTab {
-                            text: modelData.name + " (" + modelData.count + ")"
+                            // modelData.name is a keyword the user typed --
+                            // data, not wrapped (see the task-49 brief's
+                            // exclusion list); only the "%1 (%2)" chrome
+                            // wrapper around it is.
+                            text: i18n("%1 (%2)", modelData.name, modelData.count)
                             selected: MailApp.selectedKeyword === modelData.name
                             onClicked: MailApp.selectKeyword(modelData.name)
                         }
@@ -492,7 +496,7 @@ Kirigami.ApplicationWindow {
                 // the visible-Refresh-button fallback (see the header
                 // above), not an actual pull gesture; see task-38-report.md
                 // for why.
-                text: "No emails yet — tap Refresh."
+                text: i18n("No emails yet — tap Refresh.")
             }
 
             ListView {
@@ -592,7 +596,7 @@ Kirigami.ApplicationWindow {
                             anchors.left: parent.left
                             anchors.leftMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Delete"
+                            text: i18n("Delete")
                             // readableOnAccent reuses the same "light text
                             // on a solid saturated background" pairing
                             // already established for PillTab's selected
@@ -636,7 +640,7 @@ Kirigami.ApplicationWindow {
                             anchors.right: parent.right
                             anchors.rightMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Archive"
+                            text: i18n("Archive")
                             color: Theme.readableOnAccent
                             font.family: Theme.fontUi
                             font.pixelSize: 14

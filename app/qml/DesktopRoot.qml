@@ -27,7 +27,7 @@ Kirigami.ApplicationWindow {
     width: 1024
     height: 768
     visible: true
-    title: "Llama Mail"
+    title: "Llama Mail" // product name -- not translated, same as MobileRoot.qml's window title
 
     // ---- selection state --------------------------------------------
     property string currentSection: "mail" // "mail" | "contacts"
@@ -227,22 +227,22 @@ Kirigami.ApplicationWindow {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Llama Mail"
+                    text: "Llama Mail" // product name -- not translated, see ApplicationWindow.title above
                     color: Theme.inkStrong
                     font.family: Theme.fontUi
                     font.pixelSize: 16
                     font.weight: Font.Bold
                 }
                 GhostButton {
-                    text: root.detailCollapsed ? "Show Detail" : "Hide Detail"
+                    text: root.detailCollapsed ? i18n("Show Detail") : i18n("Hide Detail")
                     onClicked: root.detailCollapsed = !root.detailCollapsed
                 }
                 PrimaryButton {
-                    text: "Compose"
+                    text: i18n("Compose")
                     onClicked: root.openCompose("", "", "")
                 }
                 GhostButton {
-                    text: "Settings"
+                    text: i18n("Settings")
                     onClicked: settingsSheet.open()
                 }
             }
@@ -276,7 +276,7 @@ Kirigami.ApplicationWindow {
                     anchors.margins: 12
                     spacing: 4
 
-                    SectionLabel { text: "Mail" }
+                    SectionLabel { text: i18n("Mail") }
 
                     Repeater {
                         model: MailApp.standardFolders()
@@ -308,7 +308,7 @@ Kirigami.ApplicationWindow {
 
                     Item { Layout.preferredHeight: 12 }
 
-                    SectionLabel { text: "People" }
+                    SectionLabel { text: i18n("People") }
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -322,7 +322,7 @@ Kirigami.ApplicationWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.leftMargin: 10
-                            text: "Contacts"
+                            text: i18n("Contacts")
                             color: Theme.inkStrong
                             font.family: Theme.fontUi
                             font.pixelSize: 14
@@ -382,7 +382,7 @@ Kirigami.ApplicationWindow {
                             implicitHeight: 24
                         }
                         GhostButton {
-                            text: "Refresh"
+                            text: i18n("Refresh")
                             enabled: !MailApp.isBusy
                             onClicked: MailApp.refresh()
                         }
@@ -402,7 +402,7 @@ Kirigami.ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         visible: emailListView.count === 0
-                        text: "No emails yet — tap Refresh."
+                        text: i18n("No emails yet — tap Refresh.")
                     }
 
                     ListView {
@@ -496,7 +496,7 @@ Kirigami.ApplicationWindow {
                             Menu {
                                 id: emailContextMenu
                                 MenuItem {
-                                    text: "Delete"
+                                    text: i18n("Delete")
                                     onTriggered: {
                                         if (MailApp.deleteEmails([model.messageId]) && root.selectedMessageId === model.messageId)
                                             root.closeDetail()
@@ -534,7 +534,7 @@ Kirigami.ApplicationWindow {
                 EmptyState {
                     anchors.centerIn: parent
                     visible: root.detailMode === "empty"
-                    text: root.currentSection === "mail" ? "Select an email" : "Select a contact"
+                    text: root.currentSection === "mail" ? i18n("Select an email") : i18n("Select a contact")
                 }
 
                 // EmailDetail/ContactDetail are embedded directly and kept
