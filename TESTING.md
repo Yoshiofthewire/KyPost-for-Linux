@@ -81,11 +81,8 @@ default/bare User-Agent strings (see `AGENTS.md` Section 8).
       Delete; both call `MailApp.archiveEmails([messageId])` /
       `MailApp.deleteEmails([messageId])` synchronously and expect a
       `true` return before the row visually resolves the swipe action.
-      (Spam/mark-read are exposed through the same shared swipe-action
-      path in `MailController` — `archiveEmails`/`deleteEmails` plus the
-      folder-move/keyword-set helpers described in `MailController.h`;
-      exercise each from the Inbox and confirm the item leaves the current
-      folder view / its read state flips.)
+      (Spam is accessible only via the "Junk" button in EmailDetail.qml,
+      not as an Inbox swipe action.)
 - [ ] **Compose sends.** Open Compose, fill recipient/subject/body,
       optionally attach a file (`root.attachmentPaths`), send. Expected:
       `MailApp.sendMail(...)` returns success and the composed message
