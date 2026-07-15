@@ -35,6 +35,8 @@ add_library(llamacore STATIC
   db/PushDao.h
   db/PendingContactChangeDao.cpp
   db/PendingContactChangeDao.h
+  db/NativeContactLinkDao.cpp
+  db/NativeContactLinkDao.h
   db/SqlUtil.h
   stores/SettingsStore.cpp
   stores/SettingsStore.h

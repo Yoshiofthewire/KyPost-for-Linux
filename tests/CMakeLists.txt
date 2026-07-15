@@ -20,6 +20,7 @@ llama_add_test(ContactDaoTest core/db/ContactDaoTest.cpp)
 llama_add_test(FolderDaoTest core/db/FolderDaoTest.cpp)
 llama_add_test(PushDaoTest core/db/PushDaoTest.cpp)
 llama_add_test(PendingContactChangeDaoTest core/db/PendingContactChangeDaoTest.cpp)
+llama_add_test(NativeContactLinkDaoTest core/db/NativeContactLinkDaoTest.cpp)
 
 llama_add_test(SettingsStoreTest core/stores/SettingsStoreTest.cpp)
 llama_add_test(CursorStoreTest core/stores/CursorStoreTest.cpp)

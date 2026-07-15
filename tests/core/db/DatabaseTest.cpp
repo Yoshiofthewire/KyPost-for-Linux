@@ -21,7 +21,10 @@ void DatabaseTest::opensInMemoryAndAppliesSchema()
     QSqlQuery versionQuery(db.handle());
     QVERIFY(versionQuery.exec(QStringLiteral("PRAGMA user_version")));
     QVERIFY(versionQuery.next());
-    QCOMPARE(versionQuery.value(0).toInt(), 1);
+    // 2 migrations on disk (001_initial, 002_native_contact_links) -- bumping
+    // this when a migration is added is how this test proves the loop in
+    // Database::open() actually walks version+1..N end-to-end.
+    QCOMPARE(versionQuery.value(0).toInt(), 2);
 
     QSqlQuery tablesQuery(db.handle());
     QVERIFY(tablesQuery.exec(
@@ -35,6 +38,7 @@ void DatabaseTest::opensInMemoryAndAppliesSchema()
     QVERIFY(tables.contains(QStringLiteral("folders")));
     QVERIFY(tables.contains(QStringLiteral("pending_contact_changes")));
     QVERIFY(tables.contains(QStringLiteral("push_notifications")));
+    QVERIFY(tables.contains(QStringLiteral("native_contact_links")));
 }
 
 void DatabaseTest::openIsIdempotentOnRealFile()
@@ -49,7 +53,7 @@ void DatabaseTest::openIsIdempotentOnRealFile()
         QSqlQuery query(db1.handle());
         QVERIFY(query.exec(QStringLiteral("PRAGMA user_version")));
         QVERIFY(query.next());
-        QCOMPARE(query.value(0).toInt(), 1);
+        QCOMPARE(query.value(0).toInt(), 2);
     }
     {
         Database db2;
@@ -57,7 +61,7 @@ void DatabaseTest::openIsIdempotentOnRealFile()
         QSqlQuery query(db2.handle());
         QVERIFY(query.exec(QStringLiteral("PRAGMA user_version")));
         QVERIFY(query.next());
-        QCOMPARE(query.value(0).toInt(), 1);
+        QCOMPARE(query.value(0).toInt(), 2);
     }
 }
 
