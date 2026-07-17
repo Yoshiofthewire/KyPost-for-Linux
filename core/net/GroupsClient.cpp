@@ -1,0 +1,75 @@
+#include "net/GroupsClient.h"
+
+#include "net/HttpClient.h"
+#include "net/RelayAuth.h"
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QJsonValue>
+
+namespace {
+
+// Appends "api/groups" to serverBaseUrl's path -- same trailing-slash-safe
+// approach as ContactSyncClient.cpp's endpointFor().
+QUrl endpointFor(const QUrl& serverBaseUrl)
+{
+    QUrl url = serverBaseUrl;
+    QString path = url.path();
+    if (!path.endsWith(QLatin1Char('/')))
+        path += QLatin1Char('/');
+    path += QStringLiteral("api/groups");
+    url.setPath(path);
+    return url;
+}
+
+Group groupFromJson(const QJsonObject& obj)
+{
+    Group group;
+    group.id = obj.value(QStringLiteral("id")).toString();
+    group.name = obj.value(QStringLiteral("name")).toString();
+    group.rev = static_cast<qint64>(obj.value(QStringLiteral("rev")).toDouble());
+    return group;
+}
+
+} // namespace
+
+GroupsClient::GroupsClient(HttpClient& httpClient)
+    : m_httpClient(httpClient)
+{
+}
+
+GroupsFetchResult GroupsClient::fetch(const QUrl& serverBaseUrl, const RelayAuth& auth) const
+{
+    const HttpClient::HttpResult result = m_httpClient.get(endpointFor(serverBaseUrl), auth.queryItems());
+
+    GroupsFetchResult out;
+
+    // Covers 401/403/5xx/transport failures alike -- HttpClient::get()
+    // already maps the status code to NetworkError, so no separate
+    // Unauthorized-only branch is needed here; every non-2xx path lands here
+    // and returns an empty groups list rather than throwing/crashing.
+    if (result.error.has_value()) {
+        out.error = result.error;
+        out.detail = !result.detail.isEmpty()
+            ? result.detail
+            : QStringLiteral("Groups fetch failed with status %1").arg(result.statusCode);
+        return out;
+    }
+
+    QJsonParseError parseError{};
+    const QJsonDocument doc = QJsonDocument::fromJson(result.body, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
+        out.error = NetworkError::Decoding;
+        out.detail = QStringLiteral("Failed to decode groups response: %1").arg(parseError.errorString());
+        return out;
+    }
+
+    const QJsonArray array = doc.array();
+    out.groups.reserve(array.size());
+    for (const QJsonValue& value : array)
+        out.groups.append(groupFromJson(value.toObject()));
+
+    return out;
+}

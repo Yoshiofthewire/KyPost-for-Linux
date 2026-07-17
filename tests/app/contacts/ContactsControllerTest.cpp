@@ -3,10 +3,13 @@
 #include "contacts/ContactListModel.h"
 #include "db/ContactDao.h"
 #include "db/Database.h"
+#include "db/GroupDao.h"
 #include "db/PendingContactChangeDao.h"
 #include "domain/ContactSyncRepository.h"
+#include "domain/GroupsRepository.h"
 #include "domain/PairingStore.h"
 #include "net/ContactSyncClient.h"
+#include "net/GroupsClient.h"
 #include "net/HttpClient.h"
 #include "stores/CursorStore.h"
 #include "stores/SecureStoreFile.h"
@@ -38,6 +41,7 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
     PendingContactChangeDao pendingDao(db.handle());
 
     QTemporaryDir cursorDir;
@@ -52,6 +56,8 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
     QNetworkAccessManager manager;
     HttpClient http(manager);
     ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
 
@@ -63,7 +69,7 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
                      ContactEmailEntry{ QStringLiteral("work"), QStringLiteral("extra@example.com") } };
     QVERIFY(contactDao.insertOrReplace(seed));
 
-    ContactsController controller(repository);
+    ContactsController controller(repository, groupsRepository);
 
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QStringLiteral("New Name");
@@ -96,6 +102,7 @@ void ContactsControllerTest::createContactRejectsBlankName()
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
     PendingContactChangeDao pendingDao(db.handle());
 
     QTemporaryDir cursorDir;
@@ -110,9 +117,11 @@ void ContactsControllerTest::createContactRejectsBlankName()
     QNetworkAccessManager manager;
     HttpClient http(manager);
     ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository);
+    ContactsController controller(repository, groupsRepository);
 
     QSignalSpy errorSpy(&controller, &ContactsController::lastErrorChanged);
 
@@ -132,6 +141,7 @@ void ContactsControllerTest::updateContactRejectsBlankName()
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
     PendingContactChangeDao pendingDao(db.handle());
 
     QTemporaryDir cursorDir;
@@ -146,6 +156,8 @@ void ContactsControllerTest::updateContactRejectsBlankName()
     QNetworkAccessManager manager;
     HttpClient http(manager);
     ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
 
@@ -155,7 +167,7 @@ void ContactsControllerTest::updateContactRejectsBlankName()
     seed.fn = QStringLiteral("Old Name");
     QVERIFY(contactDao.insertOrReplace(seed));
 
-    ContactsController controller(repository);
+    ContactsController controller(repository, groupsRepository);
 
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QString();
@@ -173,6 +185,7 @@ void ContactsControllerTest::syncWithoutPairingSetsNotPairedMessage()
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
     PendingContactChangeDao pendingDao(db.handle());
 
     QTemporaryDir cursorDir;
@@ -187,9 +200,11 @@ void ContactsControllerTest::syncWithoutPairingSetsNotPairedMessage()
     QNetworkAccessManager manager;
     HttpClient http(manager);
     ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository);
+    ContactsController controller(repository, groupsRepository);
 
     QSignalSpy errorSpy(&controller, &ContactsController::lastErrorChanged);
     QSignalSpy statusSpy(&controller, &ContactsController::statusMessageChanged);
@@ -216,6 +231,7 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
     PendingContactChangeDao pendingDao(db.handle());
 
     QTemporaryDir cursorDir;
@@ -230,9 +246,11 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     QNetworkAccessManager manager;
     HttpClient http(manager);
     ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository);
+    ContactsController controller(repository, groupsRepository);
 
     QVariantMap imEntry;
     imEntry[QStringLiteral("service")] = QStringLiteral("Matrix");

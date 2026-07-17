@@ -6,6 +6,7 @@ add_library(llamacore STATIC
   models/KeywordSettings.h
   models/MfaChallenge.h
   models/PushNotification.h
+  models/Group.h
   domain/DevicePairing.h
   domain/PairingStore.cpp
   domain/PairingStore.h
@@ -21,6 +22,8 @@ add_library(llamacore STATIC
   domain/NativeContactReconciliation.h
   domain/ContactSyncRepository.cpp
   domain/ContactSyncRepository.h
+  domain/GroupsRepository.cpp
+  domain/GroupsRepository.h
   domain/PushRepository.cpp
   domain/PushRepository.h
   domain/TransportStateMachine.cpp
@@ -31,6 +34,8 @@ add_library(llamacore STATIC
   db/EmailDao.h
   db/ContactDao.cpp
   db/ContactDao.h
+  db/GroupDao.cpp
+  db/GroupDao.h
   db/FolderDao.cpp
   db/FolderDao.h
   db/PushDao.cpp
@@ -60,6 +65,8 @@ add_library(llamacore STATIC
   net/MfaResponseClient.h
   net/ContactSyncClient.cpp
   net/ContactSyncClient.h
+  net/GroupsClient.cpp
+  net/GroupsClient.h
   net/RelayMailSource.cpp
   net/RelayMailSource.h
   net/NtfySubscriber.cpp

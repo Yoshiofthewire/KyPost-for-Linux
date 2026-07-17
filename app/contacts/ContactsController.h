@@ -7,6 +7,7 @@
 #include <QVariantMap>
 
 class ContactSyncRepository;
+class GroupsRepository;
 
 // QML-facing bridge (Task 33) over core/domain's ContactSyncRepository.
 // Registered as the "ContactsApp" QML singleton in main.cpp. Every method
@@ -51,7 +52,14 @@ class ContactsController : public QObject
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged) // last sync outcome, human-readable, "" when none
 
 public:
-    explicit ContactsController(ContactSyncRepository& repository, QObject* parent = nullptr);
+    // groupsRepository: Task 2's "refresh the groups name-cache once per
+    // contact sync cycle" step -- sync() calls groupsRepository.refresh()
+    // once after a successful contact sync pass (see sync()'s .cpp comment
+    // for why only on Success), matching this repo's existing
+    // mandatory-reference constructor-injection convention (no optional/
+    // nullable dependencies elsewhere in app/contacts/ or core/domain/).
+    ContactsController(ContactSyncRepository& repository, GroupsRepository& groupsRepository,
+                        QObject* parent = nullptr);
 
     QObject* contactModel() const;
     bool isBusy() const;
@@ -77,6 +85,7 @@ private:
     void setStatusMessage(const QString& message);
 
     ContactSyncRepository& m_repository;
+    GroupsRepository& m_groupsRepository;
     ContactListModel* m_model; // owned, parented to this
     bool m_isBusy = false;
     QString m_lastError;

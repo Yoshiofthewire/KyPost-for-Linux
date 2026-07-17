@@ -13,10 +13,12 @@
 #include "db/Database.h"
 #include "db/EmailDao.h"
 #include "db/FolderDao.h"
+#include "db/GroupDao.h"
 #include "db/PendingContactChangeDao.h"
 #include "db/PushDao.h"
 #include "domain/ContactSyncRepository.h"
 #include "domain/DeviceRegistrationService.h"
+#include "domain/GroupsRepository.h"
 #include "domain/KeywordRepository.h"
 #include "domain/MailRepository.h"
 #include "domain/PairingStore.h"
@@ -24,6 +26,7 @@
 #include "domain/TransportStateMachine.h"
 #include "models/PushNotification.h"
 #include "net/ContactSyncClient.h"
+#include "net/GroupsClient.h"
 #include "net/HttpClient.h"
 #include "net/MfaResponseClient.h"
 #include "net/NativeRegistrationClient.h"
@@ -272,6 +275,10 @@ int main(int argc, char* argv[])
     FolderDao folderDao(database.handle());
     PushDao pushDao(database.handle());
     PendingContactChangeDao pendingContactChangeDao(database.handle());
+    // extended-contact-fields Task 2: local name-cache for backend contact
+    // groups (see core/db/migrations/003_extended_contact_fields.sql's
+    // appended `groups` table).
+    GroupDao groupDao(database.handle());
 
     // 3. SecureStoreKeychain -- the app/platform/ Secret-Service-backed
     // SecureStore built in Phase 2 (SecureStoreFile is for tests/UT only).
@@ -298,11 +305,19 @@ int main(int argc, char* argv[])
     ContactSyncClient contactSyncClient(httpClient);
     MfaResponseClient mfaResponseClient(httpClient);
     NativeRegistrationClient nativeRegistrationClient(httpClient);
+    // extended-contact-fields Task 2: GET /api/groups, this repo's first
+    // per-resource GET client -- see core/net/GroupsClient.h.
+    GroupsClient groupsClient(httpClient);
 
     // 8. core/domain repositories -- the layer Tasks 32-34's QML-facing
     // controllers actually call into.
     MailRepository mailRepository(relayMailSource, emailDao, pairingStore, cursorStore);
     KeywordRepository keywordRepository(settingsStore);
+    // extended-contact-fields Task 2: refreshes groupDao from groupsClient
+    // once per contact sync cycle -- wired into ContactsController::sync()
+    // below, deliberately kept separate from ContactSyncRepository itself
+    // (see GroupsRepository.h's doc comment for why).
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
     ContactSyncRepository contactSyncRepository(contactSyncClient, contactDao, pendingContactChangeDao,
                                                  cursorStore, pairingStore);
     DeviceRegistrationService deviceRegistrationService(nativeRegistrationClient, pairingStore, settingsStore);
@@ -392,7 +407,7 @@ int main(int argc, char* argv[])
     // the GUI thread synchronously, same accepted tradeoff as MailController
     // above (see global constraint 2). Its model starts empty until QML
     // calls load()/sync() -- see ContactsController's constructor comment.
-    ContactsController contactsController(contactSyncRepository);
+    ContactsController contactsController(contactSyncRepository, groupsRepository);
     qmlRegisterSingletonInstance<ContactsController>(
         "com.urlxl.LlamaMail", 1, 0, "ContactsApp", &contactsController);
 

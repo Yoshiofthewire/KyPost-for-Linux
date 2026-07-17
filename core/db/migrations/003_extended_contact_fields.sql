@@ -18,3 +18,10 @@ ALTER TABLE contacts ADD COLUMN phonetic_family_name TEXT DEFAULT NULL;
 ALTER TABLE contacts ADD COLUMN department TEXT DEFAULT NULL;
 ALTER TABLE contacts ADD COLUMN custom_fields_json TEXT DEFAULT '[]';
 ALTER TABLE contacts ADD COLUMN pronouns TEXT DEFAULT NULL;
+
+-- Task 2: local name-cache for backend contact groups, refreshed in full
+-- (no delta cursor -- see task-2-brief.md) once per contact sync cycle via
+-- GroupsClient/GroupDao. Contact.groups_json (above) already carries
+-- membership as backend group UUIDs -- this table exists purely to resolve
+-- a UUID to a display name.
+CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT, rev INTEGER);

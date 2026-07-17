@@ -1,6 +1,7 @@
 #include "contacts/ContactsController.h"
 
 #include "domain/ContactSyncRepository.h"
+#include "domain/GroupsRepository.h"
 #include "models/Contact.h"
 
 #include <KLocalizedString>
@@ -201,9 +202,11 @@ std::optional<Contact> findByUid(const QVector<Contact>& contacts, const QString
 
 } // namespace
 
-ContactsController::ContactsController(ContactSyncRepository& repository, QObject* parent)
+ContactsController::ContactsController(ContactSyncRepository& repository, GroupsRepository& groupsRepository,
+                                         QObject* parent)
     : QObject(parent)
     , m_repository(repository)
+    , m_groupsRepository(groupsRepository)
     , m_model(new ContactListModel(this))
 {
     // Deliberately does NOT call load() here -- matches MailController's
@@ -276,6 +279,13 @@ void ContactsController::sync()
     case ContactSyncStatus::Success:
         setLastError(QString());
         setStatusMessage(i18n("Synced -- %1 pushed, %2 applied", outcome.summary.pushed, outcome.summary.applied));
+        // Task 2: refresh the groups name-cache once per successful contact
+        // sync cycle -- not on NotPaired/Unauthorized/ServiceUnavailable/
+        // Retry, matching the brief's "after a successful contact sync
+        // pass" wording. refresh() itself degrades gracefully (no-op) on
+        // any fetch error, so this never turns a successful contact sync
+        // into a reported failure.
+        m_groupsRepository.refresh();
         load();
         break;
     case ContactSyncStatus::NotPaired:
