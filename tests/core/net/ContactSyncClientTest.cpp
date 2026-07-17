@@ -48,7 +48,19 @@ const QByteArray kPopulatedContactJson = R"(
   "birthday": "1815-12-10",
   "emails": [{"label":"work","value":"ada@example.com"}],
   "phones": [{"label":"mobile","value":"+1-555-0100"}],
-  "addresses": [{"label":"home","street":"1 Main St","city":"London","region":"London","postalCode":"SW1A 1AA","country":"UK"}]
+  "addresses": [{"label":"home","street":"1 Main St","city":"London","region":"London","postalCode":"SW1A 1AA","country":"UK"}],
+  "groupIDs": ["group-1", "group-2"],
+  "photoRef": "photo-ref-1",
+  "pgpKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----",
+  "ims": [{"service":"Matrix","label":"work","value":"@ada:example.org"}],
+  "websites": [{"label":"blog","value":"https://ada.example.com"}],
+  "relations": [{"label":"spouse","name":"William King"}],
+  "events": [{"label":"anniversary","date":"2026-06-01"}],
+  "phoneticGivenName": "Ay-da",
+  "phoneticFamilyName": "Love-lace",
+  "department": "Engineering",
+  "customFields": [{"label":"Employee ID","value":"42"}],
+  "pronouns": "she/her"
 }
 )";
 
@@ -149,6 +161,48 @@ void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsInc
     QVERIFY(addr.country.has_value());
     QCOMPARE(*addr.country, QStringLiteral("UK"));
 
+    QCOMPARE(c1.groupIds, (QVector<QString>{QStringLiteral("group-1"), QStringLiteral("group-2")}));
+    QVERIFY(c1.photoRef.has_value());
+    QCOMPARE(*c1.photoRef, QStringLiteral("photo-ref-1"));
+    QVERIFY(c1.pgpKey.has_value());
+    QCOMPARE(*c1.pgpKey, QStringLiteral("-----BEGIN PGP PUBLIC KEY BLOCK-----"));
+
+    QCOMPARE(c1.ims.size(), 1);
+    QVERIFY(c1.ims.at(0).service.has_value());
+    QCOMPARE(*c1.ims.at(0).service, QStringLiteral("Matrix"));
+    QVERIFY(c1.ims.at(0).label.has_value());
+    QCOMPARE(*c1.ims.at(0).label, QStringLiteral("work"));
+    QCOMPARE(c1.ims.at(0).value, QStringLiteral("@ada:example.org"));
+
+    QCOMPARE(c1.websites.size(), 1);
+    QVERIFY(c1.websites.at(0).label.has_value());
+    QCOMPARE(*c1.websites.at(0).label, QStringLiteral("blog"));
+    QCOMPARE(c1.websites.at(0).value, QStringLiteral("https://ada.example.com"));
+
+    QCOMPARE(c1.relations.size(), 1);
+    QVERIFY(c1.relations.at(0).label.has_value());
+    QCOMPARE(*c1.relations.at(0).label, QStringLiteral("spouse"));
+    QCOMPARE(c1.relations.at(0).name, QStringLiteral("William King"));
+
+    QCOMPARE(c1.events.size(), 1);
+    QVERIFY(c1.events.at(0).label.has_value());
+    QCOMPARE(*c1.events.at(0).label, QStringLiteral("anniversary"));
+    QCOMPARE(c1.events.at(0).date, QStringLiteral("2026-06-01"));
+
+    QVERIFY(c1.phoneticGivenName.has_value());
+    QCOMPARE(*c1.phoneticGivenName, QStringLiteral("Ay-da"));
+    QVERIFY(c1.phoneticFamilyName.has_value());
+    QCOMPARE(*c1.phoneticFamilyName, QStringLiteral("Love-lace"));
+    QVERIFY(c1.department.has_value());
+    QCOMPARE(*c1.department, QStringLiteral("Engineering"));
+
+    QCOMPARE(c1.customFields.size(), 1);
+    QCOMPARE(c1.customFields.at(0).label, QStringLiteral("Employee ID"));
+    QCOMPARE(c1.customFields.at(0).value, QStringLiteral("42"));
+
+    QVERIFY(c1.pronouns.has_value());
+    QCOMPARE(*c1.pronouns, QStringLiteral("she/her"));
+
     // Contact 2: every optional field and every array key absent from the
     // wire maps to nullopt / empty vectors, not a parse error.
     const Contact& c2 = result.changed.at(1);
@@ -170,6 +224,18 @@ void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsInc
     QVERIFY(c2.emails.isEmpty());
     QVERIFY(c2.phones.isEmpty());
     QVERIFY(c2.addresses.isEmpty());
+    QVERIFY(c2.groupIds.isEmpty());
+    QVERIFY(!c2.photoRef.has_value());
+    QVERIFY(!c2.pgpKey.has_value());
+    QVERIFY(c2.ims.isEmpty());
+    QVERIFY(c2.websites.isEmpty());
+    QVERIFY(c2.relations.isEmpty());
+    QVERIFY(c2.events.isEmpty());
+    QVERIFY(!c2.phoneticGivenName.has_value());
+    QVERIFY(!c2.phoneticFamilyName.has_value());
+    QVERIFY(!c2.department.has_value());
+    QVERIFY(c2.customFields.isEmpty());
+    QVERIFY(!c2.pronouns.has_value());
 
     // deletedContacts holds full Contact objects (not bare uids) -- assert
     // fields, including a nested entry with an absent label.
@@ -217,6 +283,8 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
     updated.givenName = QStringLiteral("Grace");
     updated.addresses = { ContactAddressEntry{ std::nullopt, QStringLiteral("42 Wallaby Way"), std::nullopt,
                                                 std::nullopt, std::nullopt, std::nullopt } };
+    updated.groupIds = { QStringLiteral("group-9") };
+    updated.pronouns = QStringLiteral("they/them");
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
     const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
@@ -246,6 +314,20 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
     QVERIFY(!sentCreated.contains(QStringLiteral("createdAt")));
     QVERIFY(!sentCreated.contains(QStringLiteral("givenName")));
     QVERIFY(!sentCreated.contains(QStringLiteral("birthday")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("photoRef")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("pgpKey")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("phoneticGivenName")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("phoneticFamilyName")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("department")));
+    QVERIFY(!sentCreated.contains(QStringLiteral("pronouns")));
+    // List fields are always present, even when empty (same convention as
+    // emails/phones/addresses), using the wire's "groupIDs" spelling.
+    QVERIFY(sentCreated.value(QStringLiteral("groupIDs")).toArray().isEmpty());
+    QVERIFY(sentCreated.value(QStringLiteral("ims")).toArray().isEmpty());
+    QVERIFY(sentCreated.value(QStringLiteral("websites")).toArray().isEmpty());
+    QVERIFY(sentCreated.value(QStringLiteral("relations")).toArray().isEmpty());
+    QVERIFY(sentCreated.value(QStringLiteral("events")).toArray().isEmpty());
+    QVERIFY(sentCreated.value(QStringLiteral("customFields")).toArray().isEmpty());
 
     const QJsonObject sentUpdated = changes.at(1).toObject();
     QCOMPARE(sentUpdated.value(QStringLiteral("uid")).toString(), QStringLiteral("c-existing"));
@@ -256,6 +338,11 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
     QCOMPARE(sentAddress.value(QStringLiteral("street")).toString(), QStringLiteral("42 Wallaby Way"));
     QVERIFY(!sentAddress.contains(QStringLiteral("label")));
     QVERIFY(!sentAddress.contains(QStringLiteral("city")));
+
+    const QJsonArray sentGroupIds = sentUpdated.value(QStringLiteral("groupIDs")).toArray();
+    QCOMPARE(sentGroupIds.size(), 1);
+    QCOMPARE(sentGroupIds.at(0).toString(), QStringLiteral("group-9"));
+    QCOMPARE(sentUpdated.value(QStringLiteral("pronouns")).toString(), QStringLiteral("they/them"));
 }
 
 void ContactSyncClientTest::pushSendsBaseCursorAndAuthAsQueryParams()

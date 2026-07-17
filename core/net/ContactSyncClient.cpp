@@ -99,6 +99,107 @@ ContactAddressEntry addressEntryFromJson(const QJsonObject& obj)
     return entry;
 }
 
+QJsonObject imEntryToJson(const ContactImEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("service"), entry.service);
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactImEntry imEntryFromJson(const QJsonObject& obj)
+{
+    ContactImEntry entry;
+    entry.service = takeOptional(obj, QStringLiteral("service"));
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QJsonObject urlEntryToJson(const ContactUrlEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactUrlEntry urlEntryFromJson(const QJsonObject& obj)
+{
+    ContactUrlEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QJsonObject relationEntryToJson(const ContactRelationEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("name")] = entry.name;
+    return obj;
+}
+
+ContactRelationEntry relationEntryFromJson(const QJsonObject& obj)
+{
+    ContactRelationEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.name = obj.value(QStringLiteral("name")).toString();
+    return entry;
+}
+
+QJsonObject eventEntryToJson(const ContactEventEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("date")] = entry.date;
+    return obj;
+}
+
+ContactEventEntry eventEntryFromJson(const QJsonObject& obj)
+{
+    ContactEventEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.date = obj.value(QStringLiteral("date")).toString();
+    return entry;
+}
+
+QJsonObject customFieldEntryToJson(const ContactCustomFieldEntry& entry)
+{
+    QJsonObject obj;
+    obj[QStringLiteral("label")] = entry.label;
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactCustomFieldEntry customFieldEntryFromJson(const QJsonObject& obj)
+{
+    ContactCustomFieldEntry entry;
+    entry.label = obj.value(QStringLiteral("label")).toString();
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+// groupIds is a plain QVector<QString>, not a struct-entry list -- own
+// encode/decode pair rather than going through entriesToJson/entriesFromJson.
+QJsonArray stringListToJson(const QVector<QString>& values)
+{
+    QJsonArray array;
+    for (const QString& value : values)
+        array.append(value);
+    return array;
+}
+
+QVector<QString> stringListFromJson(const QJsonArray& array)
+{
+    QVector<QString> values;
+    values.reserve(array.size());
+    for (const QJsonValue& value : array)
+        values.append(value.toString());
+    return values;
+}
+
 template <typename T, typename ToJsonFn>
 QJsonArray entriesToJson(const QVector<T>& entries, ToJsonFn toJson)
 {
@@ -124,7 +225,8 @@ namespace ContactWire {
 
 // Every core/models/Contact.h field maps 1:1 onto a same-named JSON key
 // (confirmed against the Go Contact/ContactValue/ContactAddress structs) --
-// no field-name translation needed anywhere in this pair.
+// no field-name translation needed anywhere in this pair, with one
+// exception: groupIds <-> "groupIDs" (verbatim per the wire contract).
 QJsonObject contactToJson(const Contact& contact)
 {
     QJsonObject obj;
@@ -146,6 +248,20 @@ QJsonObject contactToJson(const Contact& contact)
     obj[QStringLiteral("emails")] = entriesToJson(contact.emails, emailEntryToJson);
     obj[QStringLiteral("phones")] = entriesToJson(contact.phones, phoneEntryToJson);
     obj[QStringLiteral("addresses")] = entriesToJson(contact.addresses, addressEntryToJson);
+    // "groupIDs" -- verbatim capitalization per the wire contract, not
+    // "groupIds" like the Contact.h field name.
+    obj[QStringLiteral("groupIDs")] = stringListToJson(contact.groupIds);
+    putOptional(obj, QStringLiteral("photoRef"), contact.photoRef);
+    putOptional(obj, QStringLiteral("pgpKey"), contact.pgpKey);
+    obj[QStringLiteral("ims")] = entriesToJson(contact.ims, imEntryToJson);
+    obj[QStringLiteral("websites")] = entriesToJson(contact.websites, urlEntryToJson);
+    obj[QStringLiteral("relations")] = entriesToJson(contact.relations, relationEntryToJson);
+    obj[QStringLiteral("events")] = entriesToJson(contact.events, eventEntryToJson);
+    putOptional(obj, QStringLiteral("phoneticGivenName"), contact.phoneticGivenName);
+    putOptional(obj, QStringLiteral("phoneticFamilyName"), contact.phoneticFamilyName);
+    putOptional(obj, QStringLiteral("department"), contact.department);
+    obj[QStringLiteral("customFields")] = entriesToJson(contact.customFields, customFieldEntryToJson);
+    putOptional(obj, QStringLiteral("pronouns"), contact.pronouns);
     if (contact.deleted)
         obj[QStringLiteral("deleted")] = true;
     return obj;
@@ -173,6 +289,22 @@ Contact contactFromJson(const QJsonObject& obj)
     contact.phones = entriesFromJson<ContactPhoneEntry>(obj.value(QStringLiteral("phones")).toArray(), phoneEntryFromJson);
     contact.addresses =
         entriesFromJson<ContactAddressEntry>(obj.value(QStringLiteral("addresses")).toArray(), addressEntryFromJson);
+    contact.groupIds = stringListFromJson(obj.value(QStringLiteral("groupIDs")).toArray());
+    contact.photoRef = takeOptional(obj, QStringLiteral("photoRef"));
+    contact.pgpKey = takeOptional(obj, QStringLiteral("pgpKey"));
+    contact.ims = entriesFromJson<ContactImEntry>(obj.value(QStringLiteral("ims")).toArray(), imEntryFromJson);
+    contact.websites =
+        entriesFromJson<ContactUrlEntry>(obj.value(QStringLiteral("websites")).toArray(), urlEntryFromJson);
+    contact.relations = entriesFromJson<ContactRelationEntry>(
+        obj.value(QStringLiteral("relations")).toArray(), relationEntryFromJson);
+    contact.events =
+        entriesFromJson<ContactEventEntry>(obj.value(QStringLiteral("events")).toArray(), eventEntryFromJson);
+    contact.phoneticGivenName = takeOptional(obj, QStringLiteral("phoneticGivenName"));
+    contact.phoneticFamilyName = takeOptional(obj, QStringLiteral("phoneticFamilyName"));
+    contact.department = takeOptional(obj, QStringLiteral("department"));
+    contact.customFields = entriesFromJson<ContactCustomFieldEntry>(
+        obj.value(QStringLiteral("customFields")).toArray(), customFieldEntryFromJson);
+    contact.pronouns = takeOptional(obj, QStringLiteral("pronouns"));
     contact.deleted = obj.value(QStringLiteral("deleted")).toBool();
     return contact;
 }

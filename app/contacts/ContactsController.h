@@ -28,6 +28,20 @@ class ContactSyncRepository;
 // no further entries) by the form's single email/phone field. createContact
 // has no existing contact to preserve extras from, so it just builds a
 // single-entry (or empty) list per field.
+//
+// Extended-contact-fields keys (Task 1 of that feature -- no edit-form UI
+// consumes these yet, but the QVariantMap <-> Contact mapping exists so a
+// later UI task can): groupIds (QVariantList<QString>), photoRef (QString,
+// optional), pgpKey (QString, optional), ims (QVariantList<QVariantMap
+// {service, label, value}>), websites (QVariantList<QVariantMap {label,
+// value}>), relations (QVariantList<QVariantMap {label, name}>), events
+// (QVariantList<QVariantMap {label, date}>), phoneticGivenName (QString,
+// optional), phoneticFamilyName (QString, optional), department (QString,
+// optional), customFields (QVariantList<QVariantMap {label, value}>),
+// pronouns (QString, optional). Unlike email/phone, every one of these is a
+// whole-value/whole-list replace on both createContact and updateContact --
+// there's no existing single-value UI precedent to preserve extras around,
+// per the field-by-field mapping table in task-1-brief.md.
 class ContactsController : public QObject
 {
     Q_OBJECT

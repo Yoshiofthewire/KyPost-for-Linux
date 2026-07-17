@@ -64,6 +64,132 @@ QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
     return map;
 }
 
+QVariantMap imEntryToMap(const ContactImEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("service")] = entry.service.value_or(QString());
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+ContactImEntry imEntryFromMap(const QVariantMap& map)
+{
+    ContactImEntry entry;
+    entry.service = toOptional(map.value(QStringLiteral("service")).toString());
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.value = map.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QVariantMap urlEntryToMap(const ContactUrlEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+ContactUrlEntry urlEntryFromMap(const QVariantMap& map)
+{
+    ContactUrlEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.value = map.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QVariantMap relationEntryToMap(const ContactRelationEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("name")] = entry.name;
+    return map;
+}
+
+ContactRelationEntry relationEntryFromMap(const QVariantMap& map)
+{
+    ContactRelationEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.name = map.value(QStringLiteral("name")).toString();
+    return entry;
+}
+
+QVariantMap eventEntryToMap(const ContactEventEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("date")] = entry.date;
+    return map;
+}
+
+ContactEventEntry eventEntryFromMap(const QVariantMap& map)
+{
+    ContactEventEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.date = map.value(QStringLiteral("date")).toString();
+    return entry;
+}
+
+QVariantMap customFieldEntryToMap(const ContactCustomFieldEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label;
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+ContactCustomFieldEntry customFieldEntryFromMap(const QVariantMap& map)
+{
+    ContactCustomFieldEntry entry;
+    entry.label = map.value(QStringLiteral("label")).toString();
+    entry.value = map.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+// Generic QVector<T> <-> QVariantList helpers for the struct-entry list
+// fields above (ims/websites/relations/events/customFields) -- mirrors
+// ContactDao.cpp's entriesToJson/entriesFromJson template pattern, just
+// targeting QVariant instead of QJsonValue.
+template <typename T, typename ToMapFn>
+QVariantList entriesToVariantList(const QVector<T>& entries, ToMapFn toMap)
+{
+    QVariantList list;
+    list.reserve(entries.size());
+    for (const T& entry : entries)
+        list.append(toMap(entry));
+    return list;
+}
+
+template <typename T, typename FromMapFn>
+QVector<T> entriesFromVariantList(const QVariantList& list, FromMapFn fromMap)
+{
+    QVector<T> entries;
+    entries.reserve(list.size());
+    for (const QVariant& value : list)
+        entries.append(fromMap(value.toMap()));
+    return entries;
+}
+
+// groupIds is a plain QVector<QString>, not a struct-entry list -- own
+// conversion pair rather than going through entriesToVariantList/FromVariantList.
+QVariantList stringListToVariantList(const QVector<QString>& values)
+{
+    QVariantList list;
+    list.reserve(values.size());
+    for (const QString& value : values)
+        list.append(value);
+    return list;
+}
+
+QVector<QString> stringListFromVariantList(const QVariantList& list)
+{
+    QVector<QString> values;
+    values.reserve(list.size());
+    for (const QVariant& value : list)
+        values.append(value.toString());
+    return values;
+}
+
 std::optional<Contact> findByUid(const QVector<Contact>& contacts, const QString& uid)
 {
     const auto it = std::find_if(contacts.begin(), contacts.end(),
@@ -213,6 +339,19 @@ QVariantMap ContactsController::contactAt(const QString& uid)
         addresses.append(addressEntryToMap(entry));
     map[QStringLiteral("addresses")] = addresses;
 
+    map[QStringLiteral("groupIds")] = stringListToVariantList(c.groupIds);
+    map[QStringLiteral("photoRef")] = c.photoRef.value_or(QString());
+    map[QStringLiteral("pgpKey")] = c.pgpKey.value_or(QString());
+    map[QStringLiteral("ims")] = entriesToVariantList(c.ims, imEntryToMap);
+    map[QStringLiteral("websites")] = entriesToVariantList(c.websites, urlEntryToMap);
+    map[QStringLiteral("relations")] = entriesToVariantList(c.relations, relationEntryToMap);
+    map[QStringLiteral("events")] = entriesToVariantList(c.events, eventEntryToMap);
+    map[QStringLiteral("phoneticGivenName")] = c.phoneticGivenName.value_or(QString());
+    map[QStringLiteral("phoneticFamilyName")] = c.phoneticFamilyName.value_or(QString());
+    map[QStringLiteral("department")] = c.department.value_or(QString());
+    map[QStringLiteral("customFields")] = entriesToVariantList(c.customFields, customFieldEntryToMap);
+    map[QStringLiteral("pronouns")] = c.pronouns.value_or(QString());
+
     map[QStringLiteral("deleted")] = c.deleted;
     return map;
 }
@@ -233,6 +372,23 @@ QString ContactsController::createContact(const QVariantMap& fields)
         replacePrimaryEntry<ContactEmailEntry>({}, fields.value(QStringLiteral("email")).toString().trimmed());
     contact.phones =
         replacePrimaryEntry<ContactPhoneEntry>({}, fields.value(QStringLiteral("phone")).toString().trimmed());
+
+    contact.groupIds = stringListFromVariantList(fields.value(QStringLiteral("groupIds")).toList());
+    contact.photoRef = toOptional(fields.value(QStringLiteral("photoRef")).toString());
+    contact.pgpKey = toOptional(fields.value(QStringLiteral("pgpKey")).toString());
+    contact.ims = entriesFromVariantList<ContactImEntry>(fields.value(QStringLiteral("ims")).toList(), imEntryFromMap);
+    contact.websites = entriesFromVariantList<ContactUrlEntry>(
+        fields.value(QStringLiteral("websites")).toList(), urlEntryFromMap);
+    contact.relations = entriesFromVariantList<ContactRelationEntry>(
+        fields.value(QStringLiteral("relations")).toList(), relationEntryFromMap);
+    contact.events =
+        entriesFromVariantList<ContactEventEntry>(fields.value(QStringLiteral("events")).toList(), eventEntryFromMap);
+    contact.phoneticGivenName = toOptional(fields.value(QStringLiteral("phoneticGivenName")).toString());
+    contact.phoneticFamilyName = toOptional(fields.value(QStringLiteral("phoneticFamilyName")).toString());
+    contact.department = toOptional(fields.value(QStringLiteral("department")).toString());
+    contact.customFields = entriesFromVariantList<ContactCustomFieldEntry>(
+        fields.value(QStringLiteral("customFields")).toList(), customFieldEntryFromMap);
+    contact.pronouns = toOptional(fields.value(QStringLiteral("pronouns")).toString());
 
     const QString newUid = m_repository.queueCreate(contact);
     setLastError(QString());
@@ -262,6 +418,23 @@ bool ContactsController::updateContact(const QString& uid, const QVariantMap& fi
         contact.emails, fields.value(QStringLiteral("email")).toString().trimmed());
     contact.phones = replacePrimaryEntry<ContactPhoneEntry>(
         contact.phones, fields.value(QStringLiteral("phone")).toString().trimmed());
+
+    contact.groupIds = stringListFromVariantList(fields.value(QStringLiteral("groupIds")).toList());
+    contact.photoRef = toOptional(fields.value(QStringLiteral("photoRef")).toString());
+    contact.pgpKey = toOptional(fields.value(QStringLiteral("pgpKey")).toString());
+    contact.ims = entriesFromVariantList<ContactImEntry>(fields.value(QStringLiteral("ims")).toList(), imEntryFromMap);
+    contact.websites = entriesFromVariantList<ContactUrlEntry>(
+        fields.value(QStringLiteral("websites")).toList(), urlEntryFromMap);
+    contact.relations = entriesFromVariantList<ContactRelationEntry>(
+        fields.value(QStringLiteral("relations")).toList(), relationEntryFromMap);
+    contact.events =
+        entriesFromVariantList<ContactEventEntry>(fields.value(QStringLiteral("events")).toList(), eventEntryFromMap);
+    contact.phoneticGivenName = toOptional(fields.value(QStringLiteral("phoneticGivenName")).toString());
+    contact.phoneticFamilyName = toOptional(fields.value(QStringLiteral("phoneticFamilyName")).toString());
+    contact.department = toOptional(fields.value(QStringLiteral("department")).toString());
+    contact.customFields = entriesFromVariantList<ContactCustomFieldEntry>(
+        fields.value(QStringLiteral("customFields")).toList(), customFieldEntryFromMap);
+    contact.pronouns = toOptional(fields.value(QStringLiteral("pronouns")).toString());
 
     m_repository.queueUpdate(contact);
     setLastError(QString());

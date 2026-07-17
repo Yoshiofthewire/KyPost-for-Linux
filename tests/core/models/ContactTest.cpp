@@ -33,6 +33,18 @@ void ContactTest::defaultConstructs()
     QVERIFY(contact.emails.isEmpty());
     QVERIFY(contact.phones.isEmpty());
     QVERIFY(contact.addresses.isEmpty());
+    QVERIFY(contact.groupIds.isEmpty());
+    QVERIFY(!contact.photoRef.has_value());
+    QVERIFY(!contact.pgpKey.has_value());
+    QVERIFY(contact.ims.isEmpty());
+    QVERIFY(contact.websites.isEmpty());
+    QVERIFY(contact.relations.isEmpty());
+    QVERIFY(contact.events.isEmpty());
+    QVERIFY(!contact.phoneticGivenName.has_value());
+    QVERIFY(!contact.phoneticFamilyName.has_value());
+    QVERIFY(!contact.department.has_value());
+    QVERIFY(contact.customFields.isEmpty());
+    QVERIFY(!contact.pronouns.has_value());
 }
 
 void ContactTest::populatesAndCompares()
@@ -58,6 +70,18 @@ void ContactTest::populatesAndCompares()
     contact.addresses = {ContactAddressEntry{
         QStringLiteral("home"), QStringLiteral("1 Main St"), QStringLiteral("London"),
         QStringLiteral("London"), QStringLiteral("SW1A 1AA"), QStringLiteral("UK")}};
+    contact.groupIds = {QStringLiteral("group-1"), QStringLiteral("group-2")};
+    contact.photoRef = QStringLiteral("photo-ref-1");
+    contact.pgpKey = QStringLiteral("-----BEGIN PGP PUBLIC KEY BLOCK-----");
+    contact.ims = {ContactImEntry{QStringLiteral("Matrix"), QStringLiteral("work"), QStringLiteral("@ada:example.org")}};
+    contact.websites = {ContactUrlEntry{QStringLiteral("blog"), QStringLiteral("https://ada.example.com")}};
+    contact.relations = {ContactRelationEntry{QStringLiteral("spouse"), QStringLiteral("William King")}};
+    contact.events = {ContactEventEntry{QStringLiteral("anniversary"), QStringLiteral("2026-06-01")}};
+    contact.phoneticGivenName = QStringLiteral("Ay-da");
+    contact.phoneticFamilyName = QStringLiteral("Love-lace");
+    contact.department = QStringLiteral("Engineering");
+    contact.customFields = {ContactCustomFieldEntry{QStringLiteral("Employee ID"), QStringLiteral("42")}};
+    contact.pronouns = QStringLiteral("she/her");
 
     Contact copy = contact;
     QCOMPARE(copy, contact);
@@ -89,6 +113,36 @@ void ContactTest::entryTypesCompare()
     QCOMPARE(addr1, addr2);
     addr2.street = QStringLiteral("Other St");
     QVERIFY(addr1 != addr2);
+
+    ContactImEntry im1{QStringLiteral("Matrix"), QStringLiteral("work"), QStringLiteral("@ada:example.org")};
+    ContactImEntry im2 = im1;
+    QCOMPARE(im1, im2);
+    im2.service = std::nullopt;
+    QVERIFY(im1 != im2);
+
+    ContactUrlEntry url1{QStringLiteral("blog"), QStringLiteral("https://ada.example.com")};
+    ContactUrlEntry url2 = url1;
+    QCOMPARE(url1, url2);
+    url2.value = QStringLiteral("https://other.example.com");
+    QVERIFY(url1 != url2);
+
+    ContactRelationEntry rel1{QStringLiteral("spouse"), QStringLiteral("William King")};
+    ContactRelationEntry rel2 = rel1;
+    QCOMPARE(rel1, rel2);
+    rel2.name = QStringLiteral("Someone Else");
+    QVERIFY(rel1 != rel2);
+
+    ContactEventEntry event1{QStringLiteral("anniversary"), QStringLiteral("2026-06-01")};
+    ContactEventEntry event2 = event1;
+    QCOMPARE(event1, event2);
+    event2.date = QStringLiteral("2027-06-01");
+    QVERIFY(event1 != event2);
+
+    ContactCustomFieldEntry custom1{QStringLiteral("Employee ID"), QStringLiteral("42")};
+    ContactCustomFieldEntry custom2 = custom1;
+    QCOMPARE(custom1, custom2);
+    custom2.value = QStringLiteral("43");
+    QVERIFY(custom1 != custom2);
 }
 
 QTEST_APPLESS_MAIN(ContactTest)

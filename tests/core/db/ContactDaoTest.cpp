@@ -47,6 +47,18 @@ void ContactDaoTest::roundTripsInsertUpdateDelete()
     contact.addresses = {ContactAddressEntry{
         QStringLiteral("home"), QStringLiteral("1 Main St"), QStringLiteral("London"),
         QStringLiteral("London"), QStringLiteral("SW1A 1AA"), QStringLiteral("UK")}};
+    contact.groupIds = {QStringLiteral("group-1"), QStringLiteral("group-2")};
+    contact.photoRef = QStringLiteral("photo-ref-1");
+    contact.pgpKey = QStringLiteral("-----BEGIN PGP PUBLIC KEY BLOCK-----");
+    contact.ims = {ContactImEntry{QStringLiteral("Matrix"), QStringLiteral("work"), QStringLiteral("@ada:example.org")}};
+    contact.websites = {ContactUrlEntry{QStringLiteral("blog"), QStringLiteral("https://ada.example.com")}};
+    contact.relations = {ContactRelationEntry{QStringLiteral("spouse"), QStringLiteral("William King")}};
+    contact.events = {ContactEventEntry{QStringLiteral("anniversary"), QStringLiteral("2026-06-01")}};
+    contact.phoneticGivenName = QStringLiteral("Ay-da");
+    contact.phoneticFamilyName = QStringLiteral("Love-lace");
+    contact.department = QStringLiteral("Engineering");
+    contact.customFields = {ContactCustomFieldEntry{QStringLiteral("Employee ID"), QStringLiteral("42")}};
+    contact.pronouns = QStringLiteral("she/her");
 
     QVERIFY(dao.insertOrReplace(contact));
 
@@ -58,6 +70,10 @@ void ContactDaoTest::roundTripsInsertUpdateDelete()
     updated.fn = QStringLiteral("Ada King");
     updated.notes = std::nullopt;
     updated.emails.append(ContactEmailEntry{std::nullopt, QStringLiteral("ada2@example.com")});
+    updated.pgpKey = std::nullopt;
+    updated.department = std::nullopt;
+    updated.groupIds.append(QStringLiteral("group-3"));
+    updated.customFields.append(ContactCustomFieldEntry{QStringLiteral("Floor"), QStringLiteral("4")});
 
     QVERIFY(dao.insertOrReplace(updated));
 
@@ -66,6 +82,10 @@ void ContactDaoTest::roundTripsInsertUpdateDelete()
     QCOMPARE(*refetched, updated);
     QVERIFY(!refetched->notes.has_value());
     QCOMPARE(refetched->emails.size(), 2);
+    QVERIFY(!refetched->pgpKey.has_value());
+    QVERIFY(!refetched->department.has_value());
+    QCOMPARE(refetched->groupIds.size(), 3);
+    QCOMPARE(refetched->customFields.size(), 2);
 
     QVERIFY(dao.deleteById(contact.uid));
     QVERIFY(!dao.findById(contact.uid).has_value());

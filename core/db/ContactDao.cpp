@@ -79,6 +79,88 @@ ContactAddressEntry addressEntryFromJson(const QJsonObject& obj)
     return entry;
 }
 
+QJsonObject toJson(const ContactImEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("service"), entry.service);
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactImEntry imEntryFromJson(const QJsonObject& obj)
+{
+    ContactImEntry entry;
+    entry.service = takeOptional(obj, QStringLiteral("service"));
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QJsonObject toJson(const ContactUrlEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactUrlEntry urlEntryFromJson(const QJsonObject& obj)
+{
+    ContactUrlEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
+QJsonObject toJson(const ContactRelationEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("name")] = entry.name;
+    return obj;
+}
+
+ContactRelationEntry relationEntryFromJson(const QJsonObject& obj)
+{
+    ContactRelationEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.name = obj.value(QStringLiteral("name")).toString();
+    return entry;
+}
+
+QJsonObject toJson(const ContactEventEntry& entry)
+{
+    QJsonObject obj;
+    putOptional(obj, QStringLiteral("label"), entry.label);
+    obj[QStringLiteral("date")] = entry.date;
+    return obj;
+}
+
+ContactEventEntry eventEntryFromJson(const QJsonObject& obj)
+{
+    ContactEventEntry entry;
+    entry.label = takeOptional(obj, QStringLiteral("label"));
+    entry.date = obj.value(QStringLiteral("date")).toString();
+    return entry;
+}
+
+QJsonObject toJson(const ContactCustomFieldEntry& entry)
+{
+    QJsonObject obj;
+    obj[QStringLiteral("label")] = entry.label;
+    obj[QStringLiteral("value")] = entry.value;
+    return obj;
+}
+
+ContactCustomFieldEntry customFieldEntryFromJson(const QJsonObject& obj)
+{
+    ContactCustomFieldEntry entry;
+    entry.label = obj.value(QStringLiteral("label")).toString();
+    entry.value = obj.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
 template <typename T>
 QString encodeEntries(const QVector<T>& entries)
 {
@@ -98,6 +180,27 @@ QVector<T> decodeEntries(const QString& json, FromJsonFn fromJson)
     for (const QJsonValue& value : doc.array())
         entries.append(fromJson(value.toObject()));
     return entries;
+}
+
+// groupIds is a plain QVector<QString>, not a struct-entry list, so it gets
+// its own encode/decode pair rather than going through toJson/decodeEntries.
+QString encodeStringList(const QVector<QString>& values)
+{
+    QJsonArray array;
+    for (const QString& value : values)
+        array.append(value);
+    return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
+
+QVector<QString> decodeStringList(const QString& json)
+{
+    QVector<QString> values;
+    if (json.isEmpty())
+        return values;
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    for (const QJsonValue& value : doc.array())
+        values.append(value.toString());
+    return values;
 }
 
 Contact contactFromQuery(const QSqlQuery& query)
@@ -124,6 +227,23 @@ Contact contactFromQuery(const QSqlQuery& query)
         query.value(QStringLiteral("phones_json")).toString(), phoneEntryFromJson);
     contact.addresses = decodeEntries<ContactAddressEntry>(
         query.value(QStringLiteral("addresses_json")).toString(), addressEntryFromJson);
+    contact.groupIds = decodeStringList(query.value(QStringLiteral("groups_json")).toString());
+    contact.photoRef = variantToOptionalString(query.value(QStringLiteral("photo_ref")));
+    contact.pgpKey = variantToOptionalString(query.value(QStringLiteral("pgp_key")));
+    contact.ims = decodeEntries<ContactImEntry>(
+        query.value(QStringLiteral("ims_json")).toString(), imEntryFromJson);
+    contact.websites = decodeEntries<ContactUrlEntry>(
+        query.value(QStringLiteral("websites_json")).toString(), urlEntryFromJson);
+    contact.relations = decodeEntries<ContactRelationEntry>(
+        query.value(QStringLiteral("relations_json")).toString(), relationEntryFromJson);
+    contact.events = decodeEntries<ContactEventEntry>(
+        query.value(QStringLiteral("events_json")).toString(), eventEntryFromJson);
+    contact.phoneticGivenName = variantToOptionalString(query.value(QStringLiteral("phonetic_given_name")));
+    contact.phoneticFamilyName = variantToOptionalString(query.value(QStringLiteral("phonetic_family_name")));
+    contact.department = variantToOptionalString(query.value(QStringLiteral("department")));
+    contact.customFields = decodeEntries<ContactCustomFieldEntry>(
+        query.value(QStringLiteral("custom_fields_json")).toString(), customFieldEntryFromJson);
+    contact.pronouns = variantToOptionalString(query.value(QStringLiteral("pronouns")));
     return contact;
 }
 
@@ -139,10 +259,14 @@ bool ContactDao::insertOrReplace(const Contact& contact)
     query.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO contacts "
         "(uid, rev, created_at, updated_at, fn, given_name, family_name, middle_name, prefix, "
-        "suffix, nickname, org, title, notes, birthday, emails_json, phones_json, addresses_json) "
+        "suffix, nickname, org, title, notes, birthday, emails_json, phones_json, addresses_json, "
+        "groups_json, photo_ref, pgp_key, ims_json, websites_json, relations_json, events_json, "
+        "phonetic_given_name, phonetic_family_name, department, custom_fields_json, pronouns) "
         "VALUES (:uid, :rev, :created_at, :updated_at, :fn, :given_name, :family_name, "
         ":middle_name, :prefix, :suffix, :nickname, :org, :title, :notes, :birthday, "
-        ":emails_json, :phones_json, :addresses_json)"));
+        ":emails_json, :phones_json, :addresses_json, "
+        ":groups_json, :photo_ref, :pgp_key, :ims_json, :websites_json, :relations_json, :events_json, "
+        ":phonetic_given_name, :phonetic_family_name, :department, :custom_fields_json, :pronouns)"));
     query.bindValue(QStringLiteral(":uid"), contact.uid);
     query.bindValue(QStringLiteral(":rev"), contact.rev);
     query.bindValue(QStringLiteral(":created_at"), optionalStringToVariant(contact.createdAt));
@@ -161,6 +285,18 @@ bool ContactDao::insertOrReplace(const Contact& contact)
     query.bindValue(QStringLiteral(":emails_json"), encodeEntries(contact.emails));
     query.bindValue(QStringLiteral(":phones_json"), encodeEntries(contact.phones));
     query.bindValue(QStringLiteral(":addresses_json"), encodeEntries(contact.addresses));
+    query.bindValue(QStringLiteral(":groups_json"), encodeStringList(contact.groupIds));
+    query.bindValue(QStringLiteral(":photo_ref"), optionalStringToVariant(contact.photoRef));
+    query.bindValue(QStringLiteral(":pgp_key"), optionalStringToVariant(contact.pgpKey));
+    query.bindValue(QStringLiteral(":ims_json"), encodeEntries(contact.ims));
+    query.bindValue(QStringLiteral(":websites_json"), encodeEntries(contact.websites));
+    query.bindValue(QStringLiteral(":relations_json"), encodeEntries(contact.relations));
+    query.bindValue(QStringLiteral(":events_json"), encodeEntries(contact.events));
+    query.bindValue(QStringLiteral(":phonetic_given_name"), optionalStringToVariant(contact.phoneticGivenName));
+    query.bindValue(QStringLiteral(":phonetic_family_name"), optionalStringToVariant(contact.phoneticFamilyName));
+    query.bindValue(QStringLiteral(":department"), optionalStringToVariant(contact.department));
+    query.bindValue(QStringLiteral(":custom_fields_json"), encodeEntries(contact.customFields));
+    query.bindValue(QStringLiteral(":pronouns"), optionalStringToVariant(contact.pronouns));
     return query.exec();
 }
 
