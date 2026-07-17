@@ -62,6 +62,17 @@ Item {
     // instead.
     property bool wasNew: false
 
+    // extended-contact-fields Task 5: group-assignment checkbox list state.
+    // availableGroups is a snapshot of ContactsApp.allGroups() taken when
+    // edit mode is entered (beginEdit()/loadContact()) -- a plain property
+    // rather than a live binding, matching how `contact` itself is a
+    // one-time-copied snapshot the form edits independently of the
+    // read-only card (see the class comment on `contact` above).
+    // editingGroupIds is the in-progress QVariantList<QString> of group ids
+    // the checkboxes toggle membership in; trySave() reads it directly.
+    property var availableGroups: []
+    property var editingGroupIds: []
+
     // Best-effort "has this round-tripped through a successful sync"
     // read, per Task 33's ContactListModel::SyncedRole doc comment (`rev !=
     // 0`) -- same field, same one-line formula, not a second independent
@@ -76,14 +87,49 @@ Item {
     readonly property bool synced: root.contact.rev !== undefined && root.contact.rev !== 0
 
     // label/value pairs for the read-only card, in the brief's specified
-    // Email/Phone/Org/Notes order. A Repeater over this avoids writing the
-    // same RowLayout{SectionLabel+Text} block out four times by hand.
+    // Email/Phone/Org/Notes order, extended (extended-contact-fields Task 5)
+    // with Department/Pronouns/PGP Key/Groups. A Repeater over this avoids
+    // writing the same RowLayout{SectionLabel+Text} block out by hand for
+    // every field.
     readonly property var detailRows: [
         { label: i18nc("contact detail field label, the person's email address", "Email"), value: (root.contact.emails && root.contact.emails.length > 0) ? root.contact.emails[0].value : "" },
         { label: i18n("Phone"), value: (root.contact.phones && root.contact.phones.length > 0) ? root.contact.phones[0].value : "" },
         { label: i18n("Org"), value: root.contact.org || "" },
         { label: i18n("Notes"), value: root.contact.notes || "" },
+        { label: i18n("Department"), value: root.contact.department || "" },
+        { label: i18n("Pronouns"), value: root.contact.pronouns || "" },
+        { label: i18n("PGP Key"), value: root.truncate(root.contact.pgpKey || "", 40) },
+        { label: i18n("Groups"), value: root.groupNamesText() },
     ]
+
+    // Caps a displayed value at `max` characters, matching the existing
+    // detail rows' font.family: Theme.fontMono styling (see the Repeater
+    // delegate below) -- pgpKey values can be arbitrarily long ASCII-armored
+    // blocks, this is deliberately just a display truncation, not a
+    // validation rule.
+    function truncate(value, max) {
+        return value.length > max ? value.substring(0, max) + "…" : value
+    }
+
+    // Resolves root.contact.groupIds (backend group UUIDs) to display names
+    // via ContactsApp.allGroups() (extended-contact-fields Task 5's
+    // companion ContactsController method, backed by Task 2's GroupDao name
+    // cache) and joins them for the single-line "Groups" detail row. Falls
+    // back to the raw id for any uid the cache doesn't (yet) know about --
+    // e.g. GroupsClient degraded on 401/error and the cache is stale/empty --
+    // rather than silently dropping it, so an assigned-but-unresolved group
+    // is still visible.
+    function groupNamesText() {
+        const ids = root.contact.groupIds || []
+        if (ids.length === 0)
+            return ""
+        const groups = ContactsApp.allGroups()
+        const names = ids.map(function (id) {
+            const found = groups.find(function (g) { return g.id === id })
+            return found ? found.name : id
+        })
+        return names.join(", ")
+    }
 
     Component.onCompleted: loadContact()
     onUidChanged: loadContact()
@@ -94,6 +140,7 @@ Item {
         if (root.uid === "") {
             root.wasNew = true
             root.contact = {}
+            root.availableGroups = ContactsApp.allGroups()
             root.mode = "edit"
             clearFormFields()
         } else {
@@ -104,6 +151,7 @@ Item {
     }
 
     function beginEdit() {
+        root.availableGroups = ContactsApp.allGroups()
         loadFormFromContact()
         root.mode = "edit"
     }
@@ -127,6 +175,30 @@ Item {
             notes: notesArea.text,
             email: emailField.text.trim(),
             phone: phoneField.text.trim(),
+            // extended-contact-fields Task 5: every field below is a
+            // whole-value/whole-list replace, matching
+            // ContactsController::createContact/updateContact's documented
+            // contract (see its header doc comment) -- unlike email/phone
+            // above, there is no "preserve extras beyond index 0" rule for
+            // any of these.
+            department: departmentField.text,
+            pronouns: pronounsField.text,
+            phoneticGivenName: phoneticGivenNameField.text,
+            phoneticFamilyName: phoneticFamilyNameField.text,
+            pgpKey: pgpKeyField.text,
+            // Not user-editable in this form (Task 3's lazy fetch/cache
+            // path owns photoRef, see photoPathFor()'s doc comment) -- but
+            // still passed through unchanged rather than omitted. Every key
+            // here is a *whole-value replace* on updateContact, so omitting
+            // it would silently clear an existing photoRef on every edit
+            // save, not just leave it untouched.
+            photoRef: root.contact.photoRef || "",
+            groupIds: root.editingGroupIds,
+            ims: imsField.entries,
+            websites: websitesField.entries,
+            relations: relationsField.entries,
+            events: eventsField.entries,
+            customFields: customFieldsField.entries,
         }
         if (root.wasNew) {
             const newUid = ContactsApp.createContact(fields)
@@ -153,6 +225,16 @@ Item {
         root.closed()
     }
 
+    // Deep-clones a QVariantList<QVariantMap>-derived JS array of entry
+    // objects so RepeaterField's in-place mutation (see that component's
+    // class comment) edits a form-local copy, never the objects still
+    // referenced by root.contact -- same "typing in the form doesn't
+    // live-edit the read-only card underneath it" rule the class comment on
+    // `contact` above already states for the scalar fields.
+    function cloneEntries(list) {
+        return (list || []).map(function (entry) { return Object.assign({}, entry) })
+    }
+
     function loadFormFromContact() {
         nameField.text = root.contact.fn || ""
         orgField.text = root.contact.org || ""
@@ -161,6 +243,20 @@ Item {
         emailField.text = emails.length > 0 ? emails[0].value : ""
         const phones = root.contact.phones || []
         phoneField.text = phones.length > 0 ? phones[0].value : ""
+
+        departmentField.text = root.contact.department || ""
+        pronounsField.text = root.contact.pronouns || ""
+        phoneticGivenNameField.text = root.contact.phoneticGivenName || ""
+        phoneticFamilyNameField.text = root.contact.phoneticFamilyName || ""
+        pgpKeyField.text = root.contact.pgpKey || ""
+
+        root.editingGroupIds = (root.contact.groupIds || []).slice()
+
+        imsField.entries = cloneEntries(root.contact.ims)
+        websitesField.entries = cloneEntries(root.contact.websites)
+        relationsField.entries = cloneEntries(root.contact.relations)
+        eventsField.entries = cloneEntries(root.contact.events)
+        customFieldsField.entries = cloneEntries(root.contact.customFields)
     }
 
     function clearFormFields() {
@@ -169,6 +265,20 @@ Item {
         notesArea.text = ""
         emailField.text = ""
         phoneField.text = ""
+
+        departmentField.text = ""
+        pronounsField.text = ""
+        phoneticGivenNameField.text = ""
+        phoneticFamilyNameField.text = ""
+        pgpKeyField.text = ""
+
+        root.editingGroupIds = []
+
+        imsField.entries = []
+        websitesField.entries = []
+        relationsField.entries = []
+        eventsField.entries = []
+        customFieldsField.entries = []
     }
 
     // Same "up to 2 characters from whitespace-split name parts" shape as
@@ -360,6 +470,143 @@ Item {
                             placeholderText: i18n("Notes…")
                         }
                     }
+                }
+
+                // ---- extended-contact-fields Task 5: scalar fields -------
+
+                ThemedTextField {
+                    id: departmentField
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Department")
+                }
+                ThemedTextField {
+                    id: pronounsField
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Pronouns")
+                }
+                ThemedTextField {
+                    id: phoneticGivenNameField
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Phonetic given name")
+                }
+                ThemedTextField {
+                    id: phoneticFamilyNameField
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Phonetic family name")
+                }
+                ThemedTextField {
+                    id: pgpKeyField
+                    Layout.fillWidth: true
+                    placeholderText: i18n("PGP Key")
+                }
+
+                // ---- extended-contact-fields Task 5: list-typed fields ---
+                // One RepeaterField per list field (see that component's
+                // class comment for the shared design) -- `columns` picks
+                // out however many string sub-fields each entry shape needs
+                // (ims alone needs 3; the rest need 2), `entries` is
+                // populated by loadFormFromContact()/clearFormFields() above
+                // and read back out by trySave().
+
+                SectionLabel { text: i18n("Instant messaging") }
+                RepeaterField {
+                    id: imsField
+                    columns: [
+                        { key: "service", placeholder: i18n("Service") },
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "value", placeholder: i18n("Handle") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Websites") }
+                RepeaterField {
+                    id: websitesField
+                    columns: [
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "value", placeholder: i18n("URL") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Relations") }
+                RepeaterField {
+                    id: relationsField
+                    columns: [
+                        { key: "label", placeholder: i18n("Relation") },
+                        { key: "name", placeholder: i18n("Name") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Events") }
+                RepeaterField {
+                    id: eventsField
+                    columns: [
+                        { key: "label", placeholder: i18n("Event") },
+                        { key: "date", placeholder: i18n("Date (YYYY-MM-DD)") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Custom fields") }
+                RepeaterField {
+                    id: customFieldsField
+                    columns: [
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "value", placeholder: i18n("Value") },
+                    ]
+                }
+
+                // ---- extended-contact-fields Task 5: group assignment ----
+                // Simplest defensible UI per the task brief: a checkbox per
+                // known group (Task 2's GroupDao name cache, via
+                // ContactsApp.allGroups()), no create-new-group affordance --
+                // groups are backend-managed, this client only assigns
+                // existing ones.
+
+                SectionLabel { text: i18n("Groups") }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    visible: root.availableGroups.length > 0
+
+                    Repeater {
+                        model: root.availableGroups
+                        delegate: CheckBox {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            checked: root.editingGroupIds.indexOf(modelData.id) !== -1
+                            // QQC2's implicit `control` id (documented on
+                            // Control's contentItem/background/indicator
+                            // properties) refers back to this CheckBox --
+                            // used here rather than `parent`, which isn't a
+                            // documented/guaranteed way to reach the control
+                            // from inside its own delegate.
+                            contentItem: Text {
+                                text: control.text
+                                color: Theme.inkStrong
+                                font.family: Theme.fontUi
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: control.indicator.width + control.spacing
+                            }
+                            onCheckedChanged: {
+                                const groupId = modelData.id
+                                const updated = root.editingGroupIds.slice()
+                                const idx = updated.indexOf(groupId)
+                                if (checked && idx === -1)
+                                    updated.push(groupId)
+                                else if (!checked && idx !== -1)
+                                    updated.splice(idx, 1)
+                                root.editingGroupIds = updated
+                            }
+                        }
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.availableGroups.length === 0
+                    text: i18n("No groups available")
+                    color: Theme.ink
+                    font.family: Theme.fontUi
+                    font.pixelSize: 12
                 }
 
                 Text {

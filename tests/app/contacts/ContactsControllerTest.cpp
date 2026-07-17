@@ -103,6 +103,7 @@ private slots:
     void syncWithoutPairingSetsNotPairedMessage();
     void syncSuccessRefreshesGroupsCache();
     void createAndUpdateContactRoundTripExtendedFields();
+    void allGroupsReturnsCachedGroupsAsIdNameMaps();
 
 private:
     static void savePairing(PairingStore& pairingStore, quint16 port);
@@ -551,6 +552,69 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     QCOMPARE(updated.value(QStringLiteral("phoneticGivenName")).toString(), QString());
     QCOMPARE(updated.value(QStringLiteral("phoneticFamilyName")).toString(), QString());
     QCOMPARE(updated.value(QStringLiteral("department")).toString(), QString());
+}
+
+void ContactsControllerTest::allGroupsReturnsCachedGroupsAsIdNameMaps()
+{
+    // extended-contact-fields Task 5: allGroups() backs the edit form's
+    // group-assignment checkbox list -- exercises real GroupDao-backed
+    // GroupsRepository::groups() (no fake server / sync() involved, unlike
+    // syncSuccessRefreshesGroupsCache above which tests the *refresh* path;
+    // this tests the *read* path allGroups() adds on top of it).
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    ContactDao contactDao(db.handle());
+    GroupDao groupDao(db.handle());
+    PendingContactChangeDao pendingDao(db.handle());
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursors.ini")));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    ContactSyncClient client(http);
+    GroupsClient groupsClient(http);
+    GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
+
+    ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
+    ContactsController controller(repository, groupsRepository, photoRepository);
+
+    // Empty cache (nothing synced yet) -> empty list, not a crash.
+    QVERIFY(controller.allGroups().isEmpty());
+
+    Group family;
+    family.id = QStringLiteral("group-1");
+    family.name = QStringLiteral("Family");
+    family.rev = 1;
+    QVERIFY(groupDao.insertOrReplace(family));
+
+    Group work;
+    work.id = QStringLiteral("group-2");
+    work.name = QStringLiteral("Work");
+    work.rev = 1;
+    QVERIFY(groupDao.insertOrReplace(work));
+
+    const QVariantList groups = controller.allGroups();
+    QCOMPARE(groups.size(), 2);
+
+    const QVariantMap first = groups.at(0).toMap();
+    QCOMPARE(first.value(QStringLiteral("id")).toString(), QStringLiteral("group-1"));
+    QCOMPARE(first.value(QStringLiteral("name")).toString(), QStringLiteral("Family"));
+
+    const QVariantMap second = groups.at(1).toMap();
+    QCOMPARE(second.value(QStringLiteral("id")).toString(), QStringLiteral("group-2"));
+    QCOMPARE(second.value(QStringLiteral("name")).toString(), QStringLiteral("Work"));
 }
 
 QTEST_GUILESS_MAIN(ContactsControllerTest)

@@ -11,6 +11,7 @@
     <file>components/EmptyState.qml</file>
     <file>components/SectionLabel.qml</file>
     <file>components/ThemedTextField.qml</file>
+    <file>components/RepeaterField.qml</file>
     <file>pages/EmailDetail.qml</file>
     <file>pages/Compose.qml</file>
     <file>pages/ContactsList.qml</file>

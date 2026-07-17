@@ -31,19 +31,25 @@ class ContactPhotoRepository;
 // has no existing contact to preserve extras from, so it just builds a
 // single-entry (or empty) list per field.
 //
-// Extended-contact-fields keys (Task 1 of that feature -- no edit-form UI
-// consumes these yet, but the QVariantMap <-> Contact mapping exists so a
-// later UI task can): groupIds (QVariantList<QString>), photoRef (QString,
-// optional), pgpKey (QString, optional), ims (QVariantList<QVariantMap
-// {service, label, value}>), websites (QVariantList<QVariantMap {label,
-// value}>), relations (QVariantList<QVariantMap {label, name}>), events
-// (QVariantList<QVariantMap {label, date}>), phoneticGivenName (QString,
-// optional), phoneticFamilyName (QString, optional), department (QString,
-// optional), customFields (QVariantList<QVariantMap {label, value}>),
-// pronouns (QString, optional). Unlike email/phone, every one of these is a
-// whole-value/whole-list replace on both createContact and updateContact --
-// there's no existing single-value UI precedent to preserve extras around,
-// per the field-by-field mapping table in task-1-brief.md.
+// Extended-contact-fields keys (Task 1 of that feature; Task 5 wires all of
+// these into ContactDetail.qml's edit form -- see allGroups() below for the
+// one small companion method that feature needed for group-assignment):
+// groupIds (QVariantList<QString>), photoRef (QString, optional), pgpKey
+// (QString, optional), ims (QVariantList<QVariantMap {service, label,
+// value}>), websites (QVariantList<QVariantMap {label, value}>), relations
+// (QVariantList<QVariantMap {label, name}>), events (QVariantList<QVariantMap
+// {label, date}>), phoneticGivenName (QString, optional), phoneticFamilyName
+// (QString, optional), department (QString, optional), customFields
+// (QVariantList<QVariantMap {label, value}>), pronouns (QString, optional).
+// Unlike email/phone, every one of these is a whole-value/whole-list replace
+// on both createContact and updateContact -- there's no existing
+// single-value UI precedent to preserve extras around, per the
+// field-by-field mapping table in task-1-brief.md. photoRef is the one
+// exception the edit form does NOT let the user edit directly (per Task 3,
+// photos are a separate lazy-fetch/cache path via photoPathFor()) -- the
+// form still round-trips whatever value contactAt() gave it unchanged in
+// the fields it sends to createContact/updateContact, since (as with every
+// other key here) omitting it would clear it, not preserve it.
 class ContactsController : public QObject
 {
     Q_OBJECT
@@ -79,6 +85,15 @@ public slots:
     QString createContact(const QVariantMap& fields); // builds a Contact from fields, calls repository.queueCreate(), returns the new local uid ("" on rejection)
     bool updateContact(const QString& uid, const QVariantMap& fields); // loads existing Contact via repository.contacts()/find-by-uid, applies fields, calls repository.queueUpdate(); returns false if uid not found or fn blank
     bool deleteContact(const QString& uid, qint64 rev); // calls repository.queueDelete(uid, rev)
+
+    // extended-contact-fields Task 5: backs the edit form's group-assignment
+    // checkbox list -- QVariantList<QVariantMap {id, name}>, one entry per
+    // m_groupsRepository.groups() (Task 2's local name-cache, refreshed once
+    // per successful contact sync, see sync() above). Empty list if the
+    // cache is empty (never synced yet, or GroupsClient degraded on
+    // 401/error during refresh()) -- QML's checkbox Repeater over an empty
+    // list just renders nothing, no special-casing needed there.
+    Q_INVOKABLE QVariantList allGroups();
 
     // extended-contact-fields Task 3: lazy per-contact photo fetch+cache
     // entry point for QML -- Avatar.qml's photoSource binds to this call

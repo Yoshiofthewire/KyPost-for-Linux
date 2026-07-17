@@ -4,6 +4,7 @@
 #include "domain/ContactSyncRepository.h"
 #include "domain/GroupsRepository.h"
 #include "models/Contact.h"
+#include "models/Group.h"
 
 #include <KLocalizedString>
 
@@ -461,6 +462,20 @@ bool ContactsController::deleteContact(const QString& uid, qint64 rev)
     setLastError(QString());
     load();
     return true;
+}
+
+QVariantList ContactsController::allGroups()
+{
+    QVariantList list;
+    const QVector<Group> groups = m_groupsRepository.groups();
+    list.reserve(groups.size());
+    for (const Group& group : groups) {
+        QVariantMap map;
+        map[QStringLiteral("id")] = group.id;
+        map[QStringLiteral("name")] = group.name;
+        list.append(map);
+    }
+    return list;
 }
 
 QString ContactsController::photoPathFor(const QString& uid)
