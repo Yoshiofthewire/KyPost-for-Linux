@@ -5,14 +5,17 @@
 #include "db/Database.h"
 #include "db/GroupDao.h"
 #include "db/PendingContactChangeDao.h"
+#include "domain/ContactPhotoRepository.h"
 #include "domain/ContactSyncRepository.h"
 #include "domain/DevicePairing.h"
 #include "domain/GroupsRepository.h"
 #include "domain/PairingStore.h"
 #include "models/Group.h"
+#include "net/ContactPhotoClient.h"
 #include "net/ContactSyncClient.h"
 #include "net/GroupsClient.h"
 #include "net/HttpClient.h"
+#include "stores/ContactPhotoCache.h"
 #include "stores/CursorStore.h"
 #include "stores/SecureStoreFile.h"
 
@@ -143,6 +146,15 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
 
@@ -154,7 +166,7 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
                      ContactEmailEntry{ QStringLiteral("work"), QStringLiteral("extra@example.com") } };
     QVERIFY(contactDao.insertOrReplace(seed));
 
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QStringLiteral("New Name");
@@ -204,9 +216,18 @@ void ContactsControllerTest::createContactRejectsBlankName()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QSignalSpy errorSpy(&controller, &ContactsController::lastErrorChanged);
 
@@ -243,6 +264,15 @@ void ContactsControllerTest::updateContactRejectsBlankName()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
 
@@ -252,7 +282,7 @@ void ContactsControllerTest::updateContactRejectsBlankName()
     seed.fn = QStringLiteral("Old Name");
     QVERIFY(contactDao.insertOrReplace(seed));
 
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QString();
@@ -287,9 +317,18 @@ void ContactsControllerTest::syncWithoutPairingSetsNotPairedMessage()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QSignalSpy errorSpy(&controller, &ContactsController::lastErrorChanged);
     QSignalSpy statusSpy(&controller, &ContactsController::statusMessageChanged);
@@ -347,9 +386,18 @@ void ContactsControllerTest::syncSuccessRefreshesGroupsCache()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QVERIFY(groupsRepository.groups().isEmpty()); // nothing cached before sync()
 
@@ -393,9 +441,18 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     ContactSyncClient client(http);
     GroupsClient groupsClient(http);
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: ContactsController's third constructor
+    // dependency -- these tests don't exercise photoPathFor() itself
+    // (that's ContactPhotoRepositoryTest's job), so a plain never-populated
+    // cache dir is enough to satisfy the constructor.
+    ContactPhotoClient photoClient(http);
+    QTemporaryDir photoCacheDir;
+    QVERIFY(photoCacheDir.isValid());
+    ContactPhotoCache photoCache(photoCacheDir.path());
+    ContactPhotoRepository photoRepository(photoClient, photoCache, pairingStore);
 
     ContactSyncRepository repository(client, contactDao, pendingDao, cursorStore, pairingStore);
-    ContactsController controller(repository, groupsRepository);
+    ContactsController controller(repository, groupsRepository, photoRepository);
 
     QVariantMap imEntry;
     imEntry[QStringLiteral("service")] = QStringLiteral("Matrix");

@@ -32,6 +32,7 @@ Contact ContactListModelTest::sampleContact()
     contact.emails = { ContactEmailEntry{ std::nullopt, QStringLiteral("ada@example.com") },
                         ContactEmailEntry{ QStringLiteral("work"), QStringLiteral("ada.work@example.com") } };
     contact.phones = { ContactPhoneEntry{ std::nullopt, QStringLiteral("555-1234") } };
+    contact.photoRef = QStringLiteral("photo-ref-1");
     return contact;
 }
 
@@ -67,14 +68,16 @@ void ContactListModelTest::dataRoundTripsEveryRoleForAPopulatedRow()
     QCOMPARE(model.data(index, ContactListModel::PrimaryEmailRole).toString(), QStringLiteral("ada@example.com"));
     QCOMPARE(model.data(index, ContactListModel::PrimaryPhoneRole).toString(), QStringLiteral("555-1234"));
     QCOMPARE(model.data(index, ContactListModel::SyncedRole).toBool(), true); // rev == 3, not 0
+    QCOMPARE(model.data(index, ContactListModel::PhotoRefRole).toString(), QStringLiteral("photo-ref-1"));
 
-    // roleNames() must expose exactly these 10 role-name strings for QML.
+    // roleNames() must expose exactly these 11 role-name strings for QML.
     const QHash<int, QByteArray> roles = model.roleNames();
-    QCOMPARE(roles.size(), 10);
+    QCOMPARE(roles.size(), 11);
     QCOMPARE(roles.value(ContactListModel::UidRole), QByteArrayLiteral("uid"));
     QCOMPARE(roles.value(ContactListModel::PrimaryEmailRole), QByteArrayLiteral("primaryEmail"));
     QCOMPARE(roles.value(ContactListModel::PrimaryPhoneRole), QByteArrayLiteral("primaryPhone"));
     QCOMPARE(roles.value(ContactListModel::SyncedRole), QByteArrayLiteral("synced"));
+    QCOMPARE(roles.value(ContactListModel::PhotoRefRole), QByteArrayLiteral("photoRef"));
 }
 
 void ContactListModelTest::syncedRoleReflectsRevZeroVsNonZero()

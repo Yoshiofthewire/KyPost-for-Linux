@@ -223,6 +223,13 @@ Item {
 
                     Avatar {
                         initials: root.initialsFor(root.contact.fn)
+                        // extended-contact-fields Task 3: fetch lazily on
+                        // contact-detail open -- root.contact is already
+                        // ContactsApp.contactAt(uid)'s full result (loaded
+                        // by loadContact() below), so photoRef is available
+                        // here with no extra model wiring, unlike
+                        // ContactsList.qml's row delegate.
+                        photoSource: root.contact.photoRef ? ContactsApp.photoPathFor(root.contact.uid) : ""
                         size: 72
                     }
 

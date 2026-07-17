@@ -8,6 +8,7 @@
 
 class ContactSyncRepository;
 class GroupsRepository;
+class ContactPhotoRepository;
 
 // QML-facing bridge (Task 33) over core/domain's ContactSyncRepository.
 // Registered as the "ContactsApp" QML singleton in main.cpp. Every method
@@ -58,8 +59,13 @@ public:
     // for why only on Success), matching this repo's existing
     // mandatory-reference constructor-injection convention (no optional/
     // nullable dependencies elsewhere in app/contacts/ or core/domain/).
+    // photoRepository: extended-contact-fields Task 3's lazy per-contact
+    // photo fetch+cache (core/domain/ContactPhotoRepository.h) -- called
+    // only from photoPathFor() below, on demand, never from sync() (photos
+    // are deliberately NOT part of the bulk contact sync payload, per
+    // task-3-brief.md).
     ContactsController(ContactSyncRepository& repository, GroupsRepository& groupsRepository,
-                        QObject* parent = nullptr);
+                        ContactPhotoRepository& photoRepository, QObject* parent = nullptr);
 
     QObject* contactModel() const;
     bool isBusy() const;
@@ -74,6 +80,21 @@ public slots:
     bool updateContact(const QString& uid, const QVariantMap& fields); // loads existing Contact via repository.contacts()/find-by-uid, applies fields, calls repository.queueUpdate(); returns false if uid not found or fn blank
     bool deleteContact(const QString& uid, qint64 rev); // calls repository.queueDelete(uid, rev)
 
+    // extended-contact-fields Task 3: lazy per-contact photo fetch+cache
+    // entry point for QML -- Avatar.qml's photoSource binds to this call
+    // (ContactsList.qml's row delegate / ContactDetail.qml's read-only
+    // card), not to any property, so it re-runs per row/detail-open the
+    // same way contactAt() already does. Looks up uid's Contact via
+    // repository.contacts(), and if it has a non-empty photoRef, delegates
+    // to photoRepository.photoPathFor() (cache hit or synchronous
+    // fetch-then-cache -- see that class's doc comment for the same
+    // synchronous-on-GUI-thread tradeoff sync() above already carries).
+    // Returns a file:// URL string ready for Image.source, or "" if there's
+    // no photoRef, no pairing, or the fetch failed -- Avatar.qml's fallback
+    // to initials handles every one of those "" cases identically, so this
+    // never needs to distinguish them for QML.
+    QString photoPathFor(const QString& uid);
+
 signals:
     void isBusyChanged();
     void lastErrorChanged();
@@ -86,6 +107,7 @@ private:
 
     ContactSyncRepository& m_repository;
     GroupsRepository& m_groupsRepository;
+    ContactPhotoRepository& m_photoRepository;
     ContactListModel* m_model; // owned, parented to this
     bool m_isBusy = false;
     QString m_lastError;

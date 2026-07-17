@@ -1,11 +1,13 @@
 #include "contacts/ContactsController.h"
 
+#include "domain/ContactPhotoRepository.h"
 #include "domain/ContactSyncRepository.h"
 #include "domain/GroupsRepository.h"
 #include "models/Contact.h"
 
 #include <KLocalizedString>
 
+#include <QUrl>
 #include <QVariantList>
 #include <algorithm>
 
@@ -203,10 +205,11 @@ std::optional<Contact> findByUid(const QVector<Contact>& contacts, const QString
 } // namespace
 
 ContactsController::ContactsController(ContactSyncRepository& repository, GroupsRepository& groupsRepository,
-                                         QObject* parent)
+                                         ContactPhotoRepository& photoRepository, QObject* parent)
     : QObject(parent)
     , m_repository(repository)
     , m_groupsRepository(groupsRepository)
+    , m_photoRepository(photoRepository)
     , m_model(new ContactListModel(this))
 {
     // Deliberately does NOT call load() here -- matches MailController's
@@ -458,4 +461,16 @@ bool ContactsController::deleteContact(const QString& uid, qint64 rev)
     setLastError(QString());
     load();
     return true;
+}
+
+QString ContactsController::photoPathFor(const QString& uid)
+{
+    const std::optional<Contact> found = findByUid(m_repository.contacts(), uid);
+    if (!found || !found->photoRef.has_value() || found->photoRef->isEmpty())
+        return QString();
+
+    const QString path = m_photoRepository.photoPathFor(uid, *found->photoRef);
+    if (path.isEmpty())
+        return QString();
+    return QUrl::fromLocalFile(path).toString();
 }

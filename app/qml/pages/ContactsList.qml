@@ -124,6 +124,17 @@ Item {
 
                     Avatar {
                         initials: root.initialsFor(model.fn)
+                        // extended-contact-fields Task 3: lazy fetch on
+                        // list-row become-visible -- ListView only
+                        // instantiates delegates for (roughly) visible
+                        // rows, so this call naturally fires per row as it
+                        // scrolls into view, not for the whole contact
+                        // list up front. Guarded on model.photoRef so rows
+                        // with no photo never make the ContactsApp call at
+                        // all (photoPathFor() itself also short-circuits on
+                        // an empty photoRef, but skipping the call here
+                        // avoids it entirely for the common no-photo case).
+                        photoSource: model.photoRef !== "" ? ContactsApp.photoPathFor(model.uid) : ""
                         size: 34
                     }
 

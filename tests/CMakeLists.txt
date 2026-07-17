@@ -26,6 +26,7 @@ llama_add_test(NativeContactLinkDaoTest core/db/NativeContactLinkDaoTest.cpp)
 llama_add_test(SettingsStoreTest core/stores/SettingsStoreTest.cpp)
 llama_add_test(CursorStoreTest core/stores/CursorStoreTest.cpp)
 llama_add_test(SecureStoreFileTest core/stores/SecureStoreFileTest.cpp)
+llama_add_test(ContactPhotoCacheTest core/stores/ContactPhotoCacheTest.cpp)
 
 llama_add_test(PairingStoreTest core/domain/PairingStoreTest.cpp)
 llama_add_test(DeviceRegistrationServiceTest core/domain/DeviceRegistrationServiceTest.cpp)
@@ -35,6 +36,7 @@ llama_add_test(ContactSyncReconciliationTest core/domain/ContactSyncReconciliati
 llama_add_test(NativeContactReconciliationTest core/domain/NativeContactReconciliationTest.cpp)
 llama_add_test(ContactSyncRepositoryTest core/domain/ContactSyncRepositoryTest.cpp)
 llama_add_test(GroupsRepositoryTest core/domain/GroupsRepositoryTest.cpp)
+llama_add_test(ContactPhotoRepositoryTest core/domain/ContactPhotoRepositoryTest.cpp)
 llama_add_test(PushRepositoryTest core/domain/PushRepositoryTest.cpp)
 llama_add_test(TransportStateMachineTest core/domain/TransportStateMachineTest.cpp)
 
@@ -45,6 +47,7 @@ llama_add_test(PushNotificationClientTest core/net/PushNotificationClientTest.cp
 llama_add_test(MfaResponseClientTest core/net/MfaResponseClientTest.cpp)
 llama_add_test(ContactSyncClientTest core/net/ContactSyncClientTest.cpp)
 llama_add_test(GroupsClientTest core/net/GroupsClientTest.cpp)
+llama_add_test(ContactPhotoClientTest core/net/ContactPhotoClientTest.cpp)
 llama_add_test(RelayMailSourceTest core/net/RelayMailSourceTest.cpp)
 llama_add_test(NtfySubscriberTest core/net/NtfySubscriberTest.cpp)
 

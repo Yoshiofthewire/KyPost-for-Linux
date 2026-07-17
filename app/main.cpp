@@ -16,6 +16,7 @@
 #include "db/GroupDao.h"
 #include "db/PendingContactChangeDao.h"
 #include "db/PushDao.h"
+#include "domain/ContactPhotoRepository.h"
 #include "domain/ContactSyncRepository.h"
 #include "domain/DeviceRegistrationService.h"
 #include "domain/GroupsRepository.h"
@@ -25,6 +26,7 @@
 #include "domain/PushRepository.h"
 #include "domain/TransportStateMachine.h"
 #include "models/PushNotification.h"
+#include "net/ContactPhotoClient.h"
 #include "net/ContactSyncClient.h"
 #include "net/GroupsClient.h"
 #include "net/HttpClient.h"
@@ -33,6 +35,7 @@
 #include "net/NtfySubscriber.h"
 #include "net/PushNotificationClient.h"
 #include "net/RelayMailSource.h"
+#include "stores/ContactPhotoCache.h"
 #include "stores/CursorStore.h"
 #include "stores/SettingsStore.h"
 
@@ -266,6 +269,14 @@ int main(int argc, char* argv[])
     if (!database.open(dataDir + QStringLiteral("/llamamail.db")))
         qFatal("main: Database::open failed for %s", qPrintable(dataDir + QStringLiteral("/llamamail.db")));
 
+    // extended-contact-fields Task 3: on-disk cache for fetched contact
+    // photo bytes, keyed by Contact::photoRef -- reuses the same
+    // AppDataLocation dataDir already resolved for the SQLite database
+    // above, in its own "contact-photos" subdirectory (see
+    // core/stores/ContactPhotoCache.h's doc comment for why no invalidation
+    // logic is needed here).
+    ContactPhotoCache contactPhotoCache(dataDir + QStringLiteral("/contact-photos"));
+
     // 2. DAOs, each borrowing database.handle(). FolderDao/PushDao have no
     // Phase 6 caller yet -- constructed anyway per the task-31 brief, since
     // they're part of the schema Phase 2 already built and future phases
@@ -308,6 +319,9 @@ int main(int argc, char* argv[])
     // extended-contact-fields Task 2: GET /api/groups, this repo's first
     // per-resource GET client -- see core/net/GroupsClient.h.
     GroupsClient groupsClient(httpClient);
+    // extended-contact-fields Task 3: GET /api/contacts/{id}/photo, this
+    // repo's second per-resource GET client -- see core/net/ContactPhotoClient.h.
+    ContactPhotoClient contactPhotoClient(httpClient);
 
     // 8. core/domain repositories -- the layer Tasks 32-34's QML-facing
     // controllers actually call into.
@@ -318,6 +332,11 @@ int main(int argc, char* argv[])
     // below, deliberately kept separate from ContactSyncRepository itself
     // (see GroupsRepository.h's doc comment for why).
     GroupsRepository groupsRepository(groupsClient, groupDao, pairingStore);
+    // extended-contact-fields Task 3: lazy per-contact photo fetch+cache,
+    // called on demand from ContactsController::photoPathFor() below (never
+    // from sync()) -- see core/domain/ContactPhotoRepository.h's doc
+    // comment.
+    ContactPhotoRepository contactPhotoRepository(contactPhotoClient, contactPhotoCache, pairingStore);
     ContactSyncRepository contactSyncRepository(contactSyncClient, contactDao, pendingContactChangeDao,
                                                  cursorStore, pairingStore);
     DeviceRegistrationService deviceRegistrationService(nativeRegistrationClient, pairingStore, settingsStore);
@@ -407,7 +426,7 @@ int main(int argc, char* argv[])
     // the GUI thread synchronously, same accepted tradeoff as MailController
     // above (see global constraint 2). Its model starts empty until QML
     // calls load()/sync() -- see ContactsController's constructor comment.
-    ContactsController contactsController(contactSyncRepository, groupsRepository);
+    ContactsController contactsController(contactSyncRepository, groupsRepository, contactPhotoRepository);
     qmlRegisterSingletonInstance<ContactsController>(
         "com.urlxl.LlamaMail", 1, 0, "ContactsApp", &contactsController);
 

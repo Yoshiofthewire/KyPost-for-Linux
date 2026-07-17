@@ -25,16 +25,35 @@ Rectangle {
     // Public API.
     property string initials: ""
     property int size: 34
+    // extended-contact-fields Task 3: a file:// URL (or "") to a cached
+    // contact photo -- see ContactsController::photoPathFor(). Empty string
+    // (the default) means "no photo available", which keeps the gradient +
+    // initials rendering below exactly as it was before this property
+    // existed; every existing caller that never sets this is unaffected.
+    property string photoSource: ""
 
     width: root.size
     height: root.size
     radius: width / 2
     border.width: 1
     border.color: Theme.line
+    // Needed so the Image below (a plain rectangular Image) is visually
+    // clipped down to this Rectangle's circular radius instead of showing
+    // square corners poking out past the circle.
+    clip: true
 
     gradient: Gradient {
         GradientStop { position: 0.0; color: Theme.accent }
         GradientStop { position: 1.0; color: Theme.accentSoft }
+    }
+
+    Image {
+        anchors.fill: parent
+        source: root.photoSource
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        smooth: true
+        visible: root.photoSource !== ""
     }
 
     Text {
@@ -44,5 +63,10 @@ Rectangle {
         font.family: Theme.fontUi
         font.pixelSize: Math.round(root.size * 0.4)
         font.weight: Font.Medium
+        // Falls back to initials whenever there's no photo -- unchanged
+        // behavior from before this property existed, just now made
+        // explicit via a `visible` binding instead of being the only
+        // possible rendering.
+        visible: root.photoSource === ""
     }
 }

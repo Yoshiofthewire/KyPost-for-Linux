@@ -24,6 +24,8 @@ add_library(llamacore STATIC
   domain/ContactSyncRepository.h
   domain/GroupsRepository.cpp
   domain/GroupsRepository.h
+  domain/ContactPhotoRepository.cpp
+  domain/ContactPhotoRepository.h
   domain/PushRepository.cpp
   domain/PushRepository.h
   domain/TransportStateMachine.cpp
@@ -52,6 +54,8 @@ add_library(llamacore STATIC
   stores/SecureStore.h
   stores/SecureStoreFile.cpp
   stores/SecureStoreFile.h
+  stores/ContactPhotoCache.cpp
+  stores/ContactPhotoCache.h
   net/NetworkError.cpp
   net/NetworkError.h
   net/RelayAuth.h
@@ -67,6 +71,8 @@ add_library(llamacore STATIC
   net/ContactSyncClient.h
   net/GroupsClient.cpp
   net/GroupsClient.h
+  net/ContactPhotoClient.cpp
+  net/ContactPhotoClient.h
   net/RelayMailSource.cpp
   net/RelayMailSource.h
   net/NtfySubscriber.cpp

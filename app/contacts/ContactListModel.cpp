@@ -39,6 +39,8 @@ QVariant ContactListModel::data(const QModelIndex& index, int role) const
         return contact.phones.isEmpty() ? QString() : contact.phones.first().value;
     case SyncedRole:
         return contact.rev != 0; // see the class doc comment in ContactListModel.h
+    case PhotoRefRole:
+        return contact.photoRef.value_or(QString());
     default:
         return QVariant();
     }
@@ -57,6 +59,7 @@ QHash<int, QByteArray> ContactListModel::roleNames() const
         { PrimaryEmailRole, "primaryEmail" },
         { PrimaryPhoneRole, "primaryPhone" },
         { SyncedRole, "synced" },
+        { PhotoRefRole, "photoRef" },
     };
 }
 

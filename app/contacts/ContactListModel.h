@@ -59,6 +59,16 @@ public:
         PrimaryEmailRole,
         PrimaryPhoneRole,
         SyncedRole,
+        // extended-contact-fields Task 3: exposes Contact::photoRef to
+        // ContactsList.qml's row delegate so it can call
+        // ContactsApp.photoPathFor(model.uid) for its Avatar -- deliberately
+        // NOT added back in Task 1, which left this model untouched since
+        // nothing consumed photoRef from a list row yet (see this class's
+        // own doc comment: primaryEmail/primaryPhone are the only two
+        // derived-from-nested-data roles this model exposes, everything
+        // else is a scalar Contact field, and photoRef is the same shape as
+        // those).
+        PhotoRefRole,
     };
 
     explicit ContactListModel(QObject* parent = nullptr);
