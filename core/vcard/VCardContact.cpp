@@ -365,6 +365,9 @@ QString contactToVCard(const Contact& contact)
             + escapeText(im.value));
     }
     for (const ContactUrlEntry& website : contact.websites) {
+        // URL;X-LABEL=: vCard 3.0's URL property has no standard label
+        // parameter -- unverified against a real KAddressBook/EDS export,
+        // re-check when Task 7/8 lands a real backend.
         lines << foldLine(
             QStringLiteral("URL") + xLabelParamForWrite(website.label) + QLatin1Char(':') + escapeText(website.value));
     }
