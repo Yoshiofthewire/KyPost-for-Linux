@@ -37,23 +37,100 @@ Rectangle {
     radius: width / 2
     border.width: 1
     border.color: Theme.line
-    // Needed so the Image below (a plain rectangular Image) is visually
-    // clipped down to this Rectangle's circular radius instead of showing
-    // square corners poking out past the circle.
-    clip: true
+    // Rectangle paints its own fill/border as a genuine rounded shape
+    // (that's why the gradient-only avatar below was always circular,
+    // with no `clip` involved) -- but per Qt's `Item.clip` docs, `clip`
+    // only ever clips an item *and its children* to the item's
+    // axis-aligned bounding rectangle, never to a radius-rounded shape.
+    // A plain child `Image { anchors.fill: parent }` therefore cannot be
+    // clipped to this circle via `clip: true` -- it would paint a full
+    // square, corners poking past the circular gradient/border. See the
+    // Canvas-based photo painting below for how the photo is actually
+    // clipped to the circle instead.
 
     gradient: Gradient {
         GradientStop { position: 0.0; color: Theme.accent }
         GradientStop { position: 1.0; color: Theme.accentSoft }
     }
 
+    // extended-contact-fields Task 3 review fix: hidden loader for the
+    // photo. Deliberately not anchored/sized -- per Image's own docs,
+    // "If the width and height properties are not specified, the Image
+    // automatically uses the size of the loaded image," so once
+    // `status === Image.Ready`, `width`/`height` below hold the photo's
+    // natural pixel dimensions, which is exactly what the aspect-crop
+    // math in Canvas.onPaint needs. Never visible itself -- Canvas below
+    // is what actually paints the (circularly clipped) photo.
     Image {
-        anchors.fill: parent
+        id: photoImage
         source: root.photoSource
-        fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        smooth: true
+        visible: false
+        onStatusChanged: photoCanvas.requestPaint()
+    }
+
+    // Paints `photoImage` clipped to this avatar's circle. `Canvas`
+    // ships with the base `QtQuick` module (no new CMake/QML-import
+    // dependency, unlike Qt5Compat.GraphicalEffects / QtQuick.Effects --
+    // see the judgment-call comment on the gradient above for why those
+    // remain out) and its Context2D exposes real path-based clipping:
+    // per the Context2D docs, `clip()` "Creates the clipping region from
+    // the current path. Any parts of the shape outside the clipping path
+    // are not displayed," and `drawImage()`'s own docs state the drawn
+    // image "is subject to the current context clip path." So
+    // beginPath()+arc()+clip() before drawImage() below produces a real
+    // circular clip, unlike the removed `clip: true` above.
+    Canvas {
+        id: photoCanvas
+        anchors.fill: parent
         visible: root.photoSource !== ""
+        antialiasing: true
+
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+
+        onPaint: {
+            var ctx = getContext("2d");
+            ctx.reset();
+
+            if (photoImage.status !== Image.Ready || photoImage.width <= 0 || photoImage.height <= 0)
+                return;
+
+            var cw = width;
+            var ch = height;
+            var iw = photoImage.width;
+            var ih = photoImage.height;
+
+            // Reproduce Image.PreserveAspectCrop by hand: pick the
+            // largest centered source rect out of the loaded image whose
+            // aspect ratio matches the canvas, then stretch that rect to
+            // fill the whole canvas -- the same "scale uniformly to
+            // fill, cropping if necessary" PreserveAspectCrop describes,
+            // just computed manually since Context2D has no fill-mode
+            // concept of its own.
+            var srcAspect = iw / ih;
+            var dstAspect = cw / ch;
+            var sx, sy, sw, sh;
+            if (srcAspect > dstAspect) {
+                sh = ih;
+                sw = ih * dstAspect;
+                sx = (iw - sw) / 2;
+                sy = 0;
+            } else {
+                sw = iw;
+                sh = iw / dstAspect;
+                sx = 0;
+                sy = (ih - sh) / 2;
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cw / 2, ch / 2, Math.min(cw, ch) / 2, 0, 2 * Math.PI, false);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(photoImage, sx, sy, sw, sh, 0, 0, cw, ch);
+            ctx.restore();
+        }
     }
 
     Text {
