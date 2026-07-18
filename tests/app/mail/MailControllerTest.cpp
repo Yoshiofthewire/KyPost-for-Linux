@@ -31,6 +31,7 @@ private slots:
     void selectKeywordFiltersCachedEmailsWithoutAnyNetworkCall();
     void archiveEmailsNotPairedShortCircuitsWithNoNetworkCall();
     void sendMailOverAttachmentCapRejectsBeforeAnyNetworkCall();
+    void sendMailUsesHtmlSendMode();
     void downloadAttachmentSanitizesPathTraversalInSuggestedName();
     void downloadAttachmentSanitizesPathTraversalInServerFilename();
     void findByMessageIdReturnsMapForCachedEmailAndEmptyMapWhenMissing();
@@ -229,6 +230,45 @@ void MailControllerTest::sendMailOverAttachmentCapRejectsBeforeAnyNetworkCall()
     QCOMPARE(ok, false);
     QVERIFY(controller.lastError().contains(QStringLiteral("25 MB")));
     QVERIFY(fake.receivedRequest().isEmpty());
+}
+
+void MailControllerTest::sendMailUsesHtmlSendMode()
+{
+    Database db;
+    QVERIFY(db.open(QStringLiteral(":memory:")));
+    EmailDao emailDao(db.handle());
+
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"ok":true,"sentSaved":true,"warning":""})"));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+    savePairing(pairingStore, fake.port());
+
+    QTemporaryDir cursorDir;
+    QVERIFY(cursorDir.isValid());
+    CursorStore cursorStore(cursorDir.filePath(QStringLiteral("cursor.ini")));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+    KeywordRepository keywordRepository(settingsStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    RelayMailSource source(http);
+    MailRepository mailRepository(source, emailDao, pairingStore, cursorStore);
+
+    MailController controller(mailRepository, source, keywordRepository, pairingStore);
+
+    const bool ok = controller.sendMail(QStringLiteral("to@example.com"), QString(), QString(),
+                                         QStringLiteral("Subject"), QStringLiteral("<b>Body</b>"), {});
+
+    QCOMPARE(ok, true);
+    const QJsonObject sent = fake.receivedJsonBody();
+    QCOMPARE(sent.value(QStringLiteral("mode")).toString(), QStringLiteral("html"));
+    QCOMPARE(sent.value(QStringLiteral("body")).toString(), QStringLiteral("<b>Body</b>"));
 }
 
 void MailControllerTest::downloadAttachmentSanitizesPathTraversalInSuggestedName()

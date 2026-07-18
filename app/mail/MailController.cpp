@@ -261,7 +261,7 @@ bool MailController::sendMail(const QString& to, const QString& cc, const QStrin
 
     setBusy(true);
     const SendMailResult result = m_relayMailSource.sendMail(serverBaseUrl, auth, to, cc, bcc, subject, body,
-                                                               QStringLiteral("plain"), attachments);
+                                                               QStringLiteral("html"), attachments);
     setBusy(false);
 
     if (result.error.has_value() || !result.ok) {

@@ -66,7 +66,9 @@ public slots:
     bool deleteEmails(const QStringList& messageIds);
     bool markSpam(const QStringList& messageIds);
     bool moveEmails(const QStringList& messageIds, const QString& targetFolder);
-    // mode is hardcoded "plain" per Phase 6 global constraint 5. Reads each
+    // mode is hardcoded "html" -- Compose.qml's RichBodyEditor is the sole
+    // caller and always produces sanitized HTML (see
+    // docs/superpowers/specs/2026-07-18-html-compose-design.md). Reads each
     // local file path via QFile, derives mimeType via QMimeDatabase, and
     // enforces a 25 MB total-bytes cap across all attachments before calling
     // relayMailSource.sendMail -- returns false + sets lastError (without
