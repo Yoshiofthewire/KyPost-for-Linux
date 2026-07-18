@@ -72,6 +72,26 @@
 # `find_package(Qt6Keychain REQUIRED)`) -- highly likely since these are the
 # same upstream projects' own CMake exports repackaged, not KDE/neon
 # inventions, but not something inspecting a Packages index can prove.
+#
+# Update 2026-07-18: this job started failing at Configure once the PGP QR
+# key exchange feature landed (`find_package(ZXing CONFIG REQUIRED)` and
+# `find_package(Qt6 REQUIRED COMPONENTS Multimedia)` in app/CMakeLists.txt)
+# -- neither dependency was ever added to the apt list below when that
+# feature was added, and the gap wasn't caught locally because the
+# developer's own machine already had a suitable system zxing-cpp. Root
+# cause confirmed with a real ubuntu:24.04 Docker rebuild of this exact job:
+# qt6-multimedia-dev closes the Qt6Multimedia gap (added to the neon archive
+# alongside the rest of this job's Qt packages, version-matched at 6.11.1),
+# but no apt package closes the ZXing gap the same way -- Ubuntu noble's own
+# libzxing-dev is 2.2.1-3, whose headers predate CreateBarcode.h/
+# WriteBarcode.h that PgpQrController.cpp uses (confirmed by extracting that
+# .deb directly), and neon's archive doesn't package zxing-cpp at all. This
+# project already solved that exact gap for the Flatpak manifest
+# (packaging/flatpak/com.urlxl.mail.json) by building zxing-cpp v3.1.0 from
+# source, so this job now does the same (see the dedicated step below) --
+# simplified since, unlike flatpak-builder's network-isolated build phase,
+# this runner has network access throughout, so ZXING_DEPENDENCIES' default
+# AUTO setting can fetch the `stb` single-header dependency itself.
 name: CI
 
 on:
@@ -119,6 +139,7 @@ jobs:
             qt6-base-dev \
             qt6-declarative-dev \
             qt6-webengine-dev \
+            qt6-multimedia-dev \
             libqt6sql6-sqlite \
             libkf6kirigami2-dev \
             libkf6notifications-dev \
@@ -126,6 +147,36 @@ jobs:
             libkf6i18n-dev \
             qtkeychain-qt6-dev \
             kunifiedpush-dev
+
+      # ZXing (zxing-cpp) backs the PGP QR key exchange feature's
+      # encode/decode (app/pgp/PgpQrController.cpp, app/pgp/PgpQrScanner.cpp
+      # -- app/CMakeLists.txt's `find_package(ZXing CONFIG REQUIRED)`). Not
+      # installable via apt here: Ubuntu noble's universe archive only
+      # carries libzxing-dev 2.2.1-3, whose headers predate
+      # CreateBarcode.h/WriteBarcode.h (confirmed by inspecting that .deb's
+      # contents directly -- neither file is present), and KDE neon's "user"
+      # archive added above doesn't package zxing-cpp at all. Built from
+      # source instead, pinned to the same v3.1.0 tag/commit the Flatpak
+      # manifest (packaging/flatpak/com.urlxl.mail.json) already builds for
+      # the identical reason -- see that manifest's own comments for the
+      # version research. Unlike that manifest's sandboxed, network-isolated
+      # build phase, this runner has network access throughout, so the
+      # default ZXING_DEPENDENCIES=AUTO can fetch the `stb` single-header
+      # dependency itself; no need to vendor it or force LOCAL.
+      - name: Build zxing-cpp (ZXing) from source
+        run: |
+          git clone --recurse-submodules --branch v3.1.0 --depth 1 \
+            https://github.com/zxing-cpp/zxing-cpp.git /tmp/zxing-cpp
+          cmake -B /tmp/zxing-cpp/build -S /tmp/zxing-cpp -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DZXING_READERS=ON \
+            -DZXING_WRITERS=ON \
+            -DZXING_EXAMPLES=OFF \
+            -DZXING_UNIT_TESTS=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Doxygen=ON
+          cmake --build /tmp/zxing-cpp/build
+          sudo cmake --install /tmp/zxing-cpp/build
 
       - name: Configure
         run: cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
