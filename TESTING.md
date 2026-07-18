@@ -400,18 +400,50 @@ accounts) to exercise the full handshake.
       only findings are one `warning` (missing homepage — explicitly
       accepted) and one `info`/`pedantic` each — **no `error`-severity
       issues**, which is the actual bar.
-- [ ] **`flatpak-builder` — build the manifest and confirm exactly where it
-      stops.** Run:
+- [x] **`flatpak-builder` — build the manifest and confirm it produces a
+      runnable app.** Run:
       `flatpak-builder --user --force-clean --install-deps-from=flathub
-      <builddir> packaging/flatpak/com.urlxl.mail.json`. Expected
-      *today*: the `org.kde.Sdk//6.10`/`org.kde.Platform//6.10` runtime and
-      the from-source `qtkeychain` module (pinned `0.17.0`, no Flatpak/KDE
-      equivalent exists) resolve and build cleanly, and the build reaches
-      the `llamamail` module's CMake configure step — where it **fails**:
-      `Could not find Qt6WebEngineQuick`. This is a real, confirmed,
-      currently-open gap (Task 47), not something to "fix" during a
-      testing pass — see "Known non-goals" below. Do not expect a
-      complete, runnable Flatpak build from this manifest right now.
+      <builddir> packaging/flatpak/com.urlxl.mail.json`. **Resolved
+      (2026-07-17), confirmed via a real from-scratch build + launch, not
+      just reasoning:** the manifest now declares `base:
+      io.qt.qtwebengine.BaseApp` / `base-version: 6.10` (a real, published
+      Flathub extension on this exact branch — the earlier "tops out at 6.4"
+      assumption was stale), closing the `Could not find Qt6WebEngineQuick`
+      gap with zero source rebuild. Three further real, previously-latent
+      issues were found and fixed in the same pass, each confirmed via an
+      actual failing build before the fix and a clean one after:
+      (1) `zxing-cpp`'s `docs/CMakeLists.txt` unconditionally fetches
+      `doxygen-awesome-css` from `github.com` at configure time whenever
+      Doxygen is present (it is, on `org.kde.Sdk//6.10`) — fails
+      deterministically in the network-isolated build sandbox; fixed via
+      `-DCMAKE_DISABLE_FIND_PACKAGE_Doxygen=ON`. (2) `zxing-cpp`'s C wrapper
+      requires `stb` via `pkg-config REQUIRED` (not packaged on the SDK, and
+      `ZXING_DEPENDENCIES=LOCAL` disables its FetchContent fallback) — fixed
+      by vendoring `stb` as a plain Flatpak source with
+      `-DSTB_IMAGE_INCLUDE_DIR` pointing at it. (3) the GitHub release
+      tarball for `zxing-cpp` v3.1.0 is missing its `zint` git submodule
+      content, which `core/src/libzint/zint.h` requires — fixed by switching
+      that module's source from an `archive` to a `git` type (submodules
+      fetched by default). Separately, `KUnifiedPush` itself
+      (`app/push/UnifiedPushConnector.cpp`) had never been added as a
+      Flatpak module at all — the manifest predates the UnifiedPush
+      integration work and was never re-verified as a full sandboxed build
+      afterward; added as a `kunifiedpush` module sourced from KDE's
+      release-service tarball, version-matched to this dev machine's
+      installed `26.04.3` (mirroring the real, published
+      `flathub/org.kde.neochat` manifest, which uses UnifiedPush the same
+      way). A missing D-Bus `--talk-name` for the UnifiedPush distributor's
+      bus name (blocking outbound registration from inside the sandbox —
+      separate from the pre-existing `--own-name` grant, which only covers
+      inbound delivery/activation) and a missing `qml.qrc` entry for a new
+      `MutedHint.qml` component (`Type ContactDetail unavailable` /
+      `MutedHint is not a type` at launch) were also found and fixed via
+      real `flatpak-builder --run` launches, not static review. Final
+      confirmed state: a clean full build (`REAL_EXIT_CODE=0`) followed by
+      `flatpak-builder --run <builddir> packaging/flatpak/com.urlxl.mail.json
+      llamamail` loading every QML file with no errors and reaching
+      `KUnifiedPush::Connector::Registered` with a real
+      `unifiedpush.kde.org` endpoint host, live, inside the sandbox.
 - [ ] **i18n fallback-to-English behaves correctly with no `.mo` catalogs
       installed.** Build and launch natively with no locale catalog
       installed anywhere on the system (the expected state right now —
@@ -438,18 +470,11 @@ accounts) to exercise the full handshake.
 - **MFA never arrives via push.** Covered above — restated here because
   it's easy to assume otherwise given mail push works. It is a locked
   Phase 7 design decision, not a missing feature.
-- **The Flatpak build does not currently produce a runnable app.**
-  `app/CMakeLists.txt` unconditionally requires `Qt6WebEngineQuick`
-  (`EmailDetail.qml`'s HTML body rendering), and no compatible
-  WebEngine-providing Flatpak module or extension exists for
-  `org.kde.Platform//6.10` today — Flathub's `io.qt.qtwebengine.BaseApp`
-  extension tops out at branch 6.4. `flatpak-builder` reliably fails at
-  the `llamamail` module's CMake configure step for this reason (Task 47,
-  confirmed, still open). Treat the Flatpak manifest as a
-  finish-args/packaging-metadata audit artifact for now, not a working
-  distribution channel — do not describe it as building and running end
-  to end until a from-source `qt6-webengine` module (or an updated
-  WebEngine extension) closes this gap.
+- ~~The Flatpak build does not currently produce a runnable app~~ —
+  **resolved 2026-07-17**, see the `flatpak-builder` checklist item above
+  for the full fix and live-confirmed evidence. The Flatpak manifest is now
+  a working distribution channel, not just a finish-args/packaging-metadata
+  audit artifact.
 - **No live E2E test infrastructure exists in CI.** Task 51's
   `.github/workflows/ci.yml` sets up a stock GitHub Actions Ubuntu runner
   that installs Qt6/KF6 via `apt` and runs `cmake --build` + `ctest` — it

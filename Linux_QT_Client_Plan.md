@@ -415,6 +415,16 @@ tests under both Qt majors).
 9. **QtWebEngine availability**: confirm `io.qt.qtwebengine.BaseApp` branch
    matches the chosen `org.kde.Platform` version; confirm WebEngine is
    linkable from a click. Fallback `Text.RichText` is an emergency option only.
+   Resolved for the Flatpak target (2026-07-17): a real, published
+   `branch/6.10` (and `6.11`) of `io.qt.qtwebengine.BaseApp` exists on
+   Flathub — confirmed live via `flatpak remote-info --user flathub
+   io.qt.qtwebengine.BaseApp//6.10` — matching `org.kde.Platform//6.10`
+   exactly. Earlier notes in this doc claiming it "tops out at branch 6.4"
+   were stale/wrong. Consumed via the manifest's documented `base`/
+   `base-version` keys (see real published examples on the identical
+   runtime/sdk stack, e.g. `flathub/org.kde.cantor`), not a from-source
+   Chromium rebuild. Click/Ubuntu Touch WebEngine availability remains
+   unverified (deferred along with the rest of the UT target).
 10. **KF5/KF6 QML drift**: budget for the Compat singleton; build and run both
     targets every phase, not at the end.
 11. **Cloudflare + QNAM**: set a real User-Agent before the first live request.
@@ -425,15 +435,21 @@ tests under both Qt majors).
 
 ## Post-audit cleanup backlog (2026-07-17)
 
-1. **Fix Flatpak packaging.** `packaging/flatpak/com.urlxl.mail.json`
+1. **Fix Flatpak packaging.** ~~`packaging/flatpak/com.urlxl.mail.json`
    currently fails to build (`Could NOT find Qt6WebEngineQuick`, see risk #9)
-   and isn't exercised by CI — it has never produced a runnable artifact.
-   Resolve the `io.qt.qtwebengine.BaseApp` dependency so the manifest
-   actually builds, then wire a `flatpak-builder` job into CI so this stops
-   silently rotting.
-2. **Fix `ContactListModel::SyncedRole`.** The `rev != 0` heuristic
+   and isn't exercised by CI~~ — **Resolved (2026-07-17):** the manifest now
+   declares `base: io.qt.qtwebengine.BaseApp` / `base-version: 6.10` (see
+   risk #9); no from-source module needed. Also separately found and fixed
+   during this pass: the manifest had no `--talk-name` for the UnifiedPush
+   distributor's D-Bus bus name (confirmed live: the real distributor here
+   owns `org.unifiedpush.Distributor.kde`), so the Distributor push tier
+   could never register from inside the sandbox — added
+   `--talk-name=org.unifiedpush.Distributor.*`. Remaining: a
+   `flatpak-builder` CI job (manual/nightly trigger, not every push/PR given
+   real build cost) is still not wired up.
+2. **Fix `ContactListModel::SyncedRole`.** ~~The `rev != 0` heuristic
    (`app/contacts/ContactListModel.h`) needs 30+ lines of comments to justify
-   itself — "can't distinguish pending-update-not-yet-pushed", "breaks if the
-   server ever returns rev==0 for a fresh object". Code that takes that much
-   prose to defend is wrong. Replace it with an explicit synced/pending field
-   sourced from the sync layer instead of inferring state from `rev`.
+   itself~~ — **Resolved (2026-07-17):** replaced with
+   `ContactSyncRepository::isPending()`/`pendingUids()` querying the real
+   pending-change table directly; `ContactsController::isSynced(uid)` exposes
+   it to QML, replacing `ContactDetail.qml`'s duplicated formula too.
