@@ -244,6 +244,9 @@ Contact contactFromQuery(const QSqlQuery& query)
     contact.customFields = decodeEntries<ContactCustomFieldEntry>(
         query.value(QStringLiteral("custom_fields_json")).toString(), customFieldEntryFromJson);
     contact.pronouns = variantToOptionalString(query.value(QStringLiteral("pronouns")));
+    contact.isSelf = query.value(QStringLiteral("is_self")).toBool();
+    contact.mergedUIDs = decodeStringList(query.value(QStringLiteral("merged_uids_json")).toString());
+    contact.mergedInto = variantToOptionalString(query.value(QStringLiteral("merged_into")));
     return contact;
 }
 
@@ -261,12 +264,14 @@ bool ContactDao::insertOrReplace(const Contact& contact)
         "(uid, rev, created_at, updated_at, fn, given_name, family_name, middle_name, prefix, "
         "suffix, nickname, org, title, notes, birthday, emails_json, phones_json, addresses_json, "
         "groups_json, photo_ref, pgp_key, ims_json, websites_json, relations_json, events_json, "
-        "phonetic_given_name, phonetic_family_name, department, custom_fields_json, pronouns) "
+        "phonetic_given_name, phonetic_family_name, department, custom_fields_json, pronouns, "
+        "is_self, merged_uids_json, merged_into) "
         "VALUES (:uid, :rev, :created_at, :updated_at, :fn, :given_name, :family_name, "
         ":middle_name, :prefix, :suffix, :nickname, :org, :title, :notes, :birthday, "
         ":emails_json, :phones_json, :addresses_json, "
         ":groups_json, :photo_ref, :pgp_key, :ims_json, :websites_json, :relations_json, :events_json, "
-        ":phonetic_given_name, :phonetic_family_name, :department, :custom_fields_json, :pronouns)"));
+        ":phonetic_given_name, :phonetic_family_name, :department, :custom_fields_json, :pronouns, "
+        ":is_self, :merged_uids_json, :merged_into)"));
     query.bindValue(QStringLiteral(":uid"), contact.uid);
     query.bindValue(QStringLiteral(":rev"), contact.rev);
     query.bindValue(QStringLiteral(":created_at"), optionalStringToVariant(contact.createdAt));
@@ -297,6 +302,9 @@ bool ContactDao::insertOrReplace(const Contact& contact)
     query.bindValue(QStringLiteral(":department"), optionalStringToVariant(contact.department));
     query.bindValue(QStringLiteral(":custom_fields_json"), encodeEntries(contact.customFields));
     query.bindValue(QStringLiteral(":pronouns"), optionalStringToVariant(contact.pronouns));
+    query.bindValue(QStringLiteral(":is_self"), contact.isSelf);
+    query.bindValue(QStringLiteral(":merged_uids_json"), encodeStringList(contact.mergedUIDs));
+    query.bindValue(QStringLiteral(":merged_into"), optionalStringToVariant(contact.mergedInto));
     return query.exec();
 }
 

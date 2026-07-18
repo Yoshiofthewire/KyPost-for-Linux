@@ -59,6 +59,9 @@ void ContactDaoTest::roundTripsInsertUpdateDelete()
     contact.department = QStringLiteral("Engineering");
     contact.customFields = {ContactCustomFieldEntry{QStringLiteral("Employee ID"), QStringLiteral("42")}};
     contact.pronouns = QStringLiteral("she/her");
+    contact.isSelf = true;
+    contact.mergedUIDs = {QStringLiteral("merged-1"), QStringLiteral("merged-2")};
+    contact.mergedInto = QStringLiteral("survivor-uid");
 
     QVERIFY(dao.insertOrReplace(contact));
 
