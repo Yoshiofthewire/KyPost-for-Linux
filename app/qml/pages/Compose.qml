@@ -7,8 +7,9 @@ import "../components"
 
 // Task 35 -- plain reusable Item, deliberately NOT a Kirigami.Page (see
 // Phase 6 global constraint 4); MobileRoot/DesktopRoot each host this
-// directly (Tasks 38/39). Plain text only, no rich-text toolbar anywhere in
-// this file (global constraint 5) -- Body is a bare TextArea.
+// directly (Tasks 38/39). Body is a RichBodyEditor (WYSIWYG HTML,
+// see docs/superpowers/specs/2026-07-18-html-compose-design.md) --
+// the earlier "plain text only" constraint no longer applies.
 Item {
     id: root
 
@@ -48,6 +49,21 @@ Item {
     // picked address into.
     property var activeField: null
 
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    }
+
+    // Reply/Forward seed initialBody with a plain-text quote block
+    // (EmailDetail.qml's composeRequested() -- unchanged by this feature).
+    // HTML-escape it and preserve line breaks so it renders correctly inside
+    // the rich editor while staying fully editable/deletable, same as
+    // before.
+    function quotedInitialBodyHtml(text) {
+        if (text === "")
+            return ""
+        return "<blockquote>" + root.escapeHtml(text).replace(/\n/g, "<br>") + "</blockquote>"
+    }
+
     function seedTokensFromString(field, value) {
         const parts = (value || "").split(",")
         for (let i = 0; i < parts.length; i++) {
@@ -86,7 +102,7 @@ Item {
     Component.onCompleted: {
         seedTokensFromString(toField, root.initialTo)
         subjectField.text = root.initialSubject
-        bodyArea.text = root.initialBody
+        bodyEditor.loadInitialHtml(root.quotedInitialBodyHtml(root.initialBody))
     }
 
     function trySend() {
@@ -97,25 +113,29 @@ Item {
         ccField.commitInputAsToken()
         bccField.commitInputAsToken()
 
-        // Mirrors Android's "Please fill in all fields" check -- Cc/Bcc
-        // stay optional, only To/Subject/Body are required.
-        if (toField.joinedText.trim() === "" || subjectField.text.trim() === "" || bodyArea.text.trim() === "") {
-            root.validationError = i18n("Please fill in all fields")
-            return
-        }
-        root.validationError = ""
-        const ok = MailApp.sendMail(toField.joinedText, ccField.joinedText, bccField.joinedText,
-                                     subjectField.text, bodyArea.text, root.attachmentPaths)
-        if (ok)
-            root.sendSucceeded()
+        bodyEditor.requestSendableHtml(function(result) {
+            // Mirrors Android's "Please fill in all fields" check -- Cc/Bcc
+            // stay optional, only To/Subject/Body are required.
+            if (toField.joinedText.trim() === "" || subjectField.text.trim() === "" || result.isEmpty) {
+                root.validationError = i18n("Please fill in all fields")
+                return
+            }
+            root.validationError = ""
+            const ok = MailApp.sendMail(toField.joinedText, ccField.joinedText, bccField.joinedText,
+                                         subjectField.text, result.html, root.attachmentPaths)
+            if (ok)
+                root.sendSucceeded()
+        })
     }
 
     // Commits any still-uncommitted address text the same way trySend()
     // does, so a pop-out doesn't silently drop a typed-but-not-yet-tokenized
     // "To" address.
-    function currentDraftForPopOut() {
+    function currentDraftForPopOut(callback) {
         toField.commitInputAsToken()
-        return { to: toField.joinedText, subject: subjectField.text, body: bodyArea.text }
+        bodyEditor.requestSendableHtml(function(result) {
+            callback({ to: toField.joinedText, subject: subjectField.text, body: result.html })
+        })
     }
 
     function fileNameOf(path) {
@@ -152,8 +172,9 @@ Item {
                 icon: "window-new"
                 tooltip: i18n("Open in New Window")
                 onClicked: {
-                    const draft = root.currentDraftForPopOut()
-                    root.popOutRequested(draft.to, draft.subject, draft.body)
+                    root.currentDraftForPopOut(function(draft) {
+                        root.popOutRequested(draft.to, draft.subject, draft.body)
+                    })
                 }
             }
         }
@@ -197,45 +218,12 @@ Item {
             placeholderText: i18n("Subject")
         }
 
-        // Body -- plain multi-line TextArea (global constraint 5: no
-        // rich-text toolbar/component anywhere in this screen). Wrapped in
-        // a themed Rectangle + Flickable rather than promoted to a shared
-        // component: this is the only multi-line field on this screen, so
-        // there's nothing to de-duplicate the way ThemedTextField
-        // de-duplicates the four single-line fields above.
-        Rectangle {
+        // Body -- rich HTML editor (see RichBodyEditor.qml; supersedes the
+        // earlier plain-TextArea-only constraint).
+        RichBodyEditor {
+            id: bodyEditor
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: Theme.shapeField
-            color: Theme.panel
-            border.width: 1
-            border.color: bodyArea.activeFocus ? Theme.accent : Theme.line
-
-            Behavior on border.color {
-                ColorAnimation { duration: 120 }
-            }
-
-            Flickable {
-                anchors.fill: parent
-                anchors.margins: 10
-                contentWidth: width
-                contentHeight: bodyArea.implicitHeight
-                clip: true
-                ScrollBar.vertical: ThemedScrollBar {}
-
-                TextArea {
-                    id: bodyArea
-                    width: parent.width
-                    wrapMode: TextArea.Wrap
-                    color: Theme.inkStrong
-                    placeholderTextColor: Theme.ink
-                    font.family: Theme.fontUi
-                    font.pixelSize: 14
-                    background: null
-                    selectByMouse: true
-                    placeholderText: i18n("Write your message…")
-                }
-            }
         }
 
         RowLayout {

@@ -20,6 +20,7 @@
     <file>components/AutocompleteDropdown.qml</file>
     <file>components/Toast.qml</file>
     <file>components/AddressBookPickerDialog.qml</file>
+    <file>components/RichBodyEditor.qml</file>
     <file>pages/EmailDetail.qml</file>
     <file>pages/Compose.qml</file>
     <file>pages/ContactsList.qml</file>
