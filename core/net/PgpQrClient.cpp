@@ -1,5 +1,6 @@
 #include "net/PgpQrClient.h"
 
+#include "net/ContactSyncClient.h"
 #include "net/HttpClient.h"
 #include "net/RelayAuth.h"
 
@@ -84,5 +85,7 @@ PgpQrKeyResult PgpQrClient::fetchKey(const QUrl& qrUrl) const
     out.name = obj.value(QStringLiteral("name")).toString();
     out.fingerprint = obj.value(QStringLiteral("fingerprint")).toString();
     out.publicKey = obj.value(QStringLiteral("publicKey")).toString();
+    if (obj.value(QStringLiteral("contactCard")).isObject())
+        out.contactCard = ContactWire::contactFromJson(obj.value(QStringLiteral("contactCard")).toObject());
     return out;
 }

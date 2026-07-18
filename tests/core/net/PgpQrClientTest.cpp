@@ -1,5 +1,6 @@
 #include "net/PgpQrClient.h"
 
+#include "models/Contact.h"
 #include "net/HttpClient.h"
 #include "net/RelayAuth.h"
 
@@ -19,6 +20,8 @@ private slots:
     void fetchToken401MapsToUnauthorized();
     void fetchToken503MapsToServiceUnavailable();
     void fetchKeySuccessParsesNameFingerprintPublicKey();
+    void fetchKeySuccessParsesContactCardWhenPresent();
+    void fetchKeySuccessOmitsContactCardWhenAbsent();
     void fetchKey403MapsToUnauthorizedWithStatusCode();
     void fetchKey404NoPgpIdentitySetsStatusCode();
     void fetchKey503MapsToServiceUnavailable();
@@ -127,6 +130,52 @@ void PgpQrClientTest::fetchKeySuccessParsesNameFingerprintPublicKey()
     QCOMPARE(result.publicKey, QStringLiteral("-----BEGIN PGP PUBLIC KEY BLOCK-----"));
 
     QVERIFY(fake.receivedRequest().contains("GET /api/pgp/qr/key?t=tok-1"));
+}
+
+void PgpQrClientTest::fetchKeySuccessParsesContactCardWhenPresent()
+{
+    const QByteArray body = R"({
+        "name":"Ada","fingerprint":"ABCD1234","publicKey":"-----BEGIN PGP PUBLIC KEY BLOCK-----",
+        "contactCard":{
+            "fn":"Ada Lovelace","org":"Analytical Engines Ltd","notes":"Pioneer of computing",
+            "emails":[{"label":"work","value":"ada@example.com"}],
+            "phones":[{"label":"mobile","value":"+1-555-0100"}],
+            "department":"Engineering","pronouns":"she/her"
+        }
+    })";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    PgpQrClient client(http);
+
+    const QUrl qrUrl(QStringLiteral("http://127.0.0.1:%1/api/pgp/qr/key?t=tok-1").arg(fake.port()));
+    const PgpQrKeyResult result = client.fetchKey(qrUrl);
+
+    QVERIFY(!result.error.has_value());
+    QVERIFY(result.contactCard.has_value());
+    QCOMPARE(result.contactCard->fn, std::optional<QString>(QStringLiteral("Ada Lovelace")));
+    QCOMPARE(result.contactCard->org, std::optional<QString>(QStringLiteral("Analytical Engines Ltd")));
+    QCOMPARE(result.contactCard->emails.size(), 1);
+    QCOMPARE(result.contactCard->emails.first().value, QStringLiteral("ada@example.com"));
+    QCOMPARE(result.contactCard->phones.first().value, QStringLiteral("+1-555-0100"));
+    QCOMPARE(result.contactCard->department, std::optional<QString>(QStringLiteral("Engineering")));
+    QCOMPARE(result.contactCard->pronouns, std::optional<QString>(QStringLiteral("she/her")));
+}
+
+void PgpQrClientTest::fetchKeySuccessOmitsContactCardWhenAbsent()
+{
+    const QByteArray body =
+        R"({"name":"Ada","fingerprint":"ABCD1234","publicKey":"-----BEGIN PGP PUBLIC KEY BLOCK-----"})";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    PgpQrClient client(http);
+
+    const QUrl qrUrl(QStringLiteral("http://127.0.0.1:%1/api/pgp/qr/key?t=tok-1").arg(fake.port()));
+    const PgpQrKeyResult result = client.fetchKey(qrUrl);
+
+    QVERIFY(!result.error.has_value());
+    QVERIFY(!result.contactCard.has_value());
 }
 
 void PgpQrClientTest::fetchKey403MapsToUnauthorizedWithStatusCode()

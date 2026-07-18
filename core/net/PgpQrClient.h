@@ -1,5 +1,6 @@
 #pragma once
 
+#include "models/Contact.h"
 #include "net/NetworkError.h"
 
 #include <QString>
@@ -37,6 +38,14 @@ struct PgpQrKeyResult
     QString name;
     QString fingerprint;
     QString publicKey;
+
+    // Populated iff the token owner has a contact flagged Contact::isSelf
+    // (server's optional "contactCard" key) -- parsed via the existing
+    // ContactWire::contactFromJson rather than a second parser, since the
+    // card's fields are a strict subset of Contact's own with no
+    // field-name translation. Fields the card never carries (uid, rev,
+    // photoRef, isSelf, ...) simply stay default-valued and are never read.
+    std::optional<Contact> contactCard;
 };
 
 // Talks to the two PGP-QR-exchange endpoints. Follows GroupsClient's
