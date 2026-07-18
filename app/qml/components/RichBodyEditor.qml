@@ -114,6 +114,11 @@ Item {
                 tooltip: i18n("Italic")
                 onClicked: webView.runJavaScript("document.execCommand('italic')")
             }
+            IconButton {
+                icon: "insert-link"
+                tooltip: i18n("Insert Link")
+                onClicked: linkDialog.open()
+            }
             Item { Layout.fillWidth: true }
         }
 
@@ -137,6 +142,22 @@ Item {
                         webView.runJavaScript(root.pasteScript)
                 }
             }
+        }
+    }
+
+    HyperlinkDialog {
+        id: linkDialog
+        z: 10
+        anchors.fill: parent
+        onLinkConfirmed: function(label, url, asButton) {
+            const style = asButton
+                ? " style=\"display:inline-block;padding:10px 20px;border-radius:" + Theme.shapeButton
+                    + "px;background-color:" + Theme.accent + ";color:" + Theme.readableOnAccent
+                    + ";text-decoration:none;font-weight:600;\""
+                : ""
+            const escapedLabel = label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            const html = "<a href=\"" + url + "\"" + style + ">" + escapedLabel + "</a>"
+            webView.runJavaScript("document.execCommand('insertHTML', false, " + JSON.stringify(html) + ")")
         }
     }
 }
