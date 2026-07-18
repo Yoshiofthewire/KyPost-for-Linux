@@ -65,7 +65,10 @@ const QByteArray kPopulatedContactJson = R"(
   "phoneticFamilyName": "Love-lace",
   "department": "Engineering",
   "customFields": [{"label":"Employee ID","value":"42"}],
-  "pronouns": "she/her"
+  "pronouns": "she/her",
+  "isSelf": true,
+  "mergedUIDs": ["merged-1", "merged-2"],
+  "mergedInto": "survivor-uid"
 }
 )";
 
@@ -208,6 +211,10 @@ void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsInc
     QVERIFY(c1.pronouns.has_value());
     QCOMPARE(*c1.pronouns, QStringLiteral("she/her"));
 
+    QCOMPARE(c1.isSelf, true);
+    QCOMPARE(c1.mergedUIDs, QVector<QString>({QStringLiteral("merged-1"), QStringLiteral("merged-2")}));
+    QCOMPARE(c1.mergedInto, std::optional<QString>(QStringLiteral("survivor-uid")));
+
     // Contact 2: every optional field and every array key absent from the
     // wire maps to nullopt / empty vectors, not a parse error.
     const Contact& c2 = result.changed.at(1);
@@ -241,6 +248,10 @@ void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsInc
     QVERIFY(!c2.department.has_value());
     QVERIFY(c2.customFields.isEmpty());
     QVERIFY(!c2.pronouns.has_value());
+
+    QCOMPARE(c2.isSelf, false);
+    QVERIFY(c2.mergedUIDs.isEmpty());
+    QVERIFY(!c2.mergedInto.has_value());
 
     // deletedContacts holds full Contact objects (not bare uids) -- assert
     // fields, including a nested entry with an absent label.
@@ -290,6 +301,9 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
                                                 std::nullopt, std::nullopt, std::nullopt } };
     updated.groupIds = { QStringLiteral("group-9") };
     updated.pronouns = QStringLiteral("they/them");
+    updated.isSelf = true;
+    updated.mergedUIDs = {QStringLiteral("merged-1")};
+    updated.mergedInto = QStringLiteral("survivor-uid");
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
     const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
@@ -348,6 +362,11 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
     QCOMPARE(sentGroupIds.size(), 1);
     QCOMPARE(sentGroupIds.at(0).toString(), QStringLiteral("group-9"));
     QCOMPARE(sentUpdated.value(QStringLiteral("pronouns")).toString(), QStringLiteral("they/them"));
+
+    QCOMPARE(sentUpdated.value(QStringLiteral("isSelf")).toBool(), true);
+    QCOMPARE(sentUpdated.value(QStringLiteral("mergedUIDs")).toArray().size(), 1);
+    QCOMPARE(sentUpdated.value(QStringLiteral("mergedUIDs")).toArray().first().toString(), QStringLiteral("merged-1"));
+    QCOMPARE(sentUpdated.value(QStringLiteral("mergedInto")).toString(), QStringLiteral("survivor-uid"));
 }
 
 void ContactSyncClientTest::pushSendsBaseCursorAndAuthAsQueryParams()

@@ -245,6 +245,10 @@ QJsonObject contactToJson(const Contact& contact)
     putOptional(obj, QStringLiteral("department"), contact.department);
     obj[QStringLiteral("customFields")] = entriesToJson(contact.customFields, customFieldEntryToJson);
     putOptional(obj, QStringLiteral("pronouns"), contact.pronouns);
+    if (contact.isSelf)
+        obj[QStringLiteral("isSelf")] = true;
+    obj[QStringLiteral("mergedUIDs")] = stringListToJson(contact.mergedUIDs);
+    putOptional(obj, QStringLiteral("mergedInto"), contact.mergedInto);
     if (contact.deleted)
         obj[QStringLiteral("deleted")] = true;
     return obj;
@@ -288,6 +292,9 @@ Contact contactFromJson(const QJsonObject& obj)
     contact.customFields = entriesFromJson<ContactCustomFieldEntry>(
         obj.value(QStringLiteral("customFields")).toArray(), customFieldEntryFromJson);
     contact.pronouns = takeOptional(obj, QStringLiteral("pronouns"));
+    contact.isSelf = obj.value(QStringLiteral("isSelf")).toBool();
+    contact.mergedUIDs = stringListFromJson(obj.value(QStringLiteral("mergedUIDs")).toArray());
+    contact.mergedInto = takeOptional(obj, QStringLiteral("mergedInto"));
     contact.deleted = obj.value(QStringLiteral("deleted")).toBool();
     return contact;
 }
