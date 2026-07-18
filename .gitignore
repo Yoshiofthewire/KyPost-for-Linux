@@ -1,8 +1,5 @@
-/build/
-/build-flatpak/
-/build-local-install/
+/build*/
 /.flatpak-builder/
 /repo/
 *.flatpak
 /.worktrees/
-/.github/
