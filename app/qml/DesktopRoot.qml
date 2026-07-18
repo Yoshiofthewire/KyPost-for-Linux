@@ -381,6 +381,7 @@ Kirigami.ApplicationWindow {
                 initialTo: composeWindow.popInitialTo
                 initialSubject: composeWindow.popInitialSubject
                 initialBody: composeWindow.popInitialBody
+                initialBodyIsHtml: true
                 isPoppedOut: true
                 onSendSucceeded: composeWindow.close()
             }

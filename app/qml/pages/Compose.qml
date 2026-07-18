@@ -18,6 +18,13 @@ Item {
     property string initialTo: ""
     property string initialSubject: ""
     property string initialBody: ""
+    // True only for the pop-out flow (DesktopRoot's composeWindowComponent
+    // seeds initialBody from currentDraftForPopOut()'s already-sanitized
+    // RichBodyEditor HTML). False (the default) covers EmailDetail.qml's
+    // Reply/Reply All/Forward flow, which seeds initialBody with plain text
+    // that still needs escaping + quoting -- see quotedInitialBodyHtml()
+    // and Component.onCompleted below.
+    property bool initialBodyIsHtml: false
     // True for the instance DesktopRoot's composeWindowComponent embeds
     // inside an already-standalone pop-out Window -- hides the pop-out
     // button there (see below), same reasoning as EmailDetail.isPoppedOut.
@@ -102,7 +109,11 @@ Item {
     Component.onCompleted: {
         seedTokensFromString(toField, root.initialTo)
         subjectField.text = root.initialSubject
-        bodyEditor.loadInitialHtml(root.quotedInitialBodyHtml(root.initialBody))
+        // Pop-out drafts arrive as already-sanitized HTML (see
+        // initialBodyIsHtml above) and must be loaded as-is -- escaping or
+        // blockquote-wrapping it would corrupt the formatting. Reply/Forward
+        // drafts are plain text and still need quotedInitialBodyHtml().
+        bodyEditor.loadInitialHtml(root.initialBodyIsHtml ? root.initialBody : root.quotedInitialBodyHtml(root.initialBody))
     }
 
     function trySend() {

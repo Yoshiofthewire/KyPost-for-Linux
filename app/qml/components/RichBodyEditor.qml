@@ -57,7 +57,7 @@ Item {
     // subtree so it never mutates what's on screen.
     readonly property string sanitizerScript: "
         (function() {
-            var allowedTags = ['P', 'BR', 'DIV', 'B', 'STRONG', 'I', 'EM', 'A'];
+            var allowedTags = ['P', 'BR', 'DIV', 'B', 'STRONG', 'I', 'EM', 'A', 'BLOCKQUOTE'];
             var allowedStyleProps = ['color', 'background-color', 'padding', 'border-radius',
                                       'display', 'font-weight', 'text-decoration', 'border'];
             function isSafeUrl(url) {
