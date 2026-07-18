@@ -81,18 +81,11 @@ Item {
     property var availableGroups: []
     property var editingGroupIds: []
 
-    // Best-effort "has this round-tripped through a successful sync"
-    // read, per Task 33's ContactListModel::SyncedRole doc comment (`rev !=
-    // 0`) -- same field, same one-line formula, not a second independent
-    // heuristic. ContactsController's fixed Task 33 surface has no
-    // Q_INVOKABLE that returns a single row's `synced` role by uid (only
-    // the full contactModel exposes that role, and QAbstractItemModel isn't
-    // safely queryable by uid from plain QML/JS outside a delegate without
-    // reaching for fragile, undocumented API) -- contactAt()'s `rev` field
-    // is the one piece of the same underlying data this component actually
-    // has, so the identical formula is applied here directly rather than
-    // inventing a different signal for "is this synced".
-    readonly property bool synced: root.contact.rev !== undefined && root.contact.rev !== 0
+    // Real synced/pending read via ContactsController::isSynced(uid), which
+    // queries ContactSyncRepository's pending-change table directly (see
+    // ContactListModel::SyncedRole's doc comment for the ground truth this
+    // replaces a duplicated rev!=0 formula with).
+    readonly property bool synced: root.contact.uid ? ContactsApp.isSynced(root.contact.uid) : false
 
     // label/value pairs for the read-only card, in the brief's specified
     // Email/Phone/Org/Notes order, extended (extended-contact-fields Task 5)
@@ -612,13 +605,10 @@ Item {
                         }
                     }
                 }
-                Text {
+                MutedHint {
                     Layout.fillWidth: true
                     visible: root.availableGroups.length === 0
                     text: i18n("No groups available")
-                    color: Theme.ink
-                    font.family: Theme.fontUi
-                    font.pixelSize: 12
                 }
 
                 Text {
