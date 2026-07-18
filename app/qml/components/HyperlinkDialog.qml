@@ -99,6 +99,7 @@ Item {
                 onTextChanged: root.urlText = text
             }
             CheckBox {
+                id: control
                 Layout.fillWidth: true
                 text: i18n("Style as button")
                 checked: root.styleAsButton

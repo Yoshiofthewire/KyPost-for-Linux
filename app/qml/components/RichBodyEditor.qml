@@ -156,7 +156,8 @@ Item {
                     + ";text-decoration:none;font-weight:600;\""
                 : ""
             const escapedLabel = label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            const html = "<a href=\"" + url + "\"" + style + ">" + escapedLabel + "</a>"
+            const escapedUrl = url.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+            const html = "<a href=\"" + escapedUrl + "\"" + style + ">" + escapedLabel + "</a>"
             webView.runJavaScript("document.execCommand('insertHTML', false, " + JSON.stringify(html) + ")")
         }
     }
