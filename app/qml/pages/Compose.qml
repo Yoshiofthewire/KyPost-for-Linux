@@ -166,6 +166,22 @@ Item {
         return decodeURIComponent(s)
     }
 
+    // Explicit, guaranteed-opaque background -- root is a plain Item with
+    // none of its own, previously relying entirely on whatever hosts this
+    // component (DesktopRoot's detail-column Rectangle when embedded, the
+    // pop-out Window's own color when popped out) to paint behind every
+    // pixel. That held for the embedded case, but the pop-out window left
+    // at least one real gap unpainted (the ColumnLayout's inter-item
+    // spacing between the body editor and the "Attach files" row showed
+    // through to whatever's behind the window instead of Theme.bg). Rather
+    // than track down every individual sliver a layout gap or a WebEngineView
+    // rendering quirk might expose, this makes sure any gap anywhere in this
+    // component's own bounds is covered by design.
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.bg
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16

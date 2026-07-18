@@ -33,11 +33,32 @@ Item {
     }
 
     function shellHtml(bodyHtml) {
+        // html/body both get height: 100% + the panel background (not just
+        // body, and not relying on WebEngineView.backgroundColor alone) --
+        // body's own box only auto-sizes to its content, so on a short/empty
+        // draft it doesn't reach the bottom of the WebEngineView's viewport.
+        // The leftover strip below it was never painted by the page at all,
+        // so the compositor showed whatever sits behind this window through
+        // it (only visible live, not in a full-frame screenshot). padding
+        // replaces the old margin so body still keeps its inset now that
+        // it's stretched to 100% height.
         return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>"
-            + "body { font-family: sans-serif; font-size: 14px; margin: 8px; "
-            + "background: " + Theme.panel + "; color: " + Theme.inkStrong + "; }"
+            + "html, body { height: 100%; margin: 0; background: " + Theme.panel + "; }"
+            + "body { font-family: sans-serif; font-size: 14px; padding: 8px; "
+            + "box-sizing: border-box; color: " + Theme.inkStrong + "; }"
             + "</style></head><body contenteditable=\"true\">" + bodyHtml + "</body></html>"
     }
+
+    // Confirmed the trigger is a genuine focus event, not a content
+    // mutation (an opacity-toggle repaint nudge alone did NOT fix the
+    // pop-out Compose window's transparency; clicking into the body -- a
+    // real focus transfer -- does; typing worked too only because it also
+    // focuses the field first). webView.forceActiveFocus() gives the
+    // WebEngineView actual native/Wayland-level input focus (the part a
+    // pure JS-side DOM mutation can't reach), and document.body.focus()
+    // completes it by focusing the contenteditable element itself, matching
+    // what a real click does. Fired once by startupFocusNudgeTimer below.
+    readonly property string focusNudgeScript: "document.body.focus();"
 
     // Installed after every loadHtml() (see WebEngineView.onLoadingChanged
     // below) -- forces paste to plain text so arbitrary markup/scripts from
@@ -134,6 +155,16 @@ Item {
             color: Theme.panel
             border.width: 1
             border.color: Theme.line
+            // The actual reported bug: webView's native render surface was
+            // spilling past this Rectangle's own bounds, down into the
+            // sibling "Attach files"/Send button rows in Compose.qml (well
+            // outside this component entirely) -- not a transparency
+            // *inside* the editor's own box, which is what the earlier
+            // fixes in this file targeted. clip masks anything painted
+            // outside this Rectangle at composite time, regardless of
+            // whether the overflowing content is ordinary QML or
+            // WebEngineView's own texture.
+            clip: true
 
             WebEngineView {
                 id: webView
@@ -143,8 +174,50 @@ Item {
                 settings.javascriptEnabled: true
 
                 onLoadingChanged: function(loadRequest) {
-                    if (loadRequest.status === WebEngineView.LoadSucceededStatus)
+                    if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
                         webView.runJavaScript(root.pasteScript)
+                        // Confirmed: the pop-out Compose window's
+                        // transparency isn't tied to resizing at all (it can
+                        // appear with no resize), and a real focus transfer
+                        // (a manual click into the body) is what clears it.
+                        // Fire that once, unconditionally, shortly after the
+                        // page finishes loading -- not gated behind any
+                        // resize event like earlier attempts. The delay
+                        // gives the pop-out window's own initial
+                        // show/geometry-negotiation a moment to settle
+                        // first.
+                        startupFocusNudgeTimer.restart()
+                    }
+                }
+            }
+
+            // Covers webView with a guaranteed-opaque, plain-QML-painted
+            // surface until the startup focus nudge below has run.
+            // WebEngineView's own native render surface doesn't reliably
+            // composite correctly the instant it's shown (see
+            // startupFocusNudgeTimer's comment) -- rather than accepting a
+            // visible transparent flash while that settles, this sits on
+            // top in the same Qt Quick scene (ordinary z-ordering, not
+            // anything WebEngineView-specific) so the user only ever sees a
+            // solid surface. It's painted the exact same Theme.panel color
+            // the page itself uses, so hiding it once the nudge fires is a
+            // seamless, imperceptible handoff -- solid from the very first
+            // rendered frame, not just "fixed shortly after."
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Theme.panel
+                visible: !startupFocusNudgeTimer.triggered
+            }
+
+            Timer {
+                id: startupFocusNudgeTimer
+                property bool triggered: false
+                interval: 400
+                onTriggered: {
+                    webView.forceActiveFocus()
+                    webView.runJavaScript(root.focusNudgeScript)
+                    triggered = true
                 }
             }
         }
