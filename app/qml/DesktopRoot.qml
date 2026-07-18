@@ -206,16 +206,33 @@ Kirigami.ApplicationWindow {
         // reference).
         property var targetContactDetail: null
 
-        PgpScanContactKey {
-            implicitWidth: 360
-            implicitHeight: 640
-            onClosed: pgpScanContactKeySheet.close()
-            onKeyScanned: function (name, publicKey) {
-                if (pgpScanContactKeySheet.targetContactDetail)
-                    pgpScanContactKeySheet.targetContactDetail.applyScannedKey(name, publicKey)
-                else
-                    ContactsApp.createContact({ fn: name, pgpKey: publicKey })
-                pgpScanContactKeySheet.close()
+        // Loader, not a direct child -- PgpScanContactKey's Camera defaults
+        // to active as soon as it's constructed (see its own "active:
+        // PgpQr.scannedFingerprint === ''" binding), so instantiating it
+        // directly here would turn the camera on at DesktopRoot construction
+        // time, before this sheet is ever opened. MobileRoot.qml avoids this
+        // naturally since its equivalent lives inside a Component{} only
+        // instantiated by pageStack.push(); OverlaySheet has no push-style
+        // API, so a Loader gated on this sheet's own opened()/closed()
+        // signals is the equivalent here -- also releases the camera again
+        // once the sheet closes, rather than leaving it running.
+        onOpened: pgpScanContactKeyLoader.active = true
+        onClosed: pgpScanContactKeyLoader.active = false
+
+        Loader {
+            id: pgpScanContactKeyLoader
+            active: false
+            sourceComponent: PgpScanContactKey {
+                implicitWidth: 360
+                implicitHeight: 640
+                onClosed: pgpScanContactKeySheet.close()
+                onKeyScanned: function (name, publicKey) {
+                    if (pgpScanContactKeySheet.targetContactDetail)
+                        pgpScanContactKeySheet.targetContactDetail.applyScannedKey(name, publicKey)
+                    else
+                        ContactsApp.createContact({ fn: name, pgpKey: publicKey })
+                    pgpScanContactKeySheet.close()
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 /build/
 /build-flatpak/
+/build-local-install/
 /.flatpak-builder/
 /repo/
 *.flatpak

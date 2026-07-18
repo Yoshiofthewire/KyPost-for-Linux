@@ -531,7 +531,21 @@ int main(int argc, char* argv[])
     // for why: deprecated since 6.8, this is its replacement).
     KLocalization::setupLocalizedContext(&engine);
 
-    engine.load(QUrl(QStringLiteral("qrc:/qml/Root.qml")));
+    // Convergent root selection: picks MobileRoot.qml vs DesktopRoot.qml
+    // (Tasks 38/39) directly, rather than loading a QML-side Loader-based
+    // dispatcher -- a Loader-wrapped root was tried first and reproducibly
+    // broke window visibility under this Wayland/Kirigami stack (the QML
+    // content loads and runs fine underneath it, but no window ever gets
+    // mapped), confirmed by comparing two otherwise-identical fresh builds
+    // that differed only in root-vs-Loader. Deciding here mirrors
+    // Kirigami.Settings.isMobile's own primary override signal
+    // (QT_QUICK_CONTROLS_MOBILE) without needing its QML-singleton-only
+    // Settings class from C++: a real Plasma Mobile session also flips this
+    // env var on for Qt Quick Controls apps, so this covers the same cases
+    // Linux_QT_Client_Plan.md's "Root selection" section called for.
+    const bool isMobile = qEnvironmentVariableIntValue("QT_QUICK_CONTROLS_MOBILE") != 0;
+    engine.load(QUrl(isMobile ? QStringLiteral("qrc:/qml/MobileRoot.qml")
+                               : QStringLiteral("qrc:/qml/DesktopRoot.qml")));
     if (engine.rootObjects().isEmpty())
         return -1;
 
