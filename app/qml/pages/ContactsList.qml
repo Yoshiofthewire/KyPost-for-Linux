@@ -44,6 +44,10 @@ Item {
         anchors.margins: 16
         spacing: 10
 
+        // Title + the screen's one primary action (Add), same "single
+        // PrimaryButton" convention the rest of the app follows (e.g.
+        // Compose in DesktopRoot's top bar) -- kept on its own row so it
+        // never has to compete with the secondary actions below for width.
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -56,11 +60,22 @@ Item {
                 font.pixelSize: 20
                 font.weight: Font.Bold
             }
-            GhostButton {
+            PrimaryButton {
                 text: i18n("Add")
                 onClicked: root.contactSelected("")
             }
-            PrimaryButton {
+        }
+
+        // Secondary actions in a Flow (not a RowLayout): a fixed row can't
+        // fit three text buttons in this column's ~300px width without
+        // clipping or overlapping the row above it -- Flow wraps to as many
+        // lines as needed instead, so nothing is ever cut off or occluded
+        // regardless of window width.
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+
+            GhostButton {
                 text: i18n("Sync")
                 enabled: !ContactsApp.isBusy
                 onClicked: {
@@ -69,7 +84,7 @@ Item {
                     syncStatusTimer.restart()
                 }
             }
-            PrimaryButton {
+            GhostButton {
                 text: i18n("Find Duplicates")
                 enabled: !ContactsApp.isBusy
                 onClicked: {

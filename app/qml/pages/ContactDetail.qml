@@ -48,6 +48,17 @@ Item {
     // below, directly on this still-open form (nothing is persisted until
     // the user hits this form's own Save button).
     signal scanPgpKeyRequested()
+    // Detach into a standalone top-level window (Desktop mode only -- see
+    // the pop-out IconButton below, gated on General.isDesktopMode). Same
+    // "host owns the actual Window" shape as EmailDetail.popOutRequested/
+    // Compose.popOutRequested -- DesktopRoot creates the window and clears
+    // its own embedded selection in response.
+    signal popOutRequested(string uid)
+
+    // True for the instance DesktopRoot's contactWindowComponent embeds
+    // inside an already-standalone pop-out Window -- hides the "Open in New
+    // Window" button there, same reasoning as EmailDetail.isPoppedOut.
+    property bool isPoppedOut: false
 
     implicitWidth: 360
     implicitHeight: 640
@@ -317,6 +328,25 @@ Item {
             anchors.top: parent.top
             anchors.margins: 16
             spacing: 16
+
+            // Pop-out -- Desktop-only (General.isDesktopMode), and only once
+            // there's a real saved contact to detach (a fresh, unsaved "Add"
+            // flow has nothing to reopen by uid in the new window). Visible
+            // above both the read-only card and the edit form below, same
+            // "persistent header row regardless of mode" shape as Compose's
+            // own pop-out row.
+            RowLayout {
+                Layout.fillWidth: true
+                visible: General.isDesktopMode && !root.isPoppedOut && root.uid !== ""
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+                IconButton {
+                    icon: "window-new"
+                    tooltip: i18n("Open in New Window")
+                    onClicked: root.popOutRequested(root.uid)
+                }
+            }
 
             // ---- read-only card -------------------------------------
 

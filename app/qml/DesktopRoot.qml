@@ -113,7 +113,14 @@ Kirigami.ApplicationWindow {
         root.detailMode = "email"
     }
 
+    // Same detailCollapsed branch as selectEmail() above -- the pane is
+    // width-0 when collapsed, so setting selection state into it would be
+    // invisible; pop out a standalone window instead.
     function selectContact(uid) {
+        if (root.detailCollapsed) {
+            root.popOutContact(uid)
+            return
+        }
         root.selectedContactUid = uid
         root.detailMode = "contact"
     }
@@ -399,6 +406,45 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    Component {
+        id: contactWindowComponent
+        Window {
+            id: contactWindow
+            width: 640
+            height: 720
+            color: Theme.bg
+
+            property string popUid: ""
+
+            title: (poppedContact.contact && poppedContact.contact.fn) ? poppedContact.contact.fn : i18n("Contact")
+
+            ContactDetail {
+                id: poppedContact
+                anchors.fill: parent
+                uid: contactWindow.popUid
+                isPoppedOut: true
+                onClosed: contactWindow.close()
+                onSaved: function (uid) { ContactsApp.load() }
+                onScanPgpKeyRequested: {
+                    pgpScanContactKeySheet.targetContactDetail = poppedContact
+                    pgpScanContactKeySheet.open()
+                }
+            }
+
+            // Same background as the main window -- see the matching
+            // Rectangle in emailWindowComponent above for why this outline
+            // is needed.
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 2
+                border.color: Theme.line
+            }
+
+            onClosing: contactWindow.destroy()
+        }
+    }
+
     function popOutEmail(messageId, folder) {
         const win = emailWindowComponent.createObject(null, { popMessageId: messageId, popFolder: folder })
         win.show()
@@ -419,6 +465,14 @@ Kirigami.ApplicationWindow {
         win.raise()
         win.requestActivate()
         root.detailMode = "empty"
+    }
+
+    function popOutContact(uid) {
+        const win = contactWindowComponent.createObject(null, { popUid: uid })
+        win.show()
+        win.raise()
+        win.requestActivate()
+        root.closeDetail()
     }
 
     ColumnLayout {
@@ -928,6 +982,7 @@ Kirigami.ApplicationWindow {
                         pgpScanContactKeySheet.targetContactDetail = contactDetailPane
                         pgpScanContactKeySheet.open()
                     }
+                    onPopOutRequested: function (uid) { root.popOutContact(uid) }
                 }
 
                 Loader {
