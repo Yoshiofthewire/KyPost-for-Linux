@@ -27,6 +27,8 @@ private slots:
     void scanQrPayloadRejectsNonHttpScheme();
     void scanQrPayloadRejectsLinkLocalMetadataHost();
     void scanQrPayloadSuccessPopulatesScanResult();
+    void scanQrPayloadSuccessPopulatesContactCardFields();
+    void scanQrPayloadWithNoContactCardReturnsAllEmptyFields();
     void scanQrPayload404SetsFriendlyMessage();
     void clearScanResultResetsFields();
 
@@ -236,6 +238,95 @@ void PgpQrControllerTest::scanQrPayloadSuccessPopulatesScanResult()
     QVERIFY(scanSpy.count() >= 1);
 }
 
+void PgpQrControllerTest::scanQrPayloadSuccessPopulatesContactCardFields()
+{
+    const QByteArray body = R"({
+        "name":"Ada","fingerprint":"ABCD1234","publicKey":"-----BEGIN PGP PUBLIC KEY BLOCK-----",
+        "contactCard":{
+            "fn":"Ada Lovelace","org":"Analytical Engines Ltd","notes":"Pioneer of computing",
+            "emails":[{"label":"work","value":"ada@example.com"}],
+            "phones":[{"label":"mobile","value":"+1-555-0100"}],
+            "department":"Engineering","pronouns":"she/her",
+            "ims":[{"service":"Matrix","label":"work","value":"@ada:example.org"}],
+            "websites":[{"label":"blog","value":"https://ada.example.com"}],
+            "relations":[{"label":"spouse","name":"William King"}],
+            "events":[{"label":"anniversary","date":"2026-06-01"}],
+            "customFields":[{"label":"Employee ID","value":"42"}]
+        }
+    })";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    PgpQrClient client(http);
+    PgpQrRepository repository(client, pairingStore);
+    PgpQrController controller(repository, client);
+
+    const QString qrUrl = QStringLiteral("http://127.0.0.1:%1/api/pgp/qr/key?t=tok-1").arg(fake.port());
+    controller.scanQrPayload(qrUrl);
+
+    const QVariantMap fields = controller.scannedContactCardFields();
+    QCOMPARE(fields.value(QStringLiteral("org")).toString(), QStringLiteral("Analytical Engines Ltd"));
+    QCOMPARE(fields.value(QStringLiteral("notes")).toString(), QStringLiteral("Pioneer of computing"));
+    QCOMPARE(fields.value(QStringLiteral("email")).toString(), QStringLiteral("ada@example.com"));
+    QCOMPARE(fields.value(QStringLiteral("phone")).toString(), QStringLiteral("+1-555-0100"));
+    QCOMPARE(fields.value(QStringLiteral("department")).toString(), QStringLiteral("Engineering"));
+    QCOMPARE(fields.value(QStringLiteral("pronouns")).toString(), QStringLiteral("she/her"));
+
+    const QVariantList ims = fields.value(QStringLiteral("ims")).toList();
+    QCOMPARE(ims.size(), 1);
+    QCOMPARE(ims.first().toMap().value(QStringLiteral("value")).toString(), QStringLiteral("@ada:example.org"));
+
+    const QVariantList websites = fields.value(QStringLiteral("websites")).toList();
+    QCOMPARE(websites.size(), 1);
+    QCOMPARE(websites.first().toMap().value(QStringLiteral("value")).toString(), QStringLiteral("https://ada.example.com"));
+
+    const QVariantList relations = fields.value(QStringLiteral("relations")).toList();
+    QCOMPARE(relations.size(), 1);
+    QCOMPARE(relations.first().toMap().value(QStringLiteral("name")).toString(), QStringLiteral("William King"));
+
+    const QVariantList events = fields.value(QStringLiteral("events")).toList();
+    QCOMPARE(events.size(), 1);
+    QCOMPARE(events.first().toMap().value(QStringLiteral("date")).toString(), QStringLiteral("2026-06-01"));
+
+    const QVariantList customFields = fields.value(QStringLiteral("customFields")).toList();
+    QCOMPARE(customFields.size(), 1);
+    QCOMPARE(customFields.first().toMap().value(QStringLiteral("value")).toString(), QStringLiteral("42"));
+}
+
+void PgpQrControllerTest::scanQrPayloadWithNoContactCardReturnsAllEmptyFields()
+{
+    const QByteArray body =
+        R"({"name":"Ada","fingerprint":"ABCD1234","publicKey":"-----BEGIN PGP PUBLIC KEY BLOCK-----"})";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    PgpQrClient client(http);
+    PgpQrRepository repository(client, pairingStore);
+    PgpQrController controller(repository, client);
+
+    const QString qrUrl = QStringLiteral("http://127.0.0.1:%1/api/pgp/qr/key?t=tok-1").arg(fake.port());
+    controller.scanQrPayload(qrUrl);
+
+    const QVariantMap fields = controller.scannedContactCardFields();
+    QCOMPARE(fields.value(QStringLiteral("org")).toString(), QString());
+    QCOMPARE(fields.value(QStringLiteral("email")).toString(), QString());
+    QCOMPARE(fields.value(QStringLiteral("phone")).toString(), QString());
+    QVERIFY(fields.value(QStringLiteral("ims")).toList().isEmpty());
+    QVERIFY(fields.value(QStringLiteral("customFields")).toList().isEmpty());
+}
+
 void PgpQrControllerTest::scanQrPayload404SetsFriendlyMessage()
 {
     FakeRelayServer fake(httpResponse(404, "Not Found", "no pgp identity configured\n", "text/plain"));
@@ -284,6 +375,7 @@ void PgpQrControllerTest::clearScanResultResetsFields()
     QCOMPARE(controller.scannedFingerprint(), QString());
     QCOMPARE(controller.scannedPublicKey(), QString());
     QCOMPARE(controller.lastError(), QString());
+    QVERIFY(controller.scannedContactCardFields().value(QStringLiteral("org")).toString().isEmpty());
 }
 
 QTEST_GUILESS_MAIN(PgpQrControllerTest)

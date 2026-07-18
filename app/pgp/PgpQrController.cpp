@@ -16,6 +16,7 @@
 #include <QHostAddress>
 #include <QImage>
 #include <QUrl>
+#include <QVariantList>
 
 namespace {
 
@@ -47,6 +48,61 @@ bool isSafeQrTarget(const QUrl& url)
         return false;
 
     return true;
+}
+
+} // namespace
+
+namespace {
+
+QVariantMap imEntryToMap(const ContactImEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("service")] = entry.service.value_or(QString());
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+QVariantMap urlEntryToMap(const ContactUrlEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+QVariantMap relationEntryToMap(const ContactRelationEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("name")] = entry.name;
+    return map;
+}
+
+QVariantMap eventEntryToMap(const ContactEventEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("date")] = entry.date;
+    return map;
+}
+
+QVariantMap customFieldEntryToMap(const ContactCustomFieldEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label;
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+template <typename T, typename ToMapFn>
+QVariantList entriesToVariantList(const QVector<T>& entries, ToMapFn toMap)
+{
+    QVariantList list;
+    list.reserve(entries.size());
+    for (const T& entry : entries)
+        list.append(toMap(entry));
+    return list;
 }
 
 } // namespace
@@ -188,6 +244,7 @@ void PgpQrController::scanQrPayload(const QString& decodedText)
         m_scannedName = result.name;
         m_scannedFingerprint = result.fingerprint;
         m_scannedPublicKey = result.publicKey;
+        m_scannedContactCard = result.contactCard.value_or(Contact());
         emit scanResultChanged();
         return;
     }
@@ -212,5 +269,28 @@ void PgpQrController::clearScanResult()
     m_scannedName.clear();
     m_scannedFingerprint.clear();
     m_scannedPublicKey.clear();
+    m_scannedContactCard = Contact();
     emit scanResultChanged();
+}
+
+QVariantMap PgpQrController::scannedContactCardFields() const
+{
+    QVariantMap fields;
+    fields[QStringLiteral("org")] = m_scannedContactCard.org.value_or(QString());
+    fields[QStringLiteral("notes")] = m_scannedContactCard.notes.value_or(QString());
+    fields[QStringLiteral("email")] =
+        m_scannedContactCard.emails.isEmpty() ? QString() : m_scannedContactCard.emails.first().value;
+    fields[QStringLiteral("phone")] =
+        m_scannedContactCard.phones.isEmpty() ? QString() : m_scannedContactCard.phones.first().value;
+    fields[QStringLiteral("department")] = m_scannedContactCard.department.value_or(QString());
+    fields[QStringLiteral("pronouns")] = m_scannedContactCard.pronouns.value_or(QString());
+    fields[QStringLiteral("phoneticGivenName")] = m_scannedContactCard.phoneticGivenName.value_or(QString());
+    fields[QStringLiteral("phoneticFamilyName")] = m_scannedContactCard.phoneticFamilyName.value_or(QString());
+    fields[QStringLiteral("ims")] = entriesToVariantList(m_scannedContactCard.ims, imEntryToMap);
+    fields[QStringLiteral("websites")] = entriesToVariantList(m_scannedContactCard.websites, urlEntryToMap);
+    fields[QStringLiteral("relations")] = entriesToVariantList(m_scannedContactCard.relations, relationEntryToMap);
+    fields[QStringLiteral("events")] = entriesToVariantList(m_scannedContactCard.events, eventEntryToMap);
+    fields[QStringLiteral("customFields")] =
+        entriesToVariantList(m_scannedContactCard.customFields, customFieldEntryToMap);
+    return fields;
 }

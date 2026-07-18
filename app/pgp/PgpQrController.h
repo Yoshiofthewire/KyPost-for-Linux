@@ -1,7 +1,10 @@
 #pragma once
 
+#include "models/Contact.h"
+
 #include <QObject>
 #include <QString>
+#include <QVariantMap>
 
 class PgpQrRepository;
 class PgpQrClient;
@@ -67,6 +70,20 @@ public slots:
     // scannedFingerprint/scannedPublicKey/lastError).
     void clearScanResult();
 
+    // The shareable subset of the scanned person's contact details (server's
+    // optional "contactCard" on the key response, see PgpQrClient::
+    // fetchKey()), reshaped to exactly the field keys
+    // ContactsController::createContact/updateContact already accept (org,
+    // notes, email, phone, department, pronouns, phoneticGivenName,
+    // phoneticFamilyName, ims, websites, relations, events, customFields) --
+    // every value defaults to an empty string/list when no contactCard was
+    // present in the last scan (or none has been made yet). fn/pgpKey are
+    // deliberately NOT included here -- callers already have those from
+    // scannedName()/scannedPublicKey() (the out-of-band-confirmed identity),
+    // this is only the rest of the card. birthday/addresses are omitted
+    // because the create/edit form doesn't expose those fields either.
+    Q_INVOKABLE QVariantMap scannedContactCardFields() const;
+
 signals:
     void isBusyChanged();
     void lastErrorChanged();
@@ -86,4 +103,5 @@ private:
     QString m_scannedName;
     QString m_scannedFingerprint;
     QString m_scannedPublicKey;
+    Contact m_scannedContactCard;
 };

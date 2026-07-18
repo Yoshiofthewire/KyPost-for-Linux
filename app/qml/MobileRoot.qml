@@ -304,10 +304,19 @@ Kirigami.ApplicationWindow {
                 anchors.fill: parent
                 onClosed: root.safePop()
                 onKeyScanned: function (name, publicKey) {
-                    if (pgpScanContactKeyPage.targetContactDetail)
+                    if (pgpScanContactKeyPage.targetContactDetail) {
                         pgpScanContactKeyPage.targetContactDetail.applyScannedKey(name, publicKey)
-                    else
-                        ContactsApp.createContact({ fn: name, pgpKey: publicKey })
+                    } else {
+                        // Fold in whatever contact-card details the scanned
+                        // person shared (see PgpQr.scannedContactCardFields's
+                        // doc comment) -- fn/pgpKey always come from this
+                        // signal's own out-of-band-confirmed values, never
+                        // from the card, so they're set last and win.
+                        const fields = PgpQr.scannedContactCardFields()
+                        fields.fn = name
+                        fields.pgpKey = publicKey
+                        ContactsApp.createContact(fields)
+                    }
                     root.safePop()
                 }
             }
