@@ -378,21 +378,26 @@ int main(int argc, char* argv[])
     // ntfyTopic itself (it is a bearer secret on this path, same logging
     // discipline as endpoint URLs -- phase7-global-constraints.md item 6).
     //
-    // Registering this topic with the backend as a deviceToken (so the relay
-    // actually knows where to publish) is a separate gap this task does not
-    // close -- DeviceRegistrationService::pair()'s deviceToken argument now
-    // carries the UnifiedPush distributor endpoint (PairingController::
-    // setDeviceToken(), wired up ~150 lines below where
-    // pairingController.setDeviceToken(...) is called -- Task 43 fix, see
-    // PairingController.h's own doc comment), not ntfyTopic. Wiring this
-    // ntfy topic in as a second deviceToken source for this tier would mean
-    // changing core/domain call signatures, out of this task's
-    // app/-layer-only scope. Without that, the EmbeddedSubscriber tier still
-    // cannot receive a real push end-to-end; only the fallback-to-Polling
-    // path (already tested) is reachable live today. Flagged here, not
-    // silently worked around.
+    // Registering this topic with the backend as a deviceToken so the relay
+    // actually knows where to publish (previously a documented gap here) is
+    // now wired below via ntfyUrl + the tierChanged connection near
+    // transportStateMachine's construction: deviceToken tracks whichever
+    // tier is actually active (pushConnector.endpoint() for Distributor,
+    // this URL for EmbeddedSubscriber), confirmed against the backend
+    // (kypost-server's UnifiedPushSender.Send) treating deviceToken as an
+    // arbitrary public URL to POST to under the existing
+    // transport=unifiedpush value -- no backend change needed for ntfy.sh
+    // itself to be that URL.
     PushNotificationClient pushNotificationClient(httpClient);
     const QString ntfyTopic = NtfyTopicProvisioner::getOrCreateTopic(secureStore);
+    // pushServerBaseUrl() defaults to "https://ntfy.sh" (no trailing slash)
+    // but is user-configurable via SettingsStore::setPushServerBaseUrl(), so
+    // this defensively strips one if present rather than assuming the
+    // default's shape holds forever.
+    QString ntfyBaseUrl = settingsStore.pushServerBaseUrl();
+    while (ntfyBaseUrl.endsWith(QLatin1Char('/')))
+        ntfyBaseUrl.chop(1);
+    const QString ntfyUrl = ntfyBaseUrl + QLatin1Char('/') + ntfyTopic;
     NtfySubscriber ntfySubscriber(networkManager, settingsStore.pushServerBaseUrl(), ntfyTopic);
     PushRepository pushRepository(pushDao, cursorStore, pushNotificationClient, pairingStore, settingsStore);
     TransportStateMachine transportStateMachine(ntfySubscriber, pushRepository);
@@ -659,6 +664,31 @@ int main(int argc, char* argv[])
     QObject::connect(&transportStateMachine, &TransportStateMachine::tierChanged, &transportStateMachine,
                       [](TransportTier tier) {
                           qDebug() << "main: TransportStateMachine tier changed:" << static_cast<int>(tier);
+                      });
+
+    // Registers whichever endpoint the now-active tier can actually be
+    // reached at, closing the gap flagged in the comment above ntfyUrl's
+    // construction. Distributor and EmbeddedSubscriber each have a real
+    // address to register; Polling has none of its own, so the
+    // previously-registered token (from the last Distributor/
+    // EmbeddedSubscriber tier this session saw) is left alone rather than
+    // registering nothing, since a stale-but-real address at least has a
+    // chance of receiving a push again once that tier returns, and
+    // deviceToken has no meaningful "unset" wire value to fall back to.
+    QObject::connect(&transportStateMachine, &TransportStateMachine::tierChanged, &transportStateMachine,
+                      [&deviceRegistrationService, &pairingController, &pushConnector, &ntfyUrl](TransportTier tier) {
+                          switch (tier) {
+                          case TransportTier::Distributor:
+                              deviceRegistrationService.reregisterIfPaired(pushConnector.endpoint());
+                              pairingController.setDeviceToken(pushConnector.endpoint());
+                              break;
+                          case TransportTier::EmbeddedSubscriber:
+                              deviceRegistrationService.reregisterIfPaired(ntfyUrl);
+                              pairingController.setDeviceToken(ntfyUrl);
+                              break;
+                          case TransportTier::Polling:
+                              break;
+                          }
                       });
 
     // Foreground/background is app-layer-owned state TransportStateMachine
