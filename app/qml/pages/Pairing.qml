@@ -96,6 +96,77 @@ Item {
             }
         }
 
+        // ---- confirm ---------------------------------------------------
+        // VibeSec fix: a llamalabels://native-pair link (deep link or
+        // pasted) no longer pairs immediately on arrival -- see
+        // PairingController::pairFromDeepLink's doc comment. This step
+        // shows which server is asking before Pairing.confirmPendingPair()
+        // makes any network call, so a link clicked outside this app (this
+        // app is the OS-wide handler for the llamalabels:// scheme) can't
+        // silently re-pair the device.
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: Pairing.pairingState === "confirm"
+            spacing: 16
+
+            Text {
+                Layout.fillWidth: true
+                text: "⚠" // warning glyph -- this is a security-sensitive confirmation, not routine chrome
+                color: Theme.accent
+                font.pixelSize: 40
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Text {
+                Layout.fillWidth: true
+                text: i18n("Pair with this server?")
+                color: Theme.inkStrong
+                font.family: Theme.fontUi
+                font.pixelSize: 22
+                font.weight: Font.Bold
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Text {
+                Layout.fillWidth: true
+                text: i18n("A pairing request wants to connect this device to:")
+                color: Theme.ink
+                font.family: Theme.fontUi
+                font.pixelSize: 14
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: Pairing.pendingPairHost
+                color: Theme.inkStrong
+                font.family: Theme.fontMono
+                font.pixelSize: 16
+                font.weight: Font.Bold
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: i18n("Only confirm this if you expected it. Once paired, this server can deliver mail notifications to this device.")
+                color: Theme.ink
+                font.family: Theme.fontUi
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 12
+                GhostButton {
+                    text: i18n("Cancel")
+                    onClicked: Pairing.cancelPendingPair()
+                }
+                PrimaryButton {
+                    text: i18n("Pair")
+                    onClicked: Pairing.confirmPendingPair()
+                }
+            }
+        }
+
         // ---- working -------------------------------------------------
         ColumnLayout {
             Layout.fillWidth: true

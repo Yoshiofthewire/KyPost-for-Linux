@@ -435,6 +435,10 @@ Item {
                     return
                 const source = (root.email && root.email.body) ? root.email.body
                                                                  : (root.email ? root.email.preview : "")
+                // Rearm the one-shot gate in onNavigationRequested below
+                // before triggering the loadHtml() call that it needs to
+                // let through.
+                item.awaitingInitialLoad = true
                 item.loadHtml(root.renderedHtml(source || ""))
             }
 
@@ -459,16 +463,34 @@ Item {
                 settings.javascriptEnabled: false
                 settings.autoLoadImages: root.imagesLoaded
 
-                // Only a real user link click should escape to the system
-                // browser -- the initial loadHtml() call also produces a
-                // navigationRequested event, but its navigationType is not
-                // LinkClickedNavigation, so it's left alone here and
-                // proceeds in-place as normal.
+                // VibeSec fix: this used to only reject LinkClickedNavigation,
+                // leaving every other navigationType -- including a
+                // RedirectNavigation/OtherNavigation triggered by an
+                // in-message `<meta http-equiv="refresh" ...>` (no
+                // JavaScript required) -- free to auto-navigate in place.
+                // That let a sender's HTML silently fetch an attacker URL
+                // the instant the message was opened, exactly the
+                // read-receipt/tracking leak autoLoadImages above is meant
+                // to prevent, just via a different navigation vector. Only
+                // the single navigationRequested that applyContent()'s own
+                // loadHtml() call produces (flagged via awaitingInitialLoad,
+                // reset there right before each loadHtml()) is allowed
+                // through now; every other navigation is rejected, and a
+                // real link click is additionally routed to the system
+                // browser.
+                property bool awaitingInitialLoad: true
+
                 onNavigationRequested: function (request) {
                     if (request.navigationType === WebEngineNavigationRequest.LinkClickedNavigation) {
                         request.reject()
                         Qt.openUrlExternally(request.url)
+                        return
                     }
+                    if (awaitingInitialLoad) {
+                        awaitingInitialLoad = false
+                        return
+                    }
+                    request.reject()
                 }
 
                 Component.onCompleted: webViewLoader.applyContent()

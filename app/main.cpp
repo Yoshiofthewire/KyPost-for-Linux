@@ -48,6 +48,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFontDatabase>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -248,6 +249,14 @@ int main(int argc, char* argv[])
     // exist.
     const QString settingsDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QDir().mkpath(settingsDir);
+    // VibeSec fix: lock this app's own per-user config directory to
+    // owner-only (0700) so settings.ini can't be read by other local users
+    // on a multi-user system -- mirrors the discipline SecureStoreFile.cpp
+    // already applies to individual secret files. Re-applied on every
+    // startup (idempotent) so a directory left over from before this fix
+    // gets tightened too, not just freshly created ones.
+    QFile::setPermissions(settingsDir,
+                           QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     SettingsStore settingsStore(settingsDir + QStringLiteral("/settings.ini"));
 
     // Convergent root selection (see the comment further below at
@@ -296,6 +305,12 @@ int main(int argc, char* argv[])
     // QSqlDatabase& into this object, so treat it as fatal.
     const QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(dataDir);
+    // VibeSec fix: same rationale as settingsDir above -- llamamail.db holds
+    // full contact records (names, emails, phones, notes, PGP public keys)
+    // and mail content in plaintext, and the contact-photos cache directory
+    // constructed below also lives under dataDir, so this one chmod covers
+    // both.
+    QFile::setPermissions(dataDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     Database database;
     if (!database.open(dataDir + QStringLiteral("/llamamail.db")))
         qFatal("main: Database::open failed for %s", qPrintable(dataDir + QStringLiteral("/llamamail.db")));

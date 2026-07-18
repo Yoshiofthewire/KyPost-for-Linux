@@ -134,20 +134,25 @@ Kirigami.ApplicationWindow {
     // llamalabels://native-pair link arrives, whether or not this window
     // is already up. autoNavigatedForAttempt guards against
     // double-pushing Pairing.qml: pairingStateChanged can fire more than
-    // once per attempt ("working" -> "paired"/"failed" each emit it), so
-    // only the *first* transition of a given attempt pushes.
+    // once per attempt ("confirm" -> "working" -> "paired"/"failed" each
+    // emit it), so only the *first* transition of a given attempt pushes.
     //
-    // The flag rearms on a transition INTO "working", not on a return to
-    // "idle": per PairingController.cpp, pairFromParsedParams() sets
-    // pairingState to "working" unconditionally from whatever state it was
-    // already in -- it never passes back through "idle" first. The ONLY
-    // path that ever sets pairingState back to "idle" is reset(), whose
-    // only caller is Pairing.qml's own "Try Again" button. So rearming on
-    // "idle" meant this guard only ever fired for the FIRST pairing
-    // attempt of a session (or one right after a manual "Try Again");
-    // every subsequent real attempt updated pairingState correctly but had
-    // its auto-navigate silently swallowed. Rearming on "working" fires
-    // exactly once per real attempt, regardless of what state preceded it.
+    // The flag rearms on a transition INTO "confirm" (VibeSec fix: every
+    // real attempt now starts there -- see PairingController::
+    // pairFromDeepLink's doc comment -- rather than "working", which a
+    // pending attempt only reaches once the user explicitly confirms it),
+    // not on a return to "idle": per PairingController.cpp, a fresh
+    // pairFromDeepLink()/pairFromPastedLink() call sets pairingState to
+    // "confirm" unconditionally from whatever state it was already in -- it
+    // never passes back through "idle" first. The ONLY paths that ever set
+    // pairingState back to "idle" are reset() and cancelPendingPair(),
+    // whose only callers are Pairing.qml's own "Try Again" and "Cancel"
+    // buttons. So rearming on "idle" meant this guard only ever fired for
+    // the FIRST pairing attempt of a session (or one right after a manual
+    // "Try Again"/"Cancel"); every subsequent real attempt updated
+    // pairingState correctly but had its auto-navigate silently swallowed.
+    // Rearming on "confirm" fires exactly once per real attempt, regardless
+    // of what state preceded it.
     //
     // Also checked against the currently active page's objectName so a
     // user who has already manually navigated to Pairing.qml (via the
@@ -158,7 +163,7 @@ Kirigami.ApplicationWindow {
     Connections {
         target: Pairing
         function onPairingStateChanged() {
-            if (Pairing.pairingState === "working")
+            if (Pairing.pairingState === "confirm")
                 root.autoNavigatedForAttempt = false
             if (Pairing.pairingState === "idle" || root.autoNavigatedForAttempt)
                 return

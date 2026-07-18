@@ -1,10 +1,13 @@
 #pragma once
 
+#include "domain/DeviceRegistrationService.h"
+
 #include <QObject>
 #include <QString>
 
+#include <optional>
+
 class QUrl;
-class DeviceRegistrationService;
 class PairingStore;
 class SettingsStore;
 
@@ -37,8 +40,15 @@ class PairingController : public QObject
     // security review.
     Q_PROPERTY(QString pairedServerHost READ pairedServerHost NOTIFY pairingChanged)
     Q_PROPERTY(QString deviceId READ deviceId NOTIFY pairingChanged)
-    Q_PROPERTY(QString pairingState READ pairingState NOTIFY pairingStateChanged) // "idle" | "working" | "paired" | "failed"
+    Q_PROPERTY(QString pairingState READ pairingState NOTIFY pairingStateChanged) // "idle" | "confirm" | "working" | "paired" | "failed"
     Q_PROPERTY(QString pairingError READ pairingError NOTIFY pairingStateChanged) // meaningful only when pairingState == "failed"
+    // Host of the server a not-yet-confirmed pairFromDeepLink()/
+    // pairFromPastedLink() call wants to pair with -- meaningful only when
+    // pairingState == "confirm". Lets the confirmation UI show the user
+    // which server is asking, before confirmPendingPair() makes any network
+    // call. See PairingController.cpp's pairFromDeepLink() doc comment for
+    // why this gate exists.
+    Q_PROPERTY(QString pendingPairHost READ pendingPairHost NOTIFY pairingStateChanged)
     // Task 39: read-only display fields for Settings > Notifications.
     // Sourced straight from SettingsStore on every read (no local cache).
     // deliveryMode/transport only ever change together with isPaired/
@@ -66,6 +76,7 @@ public:
     QString deviceId() const;
     QString pairingState() const;
     QString pairingError() const;
+    QString pendingPairHost() const;
     QString deliveryMode() const;
     QString transport() const;
     QString pushServerBaseUrl() const;
@@ -82,12 +93,34 @@ public slots:
     // pt must be present AND non-empty), reg optional (empty/absent derives
     // the registration endpoint from srv). On parse failure sets
     // pairingState="failed"+pairingError and returns false without any
-    // network call; on success calls pairFromParsedParams internally.
+    // network call.
+    //
+    // VibeSec fix: this app is registered as the OS-wide handler for the
+    // llamalabels:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
+    // MimeType), so a link clicked anywhere on the system -- a browser, a
+    // chat client, another app -- reaches this method, including via
+    // KDBusService relaying a second launch's argv to an already-running
+    // instance (main.cpp's routeDeepLink()), with none of this app's own UI
+    // ever having been on screen. A successful parse therefore no longer
+    // pairs immediately: it stores the parsed params and moves
+    // pairingState to "confirm", where pendingPairHost tells the UI which
+    // server is asking. Only an explicit confirmPendingPair() call actually
+    // performs the network call and persists the new pairing;
+    // cancelPendingPair() (or a fresh call to this method/pairFromPastedLink)
+    // discards it instead.
     bool pairFromDeepLink(const QUrl& url);
     // Same as pairFromDeepLink but the input is a pasted string the user
     // typed/pasted into a TextField -- wrapped in QUrl(text), same
-    // validation path.
+    // validation path (including the confirm gate above).
     bool pairFromPastedLink(const QString& text);
+    // Performs the network call for whatever pairFromDeepLink/
+    // pairFromPastedLink most recently parsed into pairingState=="confirm".
+    // Returns false with no network call if there is no pending request
+    // (e.g. called twice, or after cancelPendingPair()).
+    bool confirmPendingPair();
+    // Discards a pending pairFromDeepLink/pairFromPastedLink request without
+    // ever making a network call, returning pairingState to "idle".
+    void cancelPendingPair();
     void reset();         // sets pairingState back to "idle" (for a "Try Again" button after a failure)
     void removePairing(); // pairingStore.clear() + refreshFromStore()
     // Late-bound, same pattern as main.cpp's pairingControllerForDeepLinks
@@ -125,4 +158,9 @@ private:
     QString m_pairedServerHost;
     QString m_deviceId;
     QString m_deviceToken; // set via setDeviceToken(); empty until UnifiedPushConnector reports a real endpoint
+    // Set by pairFromDeepLink()/pairFromPastedLink() on a successful parse,
+    // consumed by confirmPendingPair(), discarded by cancelPendingPair() or
+    // by a fresh pairFromDeepLink()/pairFromPastedLink() call. Meaningful
+    // only while pairingState == "confirm".
+    std::optional<PairingParams> m_pendingPair;
 };

@@ -232,6 +232,108 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    // ---- pairing confirmation ------------------------------------------
+    // VibeSec fix: this app is registered as the OS-wide handler for the
+    // llamalabels:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
+    // MimeType), so a llamalabels://native-pair link clicked anywhere on
+    // the system reaches PairingController without any of this app's own
+    // UI ever having been on screen -- including here, where (unlike
+    // MobileRoot.qml's pageStack) there's no page to auto-push. This is a
+    // small dedicated Popup rather than reusing the full Pairing.qml/
+    // Settings flow (Settings.qml's own pairingPopup is nested inside
+    // settingsSheet, which isn't open by default): it only needs to show
+    // which server is asking and let the user accept or reject before
+    // Pairing.confirmPendingPair() makes any network call. See
+    // PairingController::pairFromDeepLink's doc comment for the full gate.
+    Popup {
+        id: pairingConfirmPopup
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        x: (root.width - width) / 2
+        y: (root.height - height) / 2
+        width: Math.min(380, root.width - 32)
+        padding: 20
+
+        background: Rectangle {
+            color: Theme.panel
+            radius: Theme.shapeSheet
+            border.width: 1
+            border.color: Theme.line
+        }
+
+        // Escape (or any other close not routed through the buttons below)
+        // must fail closed -- discard the pending request rather than
+        // leaving it sitting around for a later, unrelated
+        // confirmPendingPair() call to unexpectedly complete. The state
+        // check avoids double-cancelling when this popup is closed *because*
+        // confirmPendingPair()/the Cancel button already moved
+        // pairingState away from "confirm" themselves.
+        onClosed: if (Pairing.pairingState === "confirm") Pairing.cancelPendingPair()
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 16
+
+            Text {
+                Layout.fillWidth: true
+                text: i18n("Pair this device?")
+                color: Theme.inkStrong
+                font.family: Theme.fontUi
+                font.pixelSize: 18
+                font.weight: Font.Bold
+            }
+            Text {
+                Layout.fillWidth: true
+                text: i18n("A pairing request wants to connect this device to:")
+                color: Theme.ink
+                font.family: Theme.fontUi
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: Pairing.pendingPairHost
+                color: Theme.inkStrong
+                font.family: Theme.fontMono
+                font.pixelSize: 15
+                font.weight: Font.Bold
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: i18n("Only confirm this if you expected it. Once paired, this server can deliver mail notifications to this device.")
+                color: Theme.ink
+                font.family: Theme.fontUi
+                font.pixelSize: 12
+                wrapMode: Text.WordWrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                Item { Layout.fillWidth: true }
+                GhostButton {
+                    text: i18n("Cancel")
+                    onClicked: Pairing.cancelPendingPair()
+                }
+                PrimaryButton {
+                    text: i18n("Pair")
+                    onClicked: Pairing.confirmPendingPair()
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: Pairing
+        function onPairingStateChanged() {
+            if (Pairing.pairingState === "confirm")
+                pairingConfirmPopup.open()
+            else
+                pairingConfirmPopup.close()
+        }
+    }
+
     // ---- PGP QR key exchange: two more OverlaySheets, same choice as
     // settingsSheet above (no second top-level window/event-loop to manage).
     Kirigami.OverlaySheet {

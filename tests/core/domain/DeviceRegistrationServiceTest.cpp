@@ -18,6 +18,7 @@ class DeviceRegistrationServiceTest : public QObject
 
 private slots:
     void successfulPairPersistsPairingAndSettings();
+    void pullEndpointFromDifferentOriginThanServerIsRejected();
     void unauthorizedPairLeavesStoresUntouched();
     void reregisterIfPairedSendsStoredCredentialsAndUpdatesDeviceId();
     void reregisterIfPairedWithNoPriorPairingMakesNoRequest();
@@ -41,8 +42,66 @@ PairingParams DeviceRegistrationServiceTest::sampleParams(quint16 port)
 
 void DeviceRegistrationServiceTest::successfulPairPersistsPairingAndSettings()
 {
+    // pullEndpoint deliberately shares origin with a fixed serverBaseUrl
+    // literal (not the fake server's own dynamic port -- registrationUrl,
+    // set separately below, is what actually gets contacted) -- exercises
+    // the "accepted as-is" path of the sameOrigin() check in
+    // DeviceRegistrationService::pair().
     const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
+                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example:9443/custom/pull",)"
+                             R"("transport":"unifiedpush"})";
+    FakeRelayServer fake(httpResponse(200, "OK", body));
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    NativeRegistrationClient client(http);
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+
+    DeviceRegistrationService service(client, pairingStore, settingsStore);
+
+    PairingParams params = sampleParams(fake.port());
+    params.serverBaseUrl = QStringLiteral("http://relay.example:9443");
+
+    const NativeRegistrationResult result = service.pair(params, QStringLiteral("https://push.example/endpoint"));
+
+    QCOMPARE(result.outcome, RegistrationOutcome::Success);
+
+    // Verify persistence via a second PairingStore instance over the same
+    // SecureStoreFile directory, proving the write actually landed on disk
+    // rather than merely being visible through the original instance.
+    PairingStore verifyPairingStore(secureStore);
+    const std::optional<DevicePairing> loaded = verifyPairingStore.load();
+    QVERIFY(loaded.has_value());
+    QCOMPARE(loaded->subscriberId, QStringLiteral("sub-1"));
+    QCOMPARE(loaded->subscriberHash, QStringLiteral("hash-1"));
+    QCOMPARE(loaded->serverBaseUrl, params.serverBaseUrl);
+    QCOMPARE(loaded->registrationUrl, params.registrationUrl);
+    QCOMPARE(loaded->pairingToken, QStringLiteral("pair-tok"));
+    QCOMPARE(loaded->deviceId, QStringLiteral("dev-1"));
+    QCOMPARE(loaded->deviceName, QStringLiteral("My Linux Desktop"));
+
+    QCOMPARE(settingsStore.deliveryMode(), QStringLiteral("pull"));
+    QCOMPARE(settingsStore.pullEndpoint(), QStringLiteral("http://relay.example:9443/custom/pull"));
+    QCOMPARE(settingsStore.transport(), QStringLiteral("unifiedpush"));
+}
+
+void DeviceRegistrationServiceTest::pullEndpointFromDifferentOriginThanServerIsRejected()
+{
+    // VibeSec regression guard: a pullEndpoint on a different host than the
+    // server the user actually paired with must be ignored in favor of a
+    // same-origin derived one, not persisted verbatim -- otherwise a
+    // compromised/malicious relay could silently redirect all future
+    // credentialed polling (subscriberId/subscriberHash ride along on every
+    // pull) to an arbitrary attacker host.
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","devices":1,)"
+                             R"("deliveryMode":"pull","pullEndpoint":"http://attacker.example/steal",)"
                              R"("transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
     QNetworkAccessManager manager;
@@ -64,24 +123,8 @@ void DeviceRegistrationServiceTest::successfulPairPersistsPairingAndSettings()
         service.pair(sampleParams(fake.port()), QStringLiteral("https://push.example/endpoint"));
 
     QCOMPARE(result.outcome, RegistrationOutcome::Success);
-
-    // Verify persistence via a second PairingStore instance over the same
-    // SecureStoreFile directory, proving the write actually landed on disk
-    // rather than merely being visible through the original instance.
-    PairingStore verifyPairingStore(secureStore);
-    const std::optional<DevicePairing> loaded = verifyPairingStore.load();
-    QVERIFY(loaded.has_value());
-    QCOMPARE(loaded->subscriberId, QStringLiteral("sub-1"));
-    QCOMPARE(loaded->subscriberHash, QStringLiteral("hash-1"));
-    QCOMPARE(loaded->serverBaseUrl, sampleParams(fake.port()).serverBaseUrl);
-    QCOMPARE(loaded->registrationUrl, sampleParams(fake.port()).registrationUrl);
-    QCOMPARE(loaded->pairingToken, QStringLiteral("pair-tok"));
-    QCOMPARE(loaded->deviceId, QStringLiteral("dev-1"));
-    QCOMPARE(loaded->deviceName, QStringLiteral("My Linux Desktop"));
-
-    QCOMPARE(settingsStore.deliveryMode(), QStringLiteral("pull"));
-    QCOMPARE(settingsStore.pullEndpoint(), QStringLiteral("http://relay.example/api/notifications/native/pull"));
-    QCOMPARE(settingsStore.transport(), QStringLiteral("unifiedpush"));
+    QCOMPARE(settingsStore.pullEndpoint(),
+             QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
 }
 
 void DeviceRegistrationServiceTest::unauthorizedPairLeavesStoresUntouched()

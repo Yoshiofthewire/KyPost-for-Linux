@@ -107,6 +107,11 @@ QString PairingController::pairingError() const
     return m_pairingError;
 }
 
+QString PairingController::pendingPairHost() const
+{
+    return m_pendingPair.has_value() ? QUrl(m_pendingPair->serverBaseUrl).host() : QString();
+}
+
 QString PairingController::deliveryMode() const
 {
     return m_settingsStore.deliveryMode();
@@ -151,12 +156,23 @@ bool PairingController::pairFromDeepLink(const QUrl& url)
 {
     const std::optional<ParsedPairingLink> parsed = parseNativePairLink(url);
     if (!parsed.has_value()) {
+        m_pendingPair.reset();
         setPairingState(QStringLiteral("failed"), i18n("This pairing link is invalid or incomplete."));
         return false;
     }
 
-    return pairFromParsedParams(parsed->subscriberId, parsed->subscriberHash, parsed->serverBaseUrl,
-                                 parsed->pairingToken, parsed->registrationUrl);
+    // See this method's header doc comment: a recognized link no longer
+    // pairs immediately -- it waits in "confirm" for confirmPendingPair().
+    PairingParams params;
+    params.subscriberId = parsed->subscriberId;
+    params.subscriberHash = parsed->subscriberHash;
+    params.serverBaseUrl = parsed->serverBaseUrl;
+    params.registrationUrl = parsed->registrationUrl.isEmpty() ? deriveRegistrationUrl(parsed->serverBaseUrl)
+                                                                 : parsed->registrationUrl;
+    params.pairingToken = parsed->pairingToken;
+    m_pendingPair = params;
+    setPairingState(QStringLiteral("confirm"));
+    return true;
 }
 
 bool PairingController::pairFromPastedLink(const QString& text)
@@ -164,8 +180,28 @@ bool PairingController::pairFromPastedLink(const QString& text)
     return pairFromDeepLink(QUrl(text));
 }
 
+bool PairingController::confirmPendingPair()
+{
+    if (!m_pendingPair.has_value()) {
+        setPairingState(QStringLiteral("failed"), i18n("There is no pending pairing request to confirm."));
+        return false;
+    }
+
+    const PairingParams pending = *m_pendingPair;
+    m_pendingPair.reset();
+    return pairFromParsedParams(pending.subscriberId, pending.subscriberHash, pending.serverBaseUrl,
+                                 pending.pairingToken, pending.registrationUrl);
+}
+
+void PairingController::cancelPendingPair()
+{
+    m_pendingPair.reset();
+    setPairingState(QStringLiteral("idle"));
+}
+
 void PairingController::reset()
 {
+    m_pendingPair.reset();
     setPairingState(QStringLiteral("idle"));
 }
 
