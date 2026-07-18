@@ -110,18 +110,9 @@ Item {
         { label: i18n("Notes"), value: root.contact.notes || "" },
         { label: i18n("Department"), value: root.contact.department || "" },
         { label: i18n("Pronouns"), value: root.contact.pronouns || "" },
-        { label: i18n("PGP Key"), value: root.truncate(root.contact.pgpKey || "", 40) },
+        { label: i18n("PGP Key"), value: root.contact.pgpKey || "" },
         { label: i18n("Groups"), value: root.groupNamesText() },
     ]
-
-    // Caps a displayed value at `max` characters, matching the existing
-    // detail rows' font.family: Theme.fontMono styling (see the Repeater
-    // delegate below) -- pgpKey values can be arbitrarily long ASCII-armored
-    // blocks, this is deliberately just a display truncation, not a
-    // validation rule.
-    function truncate(value, max) {
-        return value.length > max ? value.substring(0, max) + "…" : value
-    }
 
     // Resolves root.contact.groupIds (backend group UUIDs) to display names
     // via ContactsApp.allGroups() (extended-contact-fields Task 5's
@@ -408,10 +399,12 @@ Item {
 
                             SectionLabel {
                                 Layout.preferredWidth: 70
+                                Layout.alignment: Qt.AlignTop
                                 text: modelData.label
                             }
                             Text {
                                 Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignTop
                                 text: modelData.value !== "" ? modelData.value : "—"
                                 color: Theme.inkStrong
                                 font.family: Theme.fontMono
@@ -528,10 +521,39 @@ Item {
                     Layout.fillWidth: true
                     placeholderText: i18n("Phonetic family name")
                 }
-                ThemedTextField {
-                    id: pgpKeyField
+                Rectangle {
                     Layout.fillWidth: true
-                    placeholderText: i18n("PGP Key")
+                    Layout.preferredHeight: 120
+                    radius: Theme.shapeField
+                    color: Theme.panel
+                    border.width: 1
+                    border.color: pgpKeyField.activeFocus ? Theme.accent : Theme.line
+
+                    Behavior on border.color {
+                        ColorAnimation { duration: 120 }
+                    }
+
+                    Flickable {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        contentWidth: width
+                        contentHeight: pgpKeyField.implicitHeight
+                        clip: true
+                        ScrollBar.vertical: ThemedScrollBar {}
+
+                        TextArea {
+                            id: pgpKeyField
+                            width: parent.width
+                            wrapMode: TextArea.Wrap
+                            color: Theme.inkStrong
+                            placeholderTextColor: Theme.ink
+                            font.family: Theme.fontMono
+                            font.pixelSize: 12
+                            background: null
+                            selectByMouse: true
+                            placeholderText: i18n("PGP Key")
+                        }
+                    }
                 }
                 RowLayout {
                     Layout.fillWidth: true
