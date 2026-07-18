@@ -28,10 +28,10 @@ Rectangle {
     implicitHeight: label.implicitHeight + verticalPadding * 2
 
     radius: height / 2
-    color: root.selected ? Theme.accent : "transparent"
+    color: root.selected ? Theme.accent : (hoverHandler.hovered && !tapHandler.pressed ? Theme.panel : "transparent")
     border.width: root.selected ? 0 : 1
     border.color: Theme.line
-    opacity: !root.enabled ? 0.5 : (tapHandler.pressed ? 0.85 : 1.0)
+    opacity: !root.enabled ? 0.5 : (tapHandler.pressed ? 0.85 : (root.selected && hoverHandler.hovered ? 0.92 : 1.0))
 
     Behavior on color {
         ColorAnimation { duration: 120 }
@@ -52,6 +52,11 @@ Rectangle {
         Behavior on color {
             ColorAnimation { duration: 120 }
         }
+    }
+
+    HoverHandler {
+        id: hoverHandler
+        enabled: root.enabled
     }
 
     TapHandler {

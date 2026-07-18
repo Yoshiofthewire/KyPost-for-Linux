@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import com.urlxl.mail 1.0
 
@@ -119,6 +120,7 @@ Item {
                 visible: count > 0
                 clip: true
                 spacing: 2
+                ScrollBar.vertical: ThemedScrollBar {}
                 // Unbounded (limit 0) -- an empty search browses the whole
                 // address book, not just an autocomplete-sized slice.
                 model: root.isOpen ? ContactsApp.searchContacts(pickerQuery.debouncedText, 0) : []

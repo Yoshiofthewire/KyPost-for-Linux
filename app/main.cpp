@@ -1,4 +1,5 @@
 #include "contacts/ContactsController.h"
+#include "general/GeneralController.h"
 #include "mail/MailController.h"
 #include "pairing/MfaController.h"
 #include "pairing/PairingController.h"
@@ -10,6 +11,7 @@
 #include "push/PushPayloadParser.h"
 #include "push/UnifiedPushConnector.h"
 #include "theme/ThemeController.h"
+#include "tray/TrayController.h"
 
 #include "db/ContactDao.h"
 #include "db/Database.h"
@@ -42,16 +44,17 @@
 #include "stores/CursorStore.h"
 #include "stores/SettingsStore.h"
 
+#include <QApplication>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QFontDatabase>
-#include <QGuiApplication>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QQmlApplicationEngine>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QWindow>
 
 #include <KDBusService>
 #include <KLocalizedQmlContext>
@@ -146,7 +149,12 @@ static void routeDeepLink(const QStringList& arguments, PairingController* pairi
 
 int main(int argc, char* argv[])
 {
-    QGuiApplication app(argc, argv);
+    // QApplication (not QGuiApplication): TrayController's KStatusNotifierItem
+    // uses a QMenu (Qt Widgets) for its standard-actions context menu, and a
+    // QWidget cannot be constructed under a plain QGuiApplication. QApplication
+    // is a strict superset of QGuiApplication, so every existing QGuiApplication-
+    // typed usage of `app` below (e.g. applicationStateChanged) still compiles.
+    QApplication app(argc, argv);
 
     // Task 11: applicationName + organizationDomain feed KDBusService's name
     // derivation (reversed domain + app name -- see KDBusService::KDBusService
@@ -242,6 +250,19 @@ int main(int argc, char* argv[])
     QDir().mkpath(settingsDir);
     SettingsStore settingsStore(settingsDir + QStringLiteral("/settings.ini"));
 
+    // Convergent root selection (see the comment further below at
+    // engine.load()): resolved here, right after settingsStore exists,
+    // because GeneralController (constructed next) needs to know this
+    // process's resolved mode at construction time (its isDesktopMode
+    // property is CONSTANT -- fixed for the process lifetime, distinct from
+    // the pending settingsStore.preferredMode() preference for next launch).
+    // A persisted "desktop"/"mobile" preference overrides the env var;
+    // "auto" (the default) preserves today's env-var-only behavior.
+    const QString preferredMode = settingsStore.preferredMode();
+    const bool isMobile = preferredMode == QStringLiteral("mobile")    ? true
+                         : preferredMode == QStringLiteral("desktop")  ? false
+                         : qEnvironmentVariableIntValue("QT_QUICK_CONTROLS_MOBILE") != 0;
+
     // Task 28: wraps core::ThemeManager (which itself wraps settingsStore
     // above) for QML consumption. Constructed before the engine and
     // registered as a QML singleton instance immediately after, so
@@ -251,6 +272,13 @@ int main(int argc, char* argv[])
     ThemeController themeController(settingsStore);
     qmlRegisterSingletonInstance<ThemeController>(
         "com.urlxl.mail", 1, 0, "Theme", &themeController);
+
+    // GeneralController: Desktop/Mobile mode preference + desktop-only tray
+    // settings. Shares no state with ThemeController -- registered the same
+    // way, right next to it.
+    GeneralController generalController(settingsStore, !isMobile);
+    qmlRegisterSingletonInstance<GeneralController>(
+        "com.urlxl.mail", 1, 0, "General", &generalController);
 
     // Task 31: composition root for the rest of core/db, core/net, and
     // core/domain -- every later Phase 6 task (32-34) builds its
@@ -542,12 +570,22 @@ int main(int argc, char* argv[])
     // (QT_QUICK_CONTROLS_MOBILE) without needing its QML-singleton-only
     // Settings class from C++: a real Plasma Mobile session also flips this
     // env var on for Qt Quick Controls apps, so this covers the same cases
-    // Linux_QT_Client_Plan.md's "Root selection" section called for.
-    const bool isMobile = qEnvironmentVariableIntValue("QT_QUICK_CONTROLS_MOBILE") != 0;
+    // Linux_QT_Client_Plan.md's "Root selection" section called for. `isMobile`
+    // itself is resolved earlier, right after settingsStore is constructed
+    // (see that comment for the persisted-preference-over-env-var precedence).
     engine.load(QUrl(isMobile ? QStringLiteral("qrc:/qml/MobileRoot.qml")
                                : QStringLiteral("qrc:/qml/DesktopRoot.qml")));
     if (engine.rootObjects().isEmpty())
         return -1;
+
+    // Desktop-only system tray icon (see GeneralController.trayIconEnabled /
+    // minimizeToTrayOnClose, and DesktopRoot.qml's onClosing handler). Never
+    // constructed in Mobile mode -- there is no tray concept there.
+    std::optional<TrayController> trayController;
+    if (!isMobile) {
+        auto* rootWindow = qobject_cast<QWindow*>(engine.rootObjects().constFirst());
+        trayController.emplace(rootWindow, generalController);
+    }
 
     // Task 41: UnifiedPushConnector is now a real emitting wrapper (see
     // app/push/UnifiedPushConnector.h/.cpp) -- the live entry point for the

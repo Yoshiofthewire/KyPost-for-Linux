@@ -308,6 +308,7 @@ Item {
         contentHeight: contentColumn.implicitHeight + contentColumn.anchors.margins * 2
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ThemedScrollBar {}
 
         ColumnLayout {
             id: contentColumn
@@ -453,6 +454,7 @@ Item {
                         contentWidth: width
                         contentHeight: notesArea.implicitHeight
                         clip: true
+                        ScrollBar.vertical: ThemedScrollBar {}
 
                         TextArea {
                             id: notesArea

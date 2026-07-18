@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 import org.kde.kirigami 2.20 as Kirigami
 import com.urlxl.mail 1.0
 import "components"
@@ -27,8 +28,35 @@ Kirigami.ApplicationWindow {
     id: root
     width: 1024
     height: 768
+    // Explicit background: the 3-column RowLayout below (sidebar 200 + list
+    // 340 + detail up to 420 = 960 max) doesn't necessarily sum to the
+    // window's actual width -- none of the three columns has an
+    // unconditional Layout.fillWidth, so any leftover width (960 already
+    // being less than this window's own default 1024, before any resize)
+    // shows raw unpainted window background instead of a themed one. That
+    // showed up as a persistent gray block on the right edge. Without this,
+    // the window's own background defaults to Kirigami/Qt's own choice, not
+    // Theme.bg.
+    color: Theme.bg
+    // 900 = sidebar's own 200 + list's own 340 + detail's real content floor
+    // 360 (EmailDetail/ContactDetail/Compose's own implicitWidth, not the
+    // detail column's 420 preferred width) -- see the matching
+    // Layout.minimumWidth values on the three columns below, which this
+    // floor is derived from and reinforces rather than fights.
+    minimumWidth: 900
+    minimumHeight: 480
     visible: true
     title: "KyPost" // product name -- not translated, same as MobileRoot.qml's window title
+
+    // Minimize to tray instead of quitting, when both are enabled (System
+    // Tray settings pane) -- General.trayIconEnabled is only ever true here
+    // since TrayController only exists in Desktop mode (see main.cpp).
+    onClosing: (close) => {
+        if (General.trayIconEnabled && General.minimizeToTrayOnClose) {
+            close.accepted = false
+            root.visible = false
+        }
+    }
 
     // ---- selection state --------------------------------------------
     property string currentSection: "mail" // "mail" | "contacts"
@@ -71,7 +99,15 @@ Kirigami.ApplicationWindow {
         root.detailMode = "empty"
     }
 
+    // Detail pane collapsed means the embedded pane is width-0 (see
+    // detailCollapsed below) -- setting selection state into it would be
+    // invisible, so pop out a standalone window instead (same mechanism as
+    // the detail pane's own pop-out button, see popOutEmail() further down).
     function selectEmail(messageId, folder) {
+        if (root.detailCollapsed) {
+            root.popOutEmail(messageId, folder)
+            return
+        }
         root.selectedMessageId = messageId
         root.selectedEmailFolder = folder
         root.detailMode = "email"
@@ -86,7 +122,14 @@ Kirigami.ApplicationWindow {
     // Loader below only reads composeSeed at the moment it instantiates a
     // fresh Compose (see the Loader's own comment for why it's a Loader,
     // not a persistently-embedded instance like EmailDetail/ContactDetail).
+    // Same detailCollapsed branch as selectEmail() above -- the pane is
+    // width-0 when collapsed, so setting composeSeed/detailMode into it
+    // would be invisible; pop out a standalone window instead.
     function openCompose(to, subject, body) {
+        if (root.detailCollapsed) {
+            root.popOutCompose(to || "", subject || "", body || "")
+            return
+        }
         root.composeSeed = { to: to || "", subject: subject || "", body: body || "" }
         root.detailMode = "compose"
     }
@@ -172,8 +215,8 @@ Kirigami.ApplicationWindow {
 
         Settings {
             id: settingsPane
-            implicitWidth: 480
-            implicitHeight: 560
+            implicitWidth: Math.min(480, root.width - 64)
+            implicitHeight: Math.min(560, root.height - 64)
             onClosed: settingsSheet.close()
             onMyPgpQrCodeRequested: {
                 settingsSheet.close()
@@ -260,7 +303,121 @@ Kirigami.ApplicationWindow {
             initialSubject: root.composeSeed.subject
             initialBody: root.composeSeed.body
             onSendSucceeded: root.closeDetail()
+            onPopOutRequested: function (to, subject, body) { root.popOutCompose(to, subject, body) }
         }
+    }
+
+    // ---- pop-out windows -------------------------------------------------
+    // Email/Compose can be detached into their own top-level Window here
+    // (Desktop mode only -- both components gate their own pop-out
+    // IconButton on General.isDesktopMode, so these functions are only ever
+    // reachable from that mode already). Popping out CLOSES the embedded
+    // copy in the 3-column view (root.closeDetail() / detailMode reset)
+    // rather than leaving a duplicate behind -- a message is read-only so a
+    // second view of it wouldn't cause data loss, but Compose is editable,
+    // and this app has exactly one way to "seed" either component's initial
+    // content (the same composeSeed/messageId+folder properties used
+    // in-pane), so keeping both variants of the same pop-out behavior
+    // consistent was simpler than special-casing one of them.
+    //
+    // createObject(null, ...) makes each window a genuine top-level window
+    // with no QML parent (Window itself doesn't need one); onClosing calls
+    // destroy() so closing the window also frees the dynamically-created
+    // object instead of leaking it.
+    Component {
+        id: emailWindowComponent
+        Window {
+            id: emailWindow
+            width: 640
+            height: 720
+            color: Theme.bg
+
+            property string popMessageId: ""
+            property string popFolder: ""
+
+            title: (poppedEmail.email && poppedEmail.email.subject) ? poppedEmail.email.subject : i18n("Email")
+
+            EmailDetail {
+                id: poppedEmail
+                anchors.fill: parent
+                messageId: emailWindow.popMessageId
+                folder: emailWindow.popFolder
+                isPoppedOut: true
+                onComposeRequested: function (to, subject, body) { root.openCompose(to, subject, body) }
+                onActionCompleted: emailWindow.close()
+            }
+
+            // Same background as the main window, so with some window
+            // managers/themes the two are hard to tell apart when they
+            // overlap -- an app-drawn outline stays visible regardless of
+            // decoration theme. Declared last so it paints on top of
+            // EmailDetail's content instead of underneath it.
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 2
+                border.color: Theme.line
+            }
+
+            onClosing: emailWindow.destroy()
+        }
+    }
+
+    Component {
+        id: composeWindowComponent
+        Window {
+            id: composeWindow
+            width: 640
+            height: 720
+            color: Theme.bg
+            title: i18n("Compose")
+
+            property string popInitialTo: ""
+            property string popInitialSubject: ""
+            property string popInitialBody: ""
+
+            Compose {
+                anchors.fill: parent
+                initialTo: composeWindow.popInitialTo
+                initialSubject: composeWindow.popInitialSubject
+                initialBody: composeWindow.popInitialBody
+                isPoppedOut: true
+                onSendSucceeded: composeWindow.close()
+            }
+
+            // See the matching Rectangle in emailWindowComponent above --
+            // same pop-out-blends-into-main-window issue, same fix.
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 2
+                border.color: Theme.line
+            }
+
+            onClosing: composeWindow.destroy()
+        }
+    }
+
+    function popOutEmail(messageId, folder) {
+        const win = emailWindowComponent.createObject(null, { popMessageId: messageId, popFolder: folder })
+        win.show()
+        // Same raise()+requestActivate() pairing as the tray restore
+        // (TrayController.cpp) and notification tap-through (Connections
+        // block above) -- without it, a freshly created top-level window
+        // can end up behind root and never take focus, so show() alone
+        // silently produces a window the user never sees.
+        win.raise()
+        win.requestActivate()
+        root.closeDetail()
+    }
+
+    function popOutCompose(to, subject, body) {
+        const win = composeWindowComponent.createObject(
+            null, { popInitialTo: to, popInitialSubject: subject, popInitialBody: body })
+        win.show()
+        win.raise()
+        win.requestActivate()
+        root.detailMode = "empty"
     }
 
     ColumnLayout {
@@ -268,12 +425,26 @@ Kirigami.ApplicationWindow {
         spacing: 0
 
         // ---- top bar -----------------------------------------------------
+        // A single bottom-edge hairline (not a full 4-sided border, which
+        // reads flat/boxy against the OS window frame on the other 3 edges)
+        // plus a barely-there vertical gradient give this a subtle "raised
+        // bar" separation from the 3-column body below.
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 52
-            color: Theme.panel
-            border.width: 1
-            border.color: Theme.line
+
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.panel }
+                GradientStop { position: 1.0; color: Qt.darker(Theme.panel, 1.03) }
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Theme.line
+            }
 
             RowLayout {
                 anchors.fill: parent
@@ -321,10 +492,20 @@ Kirigami.ApplicationWindow {
             // task-39 brief) -- deferred follow-up.
             Rectangle {
                 Layout.preferredWidth: 200
+                Layout.minimumWidth: 200
                 Layout.fillHeight: true
                 color: Theme.panel
-                border.width: 1
-                border.color: Theme.line
+
+                // Single hairline at the seam with the list column, not a
+                // full 4-sided border (which would double up against that
+                // column's own left edge).
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: Theme.line
+                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -341,7 +522,21 @@ Kirigami.ApplicationWindow {
                             radius: Theme.shapeButton
                             readonly property bool isCurrent: root.currentSection === "mail"
                                 && root.currentFolder === modelData.wireName
-                            color: isCurrent ? Theme.accentSoft : (folderTap.pressed ? Theme.bg : "transparent")
+                            color: isCurrent ? Theme.accentSoft
+                                : (folderTap.pressed ? Theme.bg : (folderHover.hovered ? Theme.panel : "transparent"))
+
+                            Behavior on color {
+                                ColorAnimation { duration: 120 }
+                            }
+
+                            Rectangle {
+                                visible: parent.isCurrent
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 3
+                                color: Theme.accent
+                            }
 
                             Text {
                                 id: folderLabel
@@ -352,6 +547,10 @@ Kirigami.ApplicationWindow {
                                 color: Theme.inkStrong
                                 font.family: Theme.fontUi
                                 font.pixelSize: 14
+                            }
+
+                            HoverHandler {
+                                id: folderHover
                             }
 
                             TapHandler {
@@ -366,11 +565,26 @@ Kirigami.ApplicationWindow {
                     SectionLabel { text: i18n("People") }
 
                     Rectangle {
+                        id: contactsSectionRow
                         Layout.fillWidth: true
                         implicitHeight: contactsLabel.implicitHeight + 16
                         radius: Theme.shapeButton
-                        color: root.currentSection === "contacts" ? Theme.accentSoft
-                            : (contactsTap.pressed ? Theme.bg : "transparent")
+                        readonly property bool isCurrent: root.currentSection === "contacts"
+                        color: isCurrent ? Theme.accentSoft
+                            : (contactsTap.pressed ? Theme.bg : (contactsHover.hovered ? Theme.panel : "transparent"))
+
+                        Behavior on color {
+                            ColorAnimation { duration: 120 }
+                        }
+
+                        Rectangle {
+                            visible: contactsSectionRow.isCurrent
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: 3
+                            color: Theme.accent
+                        }
 
                         Text {
                             id: contactsLabel
@@ -381,6 +595,10 @@ Kirigami.ApplicationWindow {
                             color: Theme.inkStrong
                             font.family: Theme.fontUi
                             font.pixelSize: 14
+                        }
+
+                        HoverHandler {
+                            id: contactsHover
                         }
 
                         TapHandler {
@@ -397,10 +615,21 @@ Kirigami.ApplicationWindow {
             Rectangle {
                 Layout.fillWidth: root.detailCollapsed
                 Layout.preferredWidth: 340
+                Layout.minimumWidth: 340
                 Layout.fillHeight: true
                 color: Theme.bg
-                border.width: 1
-                border.color: Theme.line
+
+                // Single hairline at the seam with the detail column (the
+                // sidebar/list seam is already drawn by the sidebar's own
+                // right-edge hairline above, so no left border here).
+                Rectangle {
+                    visible: !root.detailCollapsed
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: Theme.line
+                }
 
                 // ---- mail section: own ListView (no swipe actions -- a
                 // right-click context menu with Delete replaces them per
@@ -443,6 +672,50 @@ Kirigami.ApplicationWindow {
                         }
                     }
 
+                    // ---- keyword pill row ---------------------------------
+                    // Ported from MobileRoot.qml's keyword pill row: "All" is
+                    // hardcoded first and always present (not part of
+                    // MailApp.keywordTabs), the rest come straight from
+                    // keywordTabs. Horizontally-scrolling Flickable rather
+                    // than a wrapping Flow so it reads as a single scannable
+                    // filter row above the list, not a block that grows the
+                    // header as keywords accumulate.
+                    Flickable {
+                        Layout.fillWidth: true
+                        // +10 reserves dedicated space below the pills for
+                        // the horizontal scrollbar thumb (4px thick + a
+                        // little breathing room) -- an overlay scrollbar
+                        // here would sit on top of the pills themselves,
+                        // which is fine for a vertical list's right edge but
+                        // not for a row of tappable pills.
+                        implicitHeight: keywordRow.implicitHeight + 10
+                        contentWidth: keywordRow.implicitWidth
+                        contentHeight: keywordRow.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        flickableDirection: Flickable.HorizontalFlick
+                        ScrollBar.horizontal: ThemedScrollBar {}
+
+                        Row {
+                            id: keywordRow
+                            spacing: 8
+
+                            PillTab {
+                                text: i18n("All")
+                                selected: MailApp.selectedKeyword === ""
+                                onClicked: MailApp.selectKeyword("")
+                            }
+                            Repeater {
+                                model: MailApp.keywordTabs
+                                delegate: PillTab {
+                                    text: i18n("%1 (%2)", modelData.name, modelData.count)
+                                    selected: MailApp.selectedKeyword === modelData.name
+                                    onClicked: MailApp.selectKeyword(modelData.name)
+                                }
+                            }
+                        }
+                    }
+
                     Text {
                         Layout.fillWidth: true
                         visible: MailApp.lastError !== ""
@@ -468,6 +741,7 @@ Kirigami.ApplicationWindow {
                         clip: true
                         spacing: 4
                         model: MailApp.emailModel
+                        ScrollBar.vertical: ThemedScrollBar {}
 
                         delegate: Rectangle {
                             id: emailRow
@@ -476,7 +750,25 @@ Kirigami.ApplicationWindow {
                             radius: Theme.shapeButton
                             readonly property bool isSelected: root.detailMode === "email"
                                 && root.selectedMessageId === model.messageId
-                            color: isSelected ? Theme.accentSoft : (emailTap.pressed ? Theme.panel : "transparent")
+                            color: isSelected ? Theme.accentSoft
+                                : (emailTap.pressed ? Theme.panel : (emailHover.hovered ? Theme.bg : "transparent"))
+
+                            Behavior on color {
+                                ColorAnimation { duration: 120 }
+                            }
+
+                            Rectangle {
+                                visible: emailRow.isSelected
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 3
+                                color: Theme.accent
+                            }
+
+                            HoverHandler {
+                                id: emailHover
+                            }
 
                             RowLayout {
                                 id: emailRowContent
@@ -580,15 +872,28 @@ Kirigami.ApplicationWindow {
             }
 
             // ---- detail column (collapsible) -----------------------------
+            // Grows to absorb any window width beyond the sidebar+list's own
+            // fixed needs (fillWidth true whenever visible) -- previously
+            // neither this column nor the list column claimed the extra
+            // space when the window was widened past its default size, so
+            // it just sat there as unused background. The reading/composing
+            // pane is the one that actually benefits from more width (more
+            // comfortable line length for email bodies and the compose
+            // body), same as most 3-pane mail clients growing their message
+            // pane rather than the folder/message list columns.
             Rectangle {
                 Layout.preferredWidth: 420
+                Layout.fillWidth: !root.detailCollapsed
                 Layout.fillHeight: true
-                Layout.maximumWidth: root.detailCollapsed ? 0 : 420
+                Layout.minimumWidth: root.detailCollapsed ? 0 : 360
+                Layout.maximumWidth: root.detailCollapsed ? 0 : 4096
                 visible: !root.detailCollapsed
                 clip: true
                 color: Theme.bg
-                border.width: 1
-                border.color: Theme.line
+
+                // Seam with the list column is already drawn by that
+                // column's own right-edge hairline; this is the rightmost
+                // column (flush against the window edge), so no border here.
 
                 EmptyState {
                     anchors.centerIn: parent
@@ -608,6 +913,7 @@ Kirigami.ApplicationWindow {
                     folder: root.detailMode === "email" ? root.selectedEmailFolder : ""
                     onComposeRequested: function (to, subject, body) { root.openCompose(to, subject, body) }
                     onActionCompleted: root.closeDetail()
+                    onPopOutRequested: root.popOutEmail(root.selectedMessageId, root.selectedEmailFolder)
                 }
 
                 ContactDetail {

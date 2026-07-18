@@ -29,7 +29,7 @@ Rectangle {
     color: Theme.dangerFillColor
     border.width: 1
     border.color: Theme.dangerBorderColor
-    opacity: !root.enabled ? 0.5 : (tapHandler.pressed ? 0.85 : 1.0)
+    opacity: !root.enabled ? 0.5 : (tapHandler.pressed ? 0.85 : (hoverHandler.hovered ? 0.92 : 1.0))
 
     Behavior on opacity {
         NumberAnimation { duration: 120 }
@@ -43,6 +43,11 @@ Rectangle {
         font.family: Theme.fontUi
         font.pixelSize: 15
         font.weight: Font.Medium
+    }
+
+    HoverHandler {
+        id: hoverHandler
+        enabled: root.enabled
     }
 
     TapHandler {

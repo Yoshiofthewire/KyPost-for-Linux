@@ -53,8 +53,8 @@ Item {
     implicitWidth: 480
     implicitHeight: 560
 
-    property int currentPane: 0 // 0 Connection, 1 Appearance, 2 Keywords, 3 Contacts, 4 Notifications
-    readonly property var paneNames: [i18n("Connection"), i18n("Appearance"), i18n("Keywords"), i18n("Contacts"), i18n("Notifications")]
+    property int currentPane: 0 // 0 Connection, 1 Appearance, 2 Keywords, 3 Contacts, 4 Notifications, 5 General
+    readonly property var paneNames: [i18n("Connection"), i18n("Appearance"), i18n("Keywords"), i18n("Contacts"), i18n("Notifications"), i18n("General")]
 
     // MailApp.allKeywordSettings() is a Q_INVOKABLE snapshot, not a
     // NOTIFY-bound property (see MailController.h's doc comment on why) --
@@ -96,12 +96,16 @@ Item {
         // ---- pane selector -------------------------------------------------
         Flickable {
             Layout.fillWidth: true
-            implicitHeight: paneTabRow.implicitHeight
+            // +10 reserves dedicated space below the pills for the
+            // horizontal scrollbar thumb, so it doesn't sit on top of the
+            // pane-selector pills themselves.
+            implicitHeight: paneTabRow.implicitHeight + 10
             contentWidth: paneTabRow.implicitWidth
-            contentHeight: height
+            contentHeight: paneTabRow.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.HorizontalFlick
+            ScrollBar.horizontal: ThemedScrollBar {}
 
             Row {
                 id: paneTabRow
@@ -124,75 +128,87 @@ Item {
             currentIndex: root.currentPane
 
             // ---- 1. Connection ----------------------------------------
-            ColumnLayout {
-                spacing: 12
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    StatusBadge {
-                        active: Pairing.isPaired
-                        text: Pairing.isPaired ? i18n("Paired") : i18n("Not paired")
-                    }
-                    Item { Layout.fillWidth: true }
-                }
+            // Wrapped in a Flickable (same reasoning as EmailDetail.qml/
+            // ContactDetail.qml's own Flickable wraps): this pane's content
+            // can exceed the sheet's available height on a short window, and
+            // a plain ColumnLayout doesn't clip or scroll its own overflow.
+            Flickable {
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: connectionColumn.implicitHeight
+                ScrollBar.vertical: ThemedScrollBar {}
 
                 ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: Pairing.isPaired
-                    spacing: 6
+                    id: connectionColumn
+                    width: parent.width
+                    spacing: 12
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 12
-                        SectionLabel { Layout.preferredWidth: 70; text: i18n("Server") }
-                        Text {
-                            Layout.fillWidth: true
-                            text: Pairing.pairedServerHost
-                            color: Theme.inkStrong
-                            font.family: Theme.fontMono
-                            font.pixelSize: 14
-                            wrapMode: Text.WordWrap
+                        spacing: 8
+
+                        StatusBadge {
+                            active: Pairing.isPaired
+                            text: Pairing.isPaired ? i18n("Paired") : i18n("Not paired")
                         }
+                        Item { Layout.fillWidth: true }
                     }
-                    RowLayout {
+
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 12
-                        SectionLabel { Layout.preferredWidth: 70; text: i18n("Device") }
-                        Text {
-                            Layout.fillWidth: true
-                            text: Pairing.deviceId
-                            color: Theme.inkStrong
-                            font.family: Theme.fontMono
-                            font.pixelSize: 14
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    // No "Test Connection" / desktop-session pairing here --
-                    // both explicitly out of scope, see Phase 6 global
-                    // constraint 6 (this client family only ever does
-                    // sub/hash native pairing, no separate desktop-session
-                    // flow) and the task-39 brief's Connection pane spec.
-                    PrimaryButton {
-                        text: i18n("Pair This Device…")
-                        visible: !Pairing.isPaired
-                        onClicked: pairingPopup.open()
-                    }
-                    DangerButton {
-                        text: i18n("Remove Pairing")
                         visible: Pairing.isPaired
-                        onClicked: Pairing.removePairing()
+                        spacing: 6
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            SectionLabel { Layout.preferredWidth: 70; text: i18n("Server") }
+                            Text {
+                                Layout.fillWidth: true
+                                text: Pairing.pairedServerHost
+                                color: Theme.inkStrong
+                                font.family: Theme.fontMono
+                                font.pixelSize: 14
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            SectionLabel { Layout.preferredWidth: 70; text: i18n("Device") }
+                            Text {
+                                Layout.fillWidth: true
+                                text: Pairing.deviceId
+                                color: Theme.inkStrong
+                                font.family: Theme.fontMono
+                                font.pixelSize: 14
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // No "Test Connection" / desktop-session pairing here --
+                        // both explicitly out of scope, see Phase 6 global
+                        // constraint 6 (this client family only ever does
+                        // sub/hash native pairing, no separate desktop-session
+                        // flow) and the task-39 brief's Connection pane spec.
+                        PrimaryButton {
+                            text: i18n("Pair This Device…")
+                            visible: !Pairing.isPaired
+                            onClicked: pairingPopup.open()
+                        }
+                        DangerButton {
+                            text: i18n("Remove Pairing")
+                            visible: Pairing.isPaired
+                            onClicked: Pairing.removePairing()
+                        }
                     }
                 }
-
-                Item { Layout.fillHeight: true }
             }
 
             // ---- 2. Appearance ------------------------------------------
@@ -209,12 +225,19 @@ Item {
                 clip: true
                 spacing: 2
                 model: Theme.themeNames
+                ScrollBar.vertical: ThemedScrollBar {}
 
                 delegate: Rectangle {
+                    id: themeDelegate
                     width: themeListView.width
                     height: themeRow.implicitHeight + 16
                     radius: Theme.shapeButton
-                    color: modelData === Theme.themeName ? Theme.panel : "transparent"
+                    color: modelData === Theme.themeName ? Theme.panel
+                        : (themeHover.hovered ? Theme.bg : "transparent")
+
+                    Behavior on color {
+                        ColorAnimation { duration: 120 }
+                    }
 
                     RowLayout {
                         id: themeRow
@@ -249,6 +272,10 @@ Item {
                         }
                     }
 
+                    HoverHandler {
+                        id: themeHover
+                    }
+
                     TapHandler {
                         onTapped: Theme.setTheme(modelData)
                     }
@@ -270,25 +297,45 @@ Item {
                     clip: true
                     spacing: 4
                     model: root.keywordSettings
+                    ScrollBar.vertical: ThemedScrollBar {}
 
-                    delegate: RowLayout {
+                    delegate: Rectangle {
                         width: keywordListView.width
-                        spacing: 8
+                        height: keywordRowContent.implicitHeight + 16
+                        radius: Theme.shapeButton
+                        color: keywordHover.hovered ? Theme.panel : "transparent"
 
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData.keyword
-                            color: Theme.inkStrong
-                            font.family: Theme.fontUi
-                            font.pixelSize: 14
+                        Behavior on color {
+                            ColorAnimation { duration: 120 }
                         }
-                        PillTab {
-                            text: modelData.visible ? i18n("Visible") : i18n("Hidden")
-                            selected: modelData.visible
-                            onClicked: {
-                                MailApp.setKeywordVisible(modelData.keyword, !modelData.visible)
-                                root.refreshKeywordSettings()
+
+                        RowLayout {
+                            id: keywordRowContent
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: 10
+                            spacing: 8
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.keyword
+                                color: Theme.inkStrong
+                                font.family: Theme.fontUi
+                                font.pixelSize: 14
                             }
+                            PillTab {
+                                text: modelData.visible ? i18n("Visible") : i18n("Hidden")
+                                selected: modelData.visible
+                                onClicked: {
+                                    MailApp.setKeywordVisible(modelData.keyword, !modelData.visible)
+                                    root.refreshKeywordSettings()
+                                }
+                            }
+                        }
+
+                        HoverHandler {
+                            id: keywordHover
                         }
                     }
                 }
@@ -303,36 +350,44 @@ Item {
             // this task's brief explicitly forbids. This pane shows real
             // sync status/action instead (reusing ContactsApp exactly as
             // ContactsList.qml's own header does).
-            ColumnLayout {
-                spacing: 12
+            Flickable {
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: contactsColumn.implicitHeight
+                ScrollBar.vertical: ThemedScrollBar {}
 
-                Text {
-                    Layout.fillWidth: true
-                    text: ContactsApp.lastError !== "" ? ContactsApp.lastError
-                        : (ContactsApp.statusMessage !== "" ? ContactsApp.statusMessage : i18n("No sync yet."))
-                    color: ContactsApp.lastError !== "" ? Theme.dangerColor : Theme.ink
-                    font.family: Theme.fontUi
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                }
+                ColumnLayout {
+                    id: contactsColumn
+                    width: parent.width
+                    spacing: 12
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    PrimaryButton {
-                        text: i18n("Sync Now")
-                        enabled: !ContactsApp.isBusy
-                        onClicked: ContactsApp.sync()
+                    Text {
+                        Layout.fillWidth: true
+                        text: ContactsApp.lastError !== "" ? ContactsApp.lastError
+                            : (ContactsApp.statusMessage !== "" ? ContactsApp.statusMessage : i18n("No sync yet."))
+                        color: ContactsApp.lastError !== "" ? Theme.dangerColor : Theme.ink
+                        font.family: Theme.fontUi
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
                     }
-                    GhostButton {
-                        text: i18n("My PGP QR Code")
-                        onClicked: root.myPgpQrCodeRequested()
-                    }
-                    Item { Layout.fillWidth: true }
-                }
 
-                Item { Layout.fillHeight: true }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        PrimaryButton {
+                            text: i18n("Sync Now")
+                            enabled: !ContactsApp.isBusy
+                            onClicked: ContactsApp.sync()
+                        }
+                        GhostButton {
+                            text: i18n("My PGP QR Code")
+                            onClicked: root.myPgpQrCodeRequested()
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                }
             }
 
             // ---- 5. Notifications -------------------------------------------
@@ -342,64 +397,168 @@ Item {
             // PairingController.h's known-gap comment), so an editable
             // field here would look functional while doing nothing; a
             // Phase 7 follow-up once real registration lands end-to-end.
-            ColumnLayout {
-                spacing: 10
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: Pairing.deliveryMode === "" && Pairing.transport === ""
-                    text: i18n("Not yet registered")
-                    color: Theme.ink
-                    font.family: Theme.fontUi
-                    font.pixelSize: 13
-                }
+            Flickable {
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: notificationsColumn.implicitHeight
+                ScrollBar.vertical: ThemedScrollBar {}
 
                 ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: Pairing.deliveryMode !== "" || Pairing.transport !== ""
-                    spacing: 6
+                    id: notificationsColumn
+                    width: parent.width
+                    spacing: 10
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-                        SectionLabel { Layout.preferredWidth: 100; text: i18n("Delivery Mode") }
-                        Text {
-                            Layout.fillWidth: true
-                            text: Pairing.deliveryMode
-                            color: Theme.inkStrong
-                            font.family: Theme.fontMono
-                            font.pixelSize: 14
-                        }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-                        SectionLabel { Layout.preferredWidth: 100; text: i18n("Transport") }
-                        Text {
-                            Layout.fillWidth: true
-                            text: Pairing.transport
-                            color: Theme.inkStrong
-                            font.family: Theme.fontMono
-                            font.pixelSize: 14
-                        }
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-                    SectionLabel { Layout.preferredWidth: 100; text: i18n("Push Server") }
                     Text {
                         Layout.fillWidth: true
-                        text: Pairing.pushServerBaseUrl
-                        color: Theme.inkStrong
-                        font.family: Theme.fontMono
-                        font.pixelSize: 14
-                        wrapMode: Text.WordWrap
+                        visible: Pairing.deliveryMode === "" && Pairing.transport === ""
+                        text: i18n("Not yet registered")
+                        color: Theme.ink
+                        font.family: Theme.fontUi
+                        font.pixelSize: 13
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: Pairing.deliveryMode !== "" || Pairing.transport !== ""
+                        spacing: 6
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            SectionLabel { Layout.preferredWidth: 100; text: i18n("Delivery Mode") }
+                            Text {
+                                Layout.fillWidth: true
+                                text: Pairing.deliveryMode
+                                color: Theme.inkStrong
+                                font.family: Theme.fontMono
+                                font.pixelSize: 14
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            SectionLabel { Layout.preferredWidth: 100; text: i18n("Transport") }
+                            Text {
+                                Layout.fillWidth: true
+                                text: Pairing.transport
+                                color: Theme.inkStrong
+                                font.family: Theme.fontMono
+                                font.pixelSize: 14
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        SectionLabel { Layout.preferredWidth: 100; text: i18n("Push Server") }
+                        Text {
+                            Layout.fillWidth: true
+                            text: Pairing.pushServerBaseUrl
+                            color: Theme.inkStrong
+                            font.family: Theme.fontMono
+                            font.pixelSize: 14
+                            wrapMode: Text.WordWrap
+                        }
                     }
                 }
+            }
 
-                Item { Layout.fillHeight: true }
+            // ---- 6. General ---------------------------------------------
+            // Wrapped in a Flickable, same as the panes above -- this is the
+            // tallest pane (Interface Mode + hint + conditionally-visible
+            // System Tray section with 2 more rows), the most likely to
+            // exceed the sheet's available height on a short/shrunk window.
+            Flickable {
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: generalColumn.implicitHeight
+                ScrollBar.vertical: ThemedScrollBar {}
+
+                ColumnLayout {
+                    id: generalColumn
+                    width: parent.width
+                    spacing: 16
+
+                    SectionLabel { text: i18n("Interface Mode") }
+
+                    Row {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        PillTab {
+                            text: i18n("Auto")
+                            selected: General.preferredMode === "auto"
+                            onClicked: General.setPreferredMode("auto")
+                        }
+                        PillTab {
+                            text: i18n("Desktop")
+                            selected: General.preferredMode === "desktop"
+                            onClicked: General.setPreferredMode("desktop")
+                        }
+                        PillTab {
+                            text: i18n("Mobile")
+                            selected: General.preferredMode === "mobile"
+                            onClicked: General.setPreferredMode("mobile")
+                        }
+                    }
+
+                    MutedHint {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: i18n("Restart KyPost for interface mode changes to take effect.")
+                    }
+
+                    // Desktop-only: gated on the mode THIS process actually
+                    // resolved to at startup, not the pending preference above --
+                    // never shown mid-session in a Mobile launch even if the
+                    // user just picked "Desktop" for next time.
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: General.isDesktopMode
+                        spacing: 16
+
+                        SectionLabel { text: i18n("System Tray") }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Text {
+                                Layout.fillWidth: true
+                                text: i18n("Enable Tray Icon")
+                                color: Theme.inkStrong
+                                font.family: Theme.fontUi
+                                font.pixelSize: 14
+                            }
+                            PillTab {
+                                text: General.trayIconEnabled ? i18n("On") : i18n("Off")
+                                selected: General.trayIconEnabled
+                                onClicked: General.setTrayIconEnabled(!General.trayIconEnabled)
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            enabled: General.trayIconEnabled
+                            opacity: enabled ? 1.0 : 0.5
+                            Text {
+                                Layout.fillWidth: true
+                                text: i18n("Minimize to Tray on Close")
+                                color: Theme.inkStrong
+                                font.family: Theme.fontUi
+                                font.pixelSize: 14
+                            }
+                            PillTab {
+                                text: General.minimizeToTrayOnClose ? i18n("On") : i18n("Off")
+                                selected: General.minimizeToTrayOnClose
+                                onClicked: General.setMinimizeToTrayOnClose(!General.minimizeToTrayOnClose)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

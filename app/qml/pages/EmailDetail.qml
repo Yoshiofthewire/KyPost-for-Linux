@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtWebEngine
 import com.urlxl.mail 1.0
@@ -20,9 +21,20 @@ Item {
     // Public API.
     property string messageId: ""
     property string folder: "" // wire folder name, e.g. "INBOX"
+    // True for the instance DesktopRoot's emailWindowComponent embeds inside
+    // an already-standalone pop-out Window -- hides the "Open in New Window"
+    // button there (see below), since a pop-out of a pop-out has nowhere
+    // more standalone to go.
+    property bool isPoppedOut: false
 
     signal composeRequested(string to, string subject, string body)
     signal actionCompleted(string action) // action: "archive" | "junk" | "delete"
+    // Detach into a standalone top-level window (Desktop mode only -- see
+    // the pop-out IconButton below, gated on General.isDesktopMode). The
+    // host (DesktopRoot) owns the actual Window creation and is expected to
+    // clear its own embedded selection in response, same "host decides what
+    // to do" shape as composeRequested/actionCompleted above.
+    signal popOutRequested()
 
     implicitWidth: 360
     implicitHeight: 640
@@ -33,6 +45,12 @@ Item {
     property var email: ({})
     property var attachments: [] // [{index, name, mimeType, size}, ...]
     property string attachmentStatus: ""
+    // Remote images are blocked by default (see WebEngineView's
+    // settings.autoLoadImages below) -- true once the user has explicitly
+    // opted in via the "Show images" affordance, for the message currently
+    // loaded. Reset on every reload() so switching to a different email
+    // re-blocks images until asked again.
+    property bool imagesLoaded: false
 
     onMessageIdChanged: reload()
     onFolderChanged: reload()
@@ -41,19 +59,26 @@ Item {
     // ---- data loading -------------------------------------------------
 
     function reload() {
+        root.imagesLoaded = false
         if (root.messageId === "") {
             root.email = {}
             root.attachments = []
-            webView.loadHtml(renderedHtml(""))
             return
         }
         root.email = MailApp.findByMessageId(root.messageId)
         root.attachments = (root.email && root.email.hasAttachments)
             ? MailApp.listAttachments(root.folder, root.messageId)
             : []
-        const source = (root.email && root.email.body) ? root.email.body
-                                                         : (root.email ? root.email.preview : "")
-        webView.loadHtml(renderedHtml(source || ""))
+        webViewLoader.applyContent()
+    }
+
+    // Re-parses the same HTML with settings.autoLoadImages now true --
+    // toggling that setting alone doesn't retroactively fetch images a
+    // completed parse already skipped, so this is a real reload, not just a
+    // property flip.
+    function showImages() {
+        root.imagesLoaded = true
+        webViewLoader.applyContent()
     }
 
     // ---- string-transform helpers (ported from Android's
@@ -173,6 +198,7 @@ Item {
         contentHeight: contentColumn.implicitHeight + contentColumn.anchors.margins * 2
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ThemedScrollBar {}
 
         ColumnLayout {
             id: contentColumn
@@ -181,6 +207,15 @@ Item {
             anchors.top: parent.top
             anchors.margins: 16
             spacing: 12
+
+        // Everything above the WebEngineView, grouped under one id so
+        // webViewLoader below can size itself against "whatever's left"
+        // of the available height (see that Loader's Layout.preferredHeight
+        // binding) without manually summing each row's height.
+        ColumnLayout {
+            id: aboveWebView
+            Layout.fillWidth: true
+            spacing: contentColumn.spacing
 
         RowLayout {
             Layout.fillWidth: true
@@ -243,20 +278,25 @@ Item {
             }
         }
 
-        // Six-action row (exact order/rules per Task 35 brief, ported from
-        // Android's EmailDetailActivity). Flow (not RowLayout) so the six
-        // buttons wrap onto a second line on narrow/mobile widths instead
-        // of overflowing. Reply/Reply All/Forward are non-destructive and
-        // use Primary/GhostButton (judgment call: Reply is the single most
-        // likely next action, so it gets PrimaryButton; the rest of the
-        // non-destructive five use GhostButton); Delete alone uses
-        // DangerButton per the brief.
-        Flow {
-            Layout.fillWidth: true
+        // Action row -- icon-only buttons (a text-labelled six-button row
+        // read as too heavy for this row) with tooltips carrying the label
+        // instead. Order/grouping unchanged from the original brief:
+        // Reply/Reply All/Forward are non-destructive (Reply gets the
+        // "primary" treatment as the single most likely next action, the
+        // rest "ghost"); Delete alone is "danger". Pop-out is Desktop-only
+        // (General.isDesktopMode) -- popping out a message on Mobile has no
+        // separate-window concept to detach into. Centered via
+        // Layout.alignment rather than left-anchored -- a RowLayout sized
+        // to its own content (no Layout.fillWidth) so the alignment has
+        // slack to center within.
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter
             spacing: 8
 
-            PrimaryButton {
-                text: i18n("Reply")
+            IconButton {
+                icon: "mail-reply-sender"
+                tooltip: i18n("Reply")
+                variant: "primary"
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const to = root.extractAddress(root.email.sender)
@@ -265,8 +305,9 @@ Item {
                     root.composeRequested(to, subject, body)
                 }
             }
-            GhostButton {
-                text: i18n("Reply All")
+            IconButton {
+                icon: "mail-reply-all"
+                tooltip: i18n("Reply All")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const addrs = [root.extractAddress(root.email.sender)]
@@ -286,8 +327,9 @@ Item {
                     root.composeRequested(deduped.join(", "), subject, body)
                 }
             }
-            GhostButton {
-                text: i18n("Forward")
+            IconButton {
+                icon: "mail-forward"
+                tooltip: i18n("Forward")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     const subject = root.withPrefix(root.email.subject, "Fwd:")
@@ -298,71 +340,143 @@ Item {
                     root.composeRequested("", subject, body)
                 }
             }
-            GhostButton {
-                text: i18n("Archive")
+            IconButton {
+                icon: "mail-archive"
+                tooltip: i18n("Archive")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.archiveEmails([root.messageId]))
                         root.actionCompleted("archive")
                 }
             }
-            GhostButton {
-                text: i18n("Junk")
+            IconButton {
+                icon: "mail-mark-junk"
+                tooltip: i18n("Junk")
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.markSpam([root.messageId]))
                         root.actionCompleted("junk")
                 }
             }
-            DangerButton {
-                text: i18n("Delete")
+            IconButton {
+                icon: "edit-delete"
+                tooltip: i18n("Delete")
+                variant: "danger"
                 enabled: !MailApp.isBusy
                 onClicked: {
                     if (MailApp.deleteEmails([root.messageId]))
                         root.actionCompleted("delete")
                 }
             }
+            IconButton {
+                // "Images blocked" affordance -- settings.autoLoadImages is
+                // false by default below (tracking-pixel/read-receipt
+                // protection, see that property's own comment); this is the
+                // opt-in way back for a message the user trusts. Inline with
+                // the other actions rather than its own row, so it reads as
+                // one more toolbar action instead of a separate banner.
+                icon: "image-x-generic"
+                tooltip: i18n("Show images")
+                visible: !root.imagesLoaded && (root.email.body || root.email.preview)
+                onClicked: root.showImages()
+            }
+            IconButton {
+                icon: "window-new"
+                tooltip: i18n("Open in New Window")
+                visible: General.isDesktopMode && !root.isPoppedOut
+                onClicked: root.popOutRequested()
+            }
         }
 
-        WebEngineView {
-            id: webView
+        Text {
             Layout.fillWidth: true
-            // A fixed preferredHeight, not fillHeight -- this now sits
-            // inside contentColumn, which is sized by its own
-            // implicitHeight (Flickable's contentHeight above), not by a
-            // bounded parent height there'd be free space to "fill".
-            Layout.preferredHeight: 360
-            backgroundColor: Theme.bg
+            visible: !root.imagesLoaded && (root.email.body || root.email.preview)
+            text: i18n("Images are hidden to protect your privacy.")
+            color: Theme.ink
+            font.family: Theme.fontUi
+            font.pixelSize: 12
+            wrapMode: Text.WordWrap
+        }
+        } // aboveWebView
 
-            // Email body HTML is untrusted content -- it comes from whatever
-            // sender wrote the message, not from this app or the paired
-            // relay server. Two settings changed from WebEngineView's
-            // defaults to close the two classic mail-client HTML risks:
-            // running the sender's JavaScript, and auto-fetching remote
-            // <img> sources (a standard tracking-pixel/read-receipt leak --
-            // it would fire on every open even though the HTML itself is
-            // rendered via loadHtml(), since <img src="https://..."> is
-            // still a real network fetch regardless of the base content
-            // being local). Neither is needed for anything this view does
-            // (link clicks are already intercepted below via
-            // navigationRequested/openUrlExternally, not JS).
-            settings.javascriptEnabled: false
-            settings.autoLoadImages: false
+        // Loader, not a directly-embedded WebEngineView -- active only once
+        // there's a real message to show. QtWebEngine's view owns a native
+        // compositor surface that isn't always fully suppressed by a plain
+        // `visible: false` on an ancestor (observed as a stray rendered
+        // rectangle showing through on the empty "Select an email" state);
+        // not instantiating it at all until there's content to render is a
+        // more robust fix than fighting that visibility quirk, and it also
+        // means an idle detail pane isn't keeping a full web-rendering
+        // process alive for nothing.
+        Loader {
+            id: webViewLoader
+            Layout.fillWidth: true
+            // Not a plain fillHeight -- this sits inside contentColumn,
+            // which is wrapped in a content-sized Flickable rather than a
+            // bounded parent, so there's no ambient "remaining space" to
+            // fill implicitly. Instead this computes it explicitly: the
+            // pane's real height (flickable.height, kept in sync with
+            // whatever hosts this component via that anchors.fill: parent)
+            // minus everything else sharing contentColumn, floored at 360
+            // so a long aboveWebView/attachments section still leaves the
+            // body a usable minimum rather than being squeezed to nothing
+            // (the outer Flickable takes over and scrolls in that case).
+            Layout.preferredHeight: active
+                ? Math.max(360, flickable.height
+                    - aboveWebView.implicitHeight
+                    - (attachmentsColumn.visible ? attachmentsColumn.implicitHeight : 0)
+                    - contentColumn.spacing * (attachmentsColumn.visible ? 2 : 1)
+                    - contentColumn.anchors.margins * 2)
+                : 0
+            active: root.messageId !== ""
 
-            // Only a real user link click should escape to the system
-            // browser -- the initial loadHtml() call above also produces a
-            // navigationRequested event, but its navigationType is not
-            // LinkClickedNavigation, so it's left alone here and proceeds
-            // in-place as normal.
-            onNavigationRequested: function (request) {
-                if (request.navigationType === WebEngineNavigationRequest.LinkClickedNavigation) {
-                    request.reject()
-                    Qt.openUrlExternally(request.url)
+            function applyContent() {
+                if (!item)
+                    return
+                const source = (root.email && root.email.body) ? root.email.body
+                                                                 : (root.email ? root.email.preview : "")
+                item.loadHtml(root.renderedHtml(source || ""))
+            }
+
+            sourceComponent: WebEngineView {
+                backgroundColor: Theme.bg
+
+                // Email body HTML is untrusted content -- it comes from
+                // whatever sender wrote the message, not from this app or
+                // the paired relay server. Two settings changed from
+                // WebEngineView's defaults to close the two classic
+                // mail-client HTML risks: running the sender's JavaScript,
+                // and auto-fetching remote <img> sources (a standard
+                // tracking-pixel/read-receipt leak -- it would fire on every
+                // open even though the HTML itself is rendered via
+                // loadHtml(), since <img src="https://..."> is still a real
+                // network fetch regardless of the base content being
+                // local). JavaScript is never needed for anything this view
+                // does (link clicks are already intercepted below via
+                // navigationRequested/openUrlExternally, not JS);
+                // autoLoadImages follows root.imagesLoaded so the "Show
+                // images" affordance above can opt back in per-message.
+                settings.javascriptEnabled: false
+                settings.autoLoadImages: root.imagesLoaded
+
+                // Only a real user link click should escape to the system
+                // browser -- the initial loadHtml() call also produces a
+                // navigationRequested event, but its navigationType is not
+                // LinkClickedNavigation, so it's left alone here and
+                // proceeds in-place as normal.
+                onNavigationRequested: function (request) {
+                    if (request.navigationType === WebEngineNavigationRequest.LinkClickedNavigation) {
+                        request.reject()
+                        Qt.openUrlExternally(request.url)
+                    }
                 }
+
+                Component.onCompleted: webViewLoader.applyContent()
             }
         }
 
         ColumnLayout {
+            id: attachmentsColumn
             Layout.fillWidth: true
             spacing: 8
             visible: root.email.hasAttachments === true

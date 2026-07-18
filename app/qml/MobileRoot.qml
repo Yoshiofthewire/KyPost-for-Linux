@@ -496,12 +496,16 @@ Kirigami.ApplicationWindow {
             // keywords accumulate.
             Flickable {
                 Layout.fillWidth: true
-                implicitHeight: keywordRow.implicitHeight
+                // +10 reserves dedicated space below the pills for the
+                // horizontal scrollbar thumb, so it doesn't sit on top of
+                // the pills themselves.
+                implicitHeight: keywordRow.implicitHeight + 10
                 contentWidth: keywordRow.implicitWidth
-                contentHeight: height
+                contentHeight: keywordRow.implicitHeight
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.HorizontalFlick
+                ScrollBar.horizontal: ThemedScrollBar {}
 
                 Row {
                     id: keywordRow
@@ -553,6 +557,7 @@ Kirigami.ApplicationWindow {
                 clip: true
                 spacing: 4
                 model: MailApp.emailModel
+                ScrollBar.vertical: ThemedScrollBar {}
                 // Recycling isn't worth the correctness hazard here: a
                 // reused SwipeDelegate would keep its `actionTriggered`
                 // guard (see below) across whichever new model row it gets

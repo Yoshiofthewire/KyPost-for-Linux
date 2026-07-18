@@ -2,12 +2,16 @@
 
 namespace {
 constexpr auto kThemeIdKey = "appearance/themeId";
+constexpr auto kPreferredModeKey = "interface/preferredMode";
+constexpr auto kTrayIconEnabledKey = "general/trayIconEnabled";
+constexpr auto kMinimizeToTrayOnCloseKey = "general/minimizeToTrayOnClose";
 constexpr auto kPushServerBaseUrlKey = "notifications/pushServerBaseUrl";
 constexpr auto kDeliveryModeKey = "push/deliveryMode";
 constexpr auto kPullEndpointKey = "push/pullEndpoint";
 constexpr auto kTransportKey = "push/transport";
 
 const QString kDefaultThemeId = QStringLiteral("Patina Ky");
+const QString kDefaultPreferredMode = QStringLiteral("auto");
 
 QString keywordVisibleKey(const QString& keyword)
 {
@@ -29,6 +33,36 @@ QString SettingsStore::themeId() const
 void SettingsStore::setThemeId(const QString& themeId)
 {
     m_settings.setValue(kThemeIdKey, themeId);
+}
+
+QString SettingsStore::preferredMode() const
+{
+    return m_settings.value(kPreferredModeKey, kDefaultPreferredMode).toString();
+}
+
+void SettingsStore::setPreferredMode(const QString& mode)
+{
+    m_settings.setValue(kPreferredModeKey, mode);
+}
+
+bool SettingsStore::trayIconEnabled() const
+{
+    return m_settings.value(kTrayIconEnabledKey, true).toBool();
+}
+
+void SettingsStore::setTrayIconEnabled(bool enabled)
+{
+    m_settings.setValue(kTrayIconEnabledKey, enabled);
+}
+
+bool SettingsStore::minimizeToTrayOnClose() const
+{
+    return m_settings.value(kMinimizeToTrayOnCloseKey, false).toBool();
+}
+
+void SettingsStore::setMinimizeToTrayOnClose(bool enabled)
+{
+    m_settings.setValue(kMinimizeToTrayOnCloseKey, enabled);
 }
 
 QString SettingsStore::pushServerBaseUrl() const

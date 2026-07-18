@@ -18,6 +18,20 @@ public:
     QString themeId() const;
     void setThemeId(const QString& themeId);
 
+    // Interface mode: "auto" (defer to QT_QUICK_CONTROLS_MOBILE), "desktop",
+    // or "mobile" -- an explicit value here overrides the env var. Read once
+    // at startup (see main.cpp's convergent root selection); changing it
+    // takes effect on next launch, not live.
+    QString preferredMode() const;
+    void setPreferredMode(const QString& mode);
+
+    // System tray (desktop mode only -- see GeneralController::isDesktopMode).
+    bool trayIconEnabled() const;
+    void setTrayIconEnabled(bool enabled);
+
+    bool minimizeToTrayOnClose() const;
+    void setMinimizeToTrayOnClose(bool enabled);
+
     // Notifications
     QString pushServerBaseUrl() const;
     void setPushServerBaseUrl(const QString& baseUrl);

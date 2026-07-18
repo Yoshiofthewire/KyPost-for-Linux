@@ -36,6 +36,15 @@ target_sources(llamamail PRIVATE
   resources/fonts.qrc
 )
 
+# GeneralController wraps SettingsStore's Desktop/Mobile mode preference and
+# desktop-only tray settings as a QML singleton ("General") -- plain QObject/
+# QString/bool, no new find_package needed, same reasoning as
+# ThemeController above.
+target_sources(llamamail PRIVATE
+  general/GeneralController.cpp
+  general/GeneralController.h
+)
+
 # MailController/EmailListModel (Task 32) wrap core/domain's MailRepository/
 # KeywordRepository/PairingStore and core/net's RelayMailSource as a QML
 # singleton ("MailApp") -- QObject/QAbstractListModel/QVariant, so app/ per
@@ -153,6 +162,23 @@ target_sources(llamamail PRIVATE
   push/NtfyTopicProvisioner.cpp
   push/NtfyTopicProvisioner.h
 )
+
+# TrayController wraps KStatusNotifierItem (KF6StatusNotifierItem, confirmed
+# installed this session -- kstatusnotifieritem-6.28.0) for the desktop-only
+# system tray icon / minimize-to-tray feature. Its own
+# KF6StatusNotifierItemConfig.cmake internally does
+# find_dependency(Qt6Widgets 6.9.0) and links Qt6::Gui/Qt6::Widgets/Qt6::DBus
+# itself, so no separate top-level CMakeLists.txt Widgets component is
+# needed here. This is also why main.cpp now constructs QApplication instead
+# of QGuiApplication: KStatusNotifierItem's standard-actions context menu is
+# a QMenu (Qt Widgets), and a QWidget cannot be constructed under a plain
+# QGuiApplication.
+find_package(KF6StatusNotifierItem REQUIRED)
+target_sources(llamamail PRIVATE
+  tray/TrayController.cpp
+  tray/TrayController.h
+)
+target_link_libraries(llamamail PRIVATE KF6::StatusNotifierItem)
 
 # KDBusService (KF6DBusAddons) wraps app startup in main.cpp to claim the
 # com.urlxl.mail well-known bus name in Unique mode and emit

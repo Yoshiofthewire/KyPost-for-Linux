@@ -17,11 +17,24 @@ Item {
     property string initialTo: ""
     property string initialSubject: ""
     property string initialBody: ""
+    // True for the instance DesktopRoot's composeWindowComponent embeds
+    // inside an already-standalone pop-out Window -- hides the pop-out
+    // button there (see below), same reasoning as EmailDetail.isPoppedOut.
+    property bool isPoppedOut: false
 
     // Emitted once MailApp.sendMail() reports success -- MobileRoot/
     // DesktopRoot are expected to pop/close this screen in response; this
     // component doesn't assume push-navigation vs a pane, per constraint 4.
     signal sendSucceeded()
+    // Detach into a standalone top-level window (Desktop mode only -- see
+    // the pop-out IconButton below). Carries the current To/Subject/Body so
+    // the draft continues in the new window; Cc/Bcc/attachments don't
+    // transfer (Compose's own initialTo/initialSubject/initialBody seed API
+    // -- the same one Reply/Reply All/Forward already use via
+    // EmailDetail.composeRequested -- doesn't carry those either). The host
+    // is expected to close this embedded copy in response, same "host
+    // decides what to do" shape as sendSucceeded() above.
+    signal popOutRequested(string to, string subject, string body)
 
     implicitWidth: 360
     implicitHeight: 640
@@ -97,6 +110,14 @@ Item {
             root.sendSucceeded()
     }
 
+    // Commits any still-uncommitted address text the same way trySend()
+    // does, so a pop-out doesn't silently drop a typed-but-not-yet-tokenized
+    // "To" address.
+    function currentDraftForPopOut() {
+        toField.commitInputAsToken()
+        return { to: toField.joinedText, subject: subjectField.text, body: bodyArea.text }
+    }
+
     function fileNameOf(path) {
         const parts = path.split("/")
         return parts[parts.length - 1]
@@ -118,6 +139,24 @@ Item {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 10
+
+        // Pop-out -- Desktop-only (General.isDesktopMode): popping out a
+        // draft on Mobile has no separate-window concept to detach into.
+        RowLayout {
+            Layout.fillWidth: true
+            visible: General.isDesktopMode && !root.isPoppedOut
+            spacing: 8
+
+            Item { Layout.fillWidth: true }
+            IconButton {
+                icon: "window-new"
+                tooltip: i18n("Open in New Window")
+                onClicked: {
+                    const draft = root.currentDraftForPopOut()
+                    root.popOutRequested(draft.to, draft.subject, draft.body)
+                }
+            }
+        }
 
         RowLayout {
             Layout.fillWidth: true
@@ -182,6 +221,7 @@ Item {
                 contentWidth: width
                 contentHeight: bodyArea.implicitHeight
                 clip: true
+                ScrollBar.vertical: ThemedScrollBar {}
 
                 TextArea {
                     id: bodyArea

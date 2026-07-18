@@ -7,6 +7,8 @@
     <file>components/GhostButton.qml</file>
     <file>components/DangerButton.qml</file>
     <file>components/PillTab.qml</file>
+    <file>components/ThemedScrollBar.qml</file>
+    <file>components/IconButton.qml</file>
     <file>components/StatusBadge.qml</file>
     <file>components/Avatar.qml</file>
     <file>components/EmptyState.qml</file>
