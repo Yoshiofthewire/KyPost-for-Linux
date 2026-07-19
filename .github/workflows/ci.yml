@@ -92,6 +92,17 @@
 # simplified since, unlike flatpak-builder's network-isolated build phase,
 # this runner has network access throughout, so ZXING_DEPENDENCIES' default
 # AUTO setting can fetch the `stb` single-header dependency itself.
+#
+# Update 2026-07-18 (2): same class of gap, this time for the system tray
+# feature (`find_package(KF6StatusNotifierItem REQUIRED)` in
+# app/CMakeLists.txt, added by TrayController) -- again not caught locally
+# because the developer's machine already had it installed. Confirmed via
+# the failing run's log that Configure fails looking for
+# KF6StatusNotifierItemConfig.cmake. Unlike the ZXing gap, neon's archive
+# does carry this one: `kf6-kstatusnotifieritem-dev` (verified against
+# archive.neon.kde.org/user/dists/noble/main/binary-amd64/Packages.gz),
+# version-matched at 6.28.0 like the other KF6 packages already in this
+# list -- note it doesn't follow their `libkf6*-dev` naming pattern.
 name: CI
 
 on:
@@ -145,6 +156,7 @@ jobs:
             libkf6notifications-dev \
             libkf6dbusaddons-dev \
             libkf6i18n-dev \
+            kf6-kstatusnotifieritem-dev \
             qtkeychain-qt6-dev \
             kunifiedpush-dev
 
