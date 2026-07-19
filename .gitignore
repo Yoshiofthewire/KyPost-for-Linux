@@ -3,3 +3,6 @@
 /repo/
 *.flatpak
 /.worktrees/
+.claude
+.github
+.superpowers
