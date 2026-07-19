@@ -13,8 +13,8 @@ PgpQrClient::PgpQrClient(HttpClient& httpClient)
 
 PgpQrTokenResult PgpQrClient::fetchToken(const QUrl& serverBaseUrl, const RelayAuth& auth) const
 {
-    const HttpClient::HttpResult result =
-        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/pgp/qr/token")), auth.queryItems());
+    const HttpClient::HttpResult result = m_httpClient.get(
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/pgp/qr/token")), {}, auth.headerItems());
 
     PgpQrTokenResult out;
     out.statusCode = result.statusCode;

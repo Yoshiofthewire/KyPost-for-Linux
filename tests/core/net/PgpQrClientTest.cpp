@@ -15,7 +15,7 @@ class PgpQrClientTest : public QObject
 
 private slots:
     void fetchTokenSuccessParsesTokenExpiresAtAndUrl();
-    void fetchTokenSendsAuthAsQueryParamsAndHitsApiPgpQrToken();
+    void fetchTokenSendsAuthAsHeadersAndHitsApiPgpQrToken();
     void fetchToken400NoPgpIdentitySetsStatusCode();
     void fetchToken401MapsToUnauthorized();
     void fetchToken503MapsToServiceUnavailable();
@@ -47,7 +47,7 @@ void PgpQrClientTest::fetchTokenSuccessParsesTokenExpiresAtAndUrl()
     QCOMPARE(result.url, QStringLiteral("https://example.com/api/pgp/qr/key?t=tok-1"));
 }
 
-void PgpQrClientTest::fetchTokenSendsAuthAsQueryParamsAndHitsApiPgpQrToken()
+void PgpQrClientTest::fetchTokenSendsAuthAsHeadersAndHitsApiPgpQrToken()
 {
     FakeRelayServer fake(httpResponse(200, "OK", R"({"token":"t","expiresAt":"","url":""})"));
     QNetworkAccessManager manager;
@@ -59,9 +59,11 @@ void PgpQrClientTest::fetchTokenSendsAuthAsQueryParamsAndHitsApiPgpQrToken()
     client.fetchToken(serverBaseUrl, auth);
 
     const QByteArray request = fake.receivedRequest();
-    QVERIFY(request.contains("GET /api/pgp/qr/token?"));
-    QVERIFY(request.contains("sub=sub-9"));
-    QVERIFY(request.contains("hash=hash-9"));
+    QVERIFY(request.contains("GET /api/pgp/qr/token HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
+    QVERIFY(!request.contains("sub=sub-9"));
+    QVERIFY(!request.contains("hash=hash-9"));
 }
 
 void PgpQrClientTest::fetchToken400NoPgpIdentitySetsStatusCode()
