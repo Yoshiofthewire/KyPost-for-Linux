@@ -1,5 +1,6 @@
 #include "contacts/ContactsController.h"
 
+#include "contacts/ContactFieldMapping.h"
 #include "domain/ContactPhotoRepository.h"
 #include "domain/ContactSyncRepository.h"
 #include "domain/GroupsRepository.h"
@@ -22,14 +23,6 @@ std::optional<QString> toOptional(const QString& value)
     return value.isEmpty() ? std::nullopt : std::make_optional(value);
 }
 
-QVariantMap emailEntryToMap(const ContactEmailEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
 ContactEmailEntry emailEntryFromMap(const QVariantMap& map)
 {
     ContactEmailEntry entry;
@@ -38,32 +31,12 @@ ContactEmailEntry emailEntryFromMap(const QVariantMap& map)
     return entry;
 }
 
-QVariantMap phoneEntryToMap(const ContactPhoneEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
 ContactPhoneEntry phoneEntryFromMap(const QVariantMap& map)
 {
     ContactPhoneEntry entry;
     entry.label = toOptional(map.value(QStringLiteral("label")).toString());
     entry.value = map.value(QStringLiteral("value")).toString();
     return entry;
-}
-
-QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("street")] = entry.street.value_or(QString());
-    map[QStringLiteral("city")] = entry.city.value_or(QString());
-    map[QStringLiteral("region")] = entry.region.value_or(QString());
-    map[QStringLiteral("postalCode")] = entry.postalCode.value_or(QString());
-    map[QStringLiteral("country")] = entry.country.value_or(QString());
-    return map;
 }
 
 ContactAddressEntry addressEntryFromMap(const QVariantMap& map)
@@ -78,15 +51,6 @@ ContactAddressEntry addressEntryFromMap(const QVariantMap& map)
     return entry;
 }
 
-QVariantMap imEntryToMap(const ContactImEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("service")] = entry.service.value_or(QString());
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
 ContactImEntry imEntryFromMap(const QVariantMap& map)
 {
     ContactImEntry entry;
@@ -94,14 +58,6 @@ ContactImEntry imEntryFromMap(const QVariantMap& map)
     entry.label = toOptional(map.value(QStringLiteral("label")).toString());
     entry.value = map.value(QStringLiteral("value")).toString();
     return entry;
-}
-
-QVariantMap urlEntryToMap(const ContactUrlEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
 }
 
 ContactUrlEntry urlEntryFromMap(const QVariantMap& map)
@@ -112,28 +68,12 @@ ContactUrlEntry urlEntryFromMap(const QVariantMap& map)
     return entry;
 }
 
-QVariantMap relationEntryToMap(const ContactRelationEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("name")] = entry.name;
-    return map;
-}
-
 ContactRelationEntry relationEntryFromMap(const QVariantMap& map)
 {
     ContactRelationEntry entry;
     entry.label = toOptional(map.value(QStringLiteral("label")).toString());
     entry.name = map.value(QStringLiteral("name")).toString();
     return entry;
-}
-
-QVariantMap eventEntryToMap(const ContactEventEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("date")] = entry.date;
-    return map;
 }
 
 ContactEventEntry eventEntryFromMap(const QVariantMap& map)
@@ -144,14 +84,6 @@ ContactEventEntry eventEntryFromMap(const QVariantMap& map)
     return entry;
 }
 
-QVariantMap customFieldEntryToMap(const ContactCustomFieldEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label;
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
 ContactCustomFieldEntry customFieldEntryFromMap(const QVariantMap& map)
 {
     ContactCustomFieldEntry entry;
@@ -160,20 +92,10 @@ ContactCustomFieldEntry customFieldEntryFromMap(const QVariantMap& map)
     return entry;
 }
 
-// Generic QVector<T> <-> QVariantList helpers for the struct-entry list
-// fields above (ims/websites/relations/events/customFields) -- mirrors
-// ContactDao.cpp's entriesToJson/entriesFromJson template pattern, just
-// targeting QVariant instead of QJsonValue.
-template <typename T, typename ToMapFn>
-QVariantList entriesToVariantList(const QVector<T>& entries, ToMapFn toMap)
-{
-    QVariantList list;
-    list.reserve(entries.size());
-    for (const T& entry : entries)
-        list.append(toMap(entry));
-    return list;
-}
-
+// entriesToVariantList comes from ContactFieldMapping.h (shared with
+// PgpQrController). entriesFromVariantList has no other caller, so it stays
+// local -- mirrors ContactDao.cpp's entriesToJson/entriesFromJson template
+// pattern, just targeting QVariant instead of QJsonValue.
 template <typename T, typename FromMapFn>
 QVector<T> entriesFromVariantList(const QVariantList& list, FromMapFn fromMap)
 {

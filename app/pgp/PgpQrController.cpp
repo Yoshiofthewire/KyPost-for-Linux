@@ -1,5 +1,6 @@
 #include "pgp/PgpQrController.h"
 
+#include "contacts/ContactFieldMapping.h"
 #include "domain/PgpQrRepository.h"
 #include "net/NetworkError.h"
 #include "net/PgpQrClient.h"
@@ -48,89 +49,6 @@ bool isSafeQrTarget(const QUrl& url)
         return false;
 
     return true;
-}
-
-} // namespace
-
-namespace {
-
-QVariantMap imEntryToMap(const ContactImEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("service")] = entry.service.value_or(QString());
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
-QVariantMap urlEntryToMap(const ContactUrlEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
-QVariantMap relationEntryToMap(const ContactRelationEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("name")] = entry.name;
-    return map;
-}
-
-QVariantMap eventEntryToMap(const ContactEventEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("date")] = entry.date;
-    return map;
-}
-
-QVariantMap customFieldEntryToMap(const ContactCustomFieldEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label;
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
-QVariantMap emailEntryToMap(const ContactEmailEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
-QVariantMap phoneEntryToMap(const ContactPhoneEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("value")] = entry.value;
-    return map;
-}
-
-QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
-{
-    QVariantMap map;
-    map[QStringLiteral("label")] = entry.label.value_or(QString());
-    map[QStringLiteral("street")] = entry.street.value_or(QString());
-    map[QStringLiteral("city")] = entry.city.value_or(QString());
-    map[QStringLiteral("region")] = entry.region.value_or(QString());
-    map[QStringLiteral("postalCode")] = entry.postalCode.value_or(QString());
-    map[QStringLiteral("country")] = entry.country.value_or(QString());
-    return map;
-}
-
-template <typename T, typename ToMapFn>
-QVariantList entriesToVariantList(const QVector<T>& entries, ToMapFn toMap)
-{
-    QVariantList list;
-    list.reserve(entries.size());
-    for (const T& entry : entries)
-        list.append(toMap(entry));
-    return list;
 }
 
 } // namespace

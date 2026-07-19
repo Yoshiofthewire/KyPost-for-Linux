@@ -63,6 +63,7 @@ target_sources(llamamail PRIVATE
 # QAbstractListModel/QVariant, so app/ per the core/ boundary rule, same as
 # MailController/EmailListModel above. No extra find_package needed.
 target_sources(llamamail PRIVATE
+  contacts/ContactFieldMapping.h
   contacts/ContactListModel.cpp
   contacts/ContactListModel.h
   contacts/ContactsController.cpp

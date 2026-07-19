@@ -155,17 +155,13 @@ Item {
         return "#" + pad(c.r) + pad(c.g) + pad(c.b)
     }
 
-    function escapeHtml(s) {
-        return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    }
-
     // HTML-vs-plain-text sniff per Task 35's brief: a handful of common tags
     // followed by whitespace/'>'/'/' is treated as "this is already HTML";
     // anything else is escaped and wrapped in <pre> so it renders literally.
     readonly property var htmlSniffRegex: /<(html|head|body|div|p|br|table|tr|td|a|img|span|ul|ol|li|h[1-6])[\s>/]/i
 
     function renderedHtml(body) {
-        const inner = htmlSniffRegex.test(body) ? body : ("<pre>" + escapeHtml(body) + "</pre>")
+        const inner = htmlSniffRegex.test(body) ? body : ("<pre>" + Format.escapeHtml(body) + "</pre>")
         return "<html><head>"
             + "<meta charset=\"utf-8\">"
             + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"

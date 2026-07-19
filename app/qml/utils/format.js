@@ -1,5 +1,14 @@
 .pragma library
 
+// Escapes HTML metacharacters so text of unknown origin (email body, contact
+// name synced from the Relay server/vCard import/PGP-QR scan, etc.) can't
+// inject tags when placed inside a Text.RichText item. Was duplicated
+// verbatim as escapeHtml() in EmailDetail.qml, Compose.qml, and
+// AutocompleteDropdown.qml.
+function escapeHtml(s) {
+    return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
 // Splits a plain display name on whitespace and returns up to its first two
 // initials, uppercased. Returns "?" when no initials can be derived (empty
 // or whitespace-only input) -- this is the exact "up to 2 characters from

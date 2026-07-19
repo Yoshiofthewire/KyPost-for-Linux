@@ -6,23 +6,6 @@
 
 #include <QJsonObject>
 
-namespace {
-
-// Appends "api/pgp/qr/token" -- same trailing-slash-safe approach as
-// ContactSyncClient.cpp's endpointFor().
-QUrl tokenEndpointFor(const QUrl& serverBaseUrl)
-{
-    QUrl url = serverBaseUrl;
-    QString path = url.path();
-    if (!path.endsWith(QLatin1Char('/')))
-        path += QLatin1Char('/');
-    path += QStringLiteral("api/pgp/qr/token");
-    url.setPath(path);
-    return url;
-}
-
-} // namespace
-
 PgpQrClient::PgpQrClient(HttpClient& httpClient)
     : m_httpClient(httpClient)
 {
@@ -30,7 +13,8 @@ PgpQrClient::PgpQrClient(HttpClient& httpClient)
 
 PgpQrTokenResult PgpQrClient::fetchToken(const QUrl& serverBaseUrl, const RelayAuth& auth) const
 {
-    const HttpClient::HttpResult result = m_httpClient.get(tokenEndpointFor(serverBaseUrl), auth.queryItems());
+    const HttpClient::HttpResult result =
+        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/pgp/qr/token")), auth.queryItems());
 
     PgpQrTokenResult out;
     out.statusCode = result.statusCode;

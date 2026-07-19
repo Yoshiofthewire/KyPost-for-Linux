@@ -981,18 +981,15 @@ Kirigami.ApplicationWindow {
                             }
 
                             // Same "reasonable initials logic" shape as
-                            // EmailDetail.qml/MobileRoot.qml's own local
-                            // copies -- see those files' comments on why
-                            // this handful of lines is duplicated rather
-                            // than shared.
+                            // EmailDetail.qml/MobileRoot.qml's own copies --
+                            // the whitespace-split-to-2-initials core is
+                            // shared (Format.initialsFromNamePart()), same
+                            // as MobileRoot.qml's initialsForSender().
                             function initialsForSender(sender) {
                                 const s = sender || ""
                                 const lt = s.indexOf("<")
                                 const namePart = (lt !== -1 ? s.substring(0, lt) : s).trim()
-                                const parts = namePart.split(/\s+/).filter(function (p) { return p.length > 0 })
-                                let initials = ""
-                                for (let i = 0; i < parts.length && initials.length < 2; i++)
-                                    initials += parts[i].charAt(0).toUpperCase()
+                                const initials = Format.initialsFromNamePart(namePart)
                                 return initials.length > 0 ? initials : "?"
                             }
 

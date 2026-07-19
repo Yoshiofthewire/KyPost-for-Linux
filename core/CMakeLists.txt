@@ -2,6 +2,7 @@ add_library(llamacore STATIC
   models/StandardFolder.cpp
   models/Email.h
   models/Contact.h
+  models/ContactFieldJson.h
   models/StandardFolder.h
   models/KeywordSettings.h
   models/MfaChallenge.h

@@ -2,6 +2,7 @@
 
 #include "domain/DevicePairing.h"
 #include "domain/PairingStore.h"
+#include "net/HttpClient.h"
 #include "net/NetworkError.h"
 #include "net/PushNotificationClient.h"
 #include "net/RelayAuth.h"
@@ -83,8 +84,5 @@ QString PushRepository::resolvePullEndpoint(const QString& serverBaseUrl) const
     if (!stored.isEmpty())
         return stored;
 
-    QString base = serverBaseUrl;
-    while (base.endsWith(QLatin1Char('/')))
-        base.chop(1);
-    return base + QStringLiteral("/api/notifications/native/pull");
+    return joinUrlPath(QUrl(serverBaseUrl), QStringLiteral("api/notifications/native/pull")).toString();
 }

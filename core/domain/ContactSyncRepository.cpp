@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QUrl>
 #include <QUuid>
+#include <type_traits>
 
 namespace {
 
@@ -49,50 +50,54 @@ QString nowUtc()
 // disambiguate, and uid/rev are always authoritative from the server.
 Contact mergeContact(const Contact& c, const std::optional<Contact>& existing)
 {
+    // member is a pointer-to-member (e.g. &Contact::fn) so the same
+    // "response value if present, else fall back to cached" rule from the
+    // comment above runs once per field instead of being copy-pasted.
+    auto mergeOpt = [&c, &existing](auto member) {
+        return (c.*member) ? (c.*member) : (existing ? (*existing).*member : std::nullopt);
+    };
+    auto mergeVec = [&c, &existing](auto member) {
+        using VecT = std::decay_t<decltype(c.*member)>;
+        return !(c.*member).isEmpty() ? (c.*member) : (existing ? (*existing).*member : VecT{});
+    };
+
     Contact merged;
     merged.uid = c.uid;
     merged.rev = c.rev;
-    merged.createdAt = c.createdAt ? c.createdAt : (existing ? existing->createdAt : std::nullopt);
-    merged.updatedAt = c.updatedAt ? c.updatedAt : (existing ? existing->updatedAt : std::nullopt);
-    merged.fn = c.fn ? c.fn : (existing ? existing->fn : std::nullopt);
-    merged.givenName = c.givenName ? c.givenName : (existing ? existing->givenName : std::nullopt);
-    merged.familyName = c.familyName ? c.familyName : (existing ? existing->familyName : std::nullopt);
-    merged.middleName = c.middleName ? c.middleName : (existing ? existing->middleName : std::nullopt);
-    merged.prefix = c.prefix ? c.prefix : (existing ? existing->prefix : std::nullopt);
-    merged.suffix = c.suffix ? c.suffix : (existing ? existing->suffix : std::nullopt);
-    merged.nickname = c.nickname ? c.nickname : (existing ? existing->nickname : std::nullopt);
-    merged.org = c.org ? c.org : (existing ? existing->org : std::nullopt);
-    merged.title = c.title ? c.title : (existing ? existing->title : std::nullopt);
-    merged.notes = c.notes ? c.notes : (existing ? existing->notes : std::nullopt);
-    merged.birthday = c.birthday ? c.birthday : (existing ? existing->birthday : std::nullopt);
-    merged.emails = !c.emails.isEmpty() ? c.emails : (existing ? existing->emails : QVector<ContactEmailEntry>{});
-    merged.phones = !c.phones.isEmpty() ? c.phones : (existing ? existing->phones : QVector<ContactPhoneEntry>{});
-    merged.addresses =
-        !c.addresses.isEmpty() ? c.addresses : (existing ? existing->addresses : QVector<ContactAddressEntry>{});
-    merged.groupIds = !c.groupIds.isEmpty() ? c.groupIds : (existing ? existing->groupIds : QVector<QString>{});
-    merged.photoRef = c.photoRef ? c.photoRef : (existing ? existing->photoRef : std::nullopt);
-    merged.pgpKey = c.pgpKey ? c.pgpKey : (existing ? existing->pgpKey : std::nullopt);
-    merged.ims = !c.ims.isEmpty() ? c.ims : (existing ? existing->ims : QVector<ContactImEntry>{});
-    merged.websites = !c.websites.isEmpty() ? c.websites : (existing ? existing->websites : QVector<ContactUrlEntry>{});
-    merged.relations =
-        !c.relations.isEmpty() ? c.relations : (existing ? existing->relations : QVector<ContactRelationEntry>{});
-    merged.events = !c.events.isEmpty() ? c.events : (existing ? existing->events : QVector<ContactEventEntry>{});
-    merged.phoneticGivenName =
-        c.phoneticGivenName ? c.phoneticGivenName : (existing ? existing->phoneticGivenName : std::nullopt);
-    merged.phoneticFamilyName =
-        c.phoneticFamilyName ? c.phoneticFamilyName : (existing ? existing->phoneticFamilyName : std::nullopt);
-    merged.department = c.department ? c.department : (existing ? existing->department : std::nullopt);
-    merged.customFields = !c.customFields.isEmpty()
-        ? c.customFields
-        : (existing ? existing->customFields : QVector<ContactCustomFieldEntry>{});
-    merged.pronouns = c.pronouns ? c.pronouns : (existing ? existing->pronouns : std::nullopt);
+    merged.createdAt = mergeOpt(&Contact::createdAt);
+    merged.updatedAt = mergeOpt(&Contact::updatedAt);
+    merged.fn = mergeOpt(&Contact::fn);
+    merged.givenName = mergeOpt(&Contact::givenName);
+    merged.familyName = mergeOpt(&Contact::familyName);
+    merged.middleName = mergeOpt(&Contact::middleName);
+    merged.prefix = mergeOpt(&Contact::prefix);
+    merged.suffix = mergeOpt(&Contact::suffix);
+    merged.nickname = mergeOpt(&Contact::nickname);
+    merged.org = mergeOpt(&Contact::org);
+    merged.title = mergeOpt(&Contact::title);
+    merged.notes = mergeOpt(&Contact::notes);
+    merged.birthday = mergeOpt(&Contact::birthday);
+    merged.emails = mergeVec(&Contact::emails);
+    merged.phones = mergeVec(&Contact::phones);
+    merged.addresses = mergeVec(&Contact::addresses);
+    merged.groupIds = mergeVec(&Contact::groupIds);
+    merged.photoRef = mergeOpt(&Contact::photoRef);
+    merged.pgpKey = mergeOpt(&Contact::pgpKey);
+    merged.ims = mergeVec(&Contact::ims);
+    merged.websites = mergeVec(&Contact::websites);
+    merged.relations = mergeVec(&Contact::relations);
+    merged.events = mergeVec(&Contact::events);
+    merged.phoneticGivenName = mergeOpt(&Contact::phoneticGivenName);
+    merged.phoneticFamilyName = mergeOpt(&Contact::phoneticFamilyName);
+    merged.department = mergeOpt(&Contact::department);
+    merged.customFields = mergeVec(&Contact::customFields);
+    merged.pronouns = mergeOpt(&Contact::pronouns);
     // isSelf/deleted are plain bools with no way to distinguish "server
     // omitted this" from "server explicitly cleared it" -- like deleted
     // below, the response's value is authoritative and taken directly.
     merged.isSelf = c.isSelf;
-    merged.mergedUIDs =
-        !c.mergedUIDs.isEmpty() ? c.mergedUIDs : (existing ? existing->mergedUIDs : QVector<QString>{});
-    merged.mergedInto = c.mergedInto ? c.mergedInto : (existing ? existing->mergedInto : std::nullopt);
+    merged.mergedUIDs = mergeVec(&Contact::mergedUIDs);
+    merged.mergedInto = mergeOpt(&Contact::mergedInto);
     merged.deleted = c.deleted;
     return merged;
 }

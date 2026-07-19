@@ -1,6 +1,7 @@
 #include "ContactDao.h"
 
 #include "SqlUtil.h"
+#include "models/ContactFieldJson.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -10,159 +11,11 @@
 
 namespace {
 
-void putOptional(QJsonObject& obj, const QString& key, const std::optional<QString>& value)
-{
-    if (value)
-        obj[key] = *value;
-}
+// Per-entry toJson/fromJson mapping comes from models/ContactFieldJson.h,
+// shared with core/net/ContactSyncClient.cpp's wire mapping.
 
-std::optional<QString> takeOptional(const QJsonObject& obj, const QString& key)
-{
-    if (!obj.contains(key))
-        return std::nullopt;
-    return obj.value(key).toString();
-}
-
-QJsonObject toJson(const ContactEmailEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("value")] = entry.value;
-    return obj;
-}
-
-ContactEmailEntry emailEntryFromJson(const QJsonObject& obj)
-{
-    ContactEmailEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.value = obj.value(QStringLiteral("value")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactPhoneEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("value")] = entry.value;
-    return obj;
-}
-
-ContactPhoneEntry phoneEntryFromJson(const QJsonObject& obj)
-{
-    ContactPhoneEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.value = obj.value(QStringLiteral("value")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactAddressEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    putOptional(obj, QStringLiteral("street"), entry.street);
-    putOptional(obj, QStringLiteral("city"), entry.city);
-    putOptional(obj, QStringLiteral("region"), entry.region);
-    putOptional(obj, QStringLiteral("postalCode"), entry.postalCode);
-    putOptional(obj, QStringLiteral("country"), entry.country);
-    return obj;
-}
-
-ContactAddressEntry addressEntryFromJson(const QJsonObject& obj)
-{
-    ContactAddressEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.street = takeOptional(obj, QStringLiteral("street"));
-    entry.city = takeOptional(obj, QStringLiteral("city"));
-    entry.region = takeOptional(obj, QStringLiteral("region"));
-    entry.postalCode = takeOptional(obj, QStringLiteral("postalCode"));
-    entry.country = takeOptional(obj, QStringLiteral("country"));
-    return entry;
-}
-
-QJsonObject toJson(const ContactImEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("service"), entry.service);
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("value")] = entry.value;
-    return obj;
-}
-
-ContactImEntry imEntryFromJson(const QJsonObject& obj)
-{
-    ContactImEntry entry;
-    entry.service = takeOptional(obj, QStringLiteral("service"));
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.value = obj.value(QStringLiteral("value")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactUrlEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("value")] = entry.value;
-    return obj;
-}
-
-ContactUrlEntry urlEntryFromJson(const QJsonObject& obj)
-{
-    ContactUrlEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.value = obj.value(QStringLiteral("value")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactRelationEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("name")] = entry.name;
-    return obj;
-}
-
-ContactRelationEntry relationEntryFromJson(const QJsonObject& obj)
-{
-    ContactRelationEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.name = obj.value(QStringLiteral("name")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactEventEntry& entry)
-{
-    QJsonObject obj;
-    putOptional(obj, QStringLiteral("label"), entry.label);
-    obj[QStringLiteral("date")] = entry.date;
-    return obj;
-}
-
-ContactEventEntry eventEntryFromJson(const QJsonObject& obj)
-{
-    ContactEventEntry entry;
-    entry.label = takeOptional(obj, QStringLiteral("label"));
-    entry.date = obj.value(QStringLiteral("date")).toString();
-    return entry;
-}
-
-QJsonObject toJson(const ContactCustomFieldEntry& entry)
-{
-    QJsonObject obj;
-    obj[QStringLiteral("label")] = entry.label;
-    obj[QStringLiteral("value")] = entry.value;
-    return obj;
-}
-
-ContactCustomFieldEntry customFieldEntryFromJson(const QJsonObject& obj)
-{
-    ContactCustomFieldEntry entry;
-    entry.label = obj.value(QStringLiteral("label")).toString();
-    entry.value = obj.value(QStringLiteral("value")).toString();
-    return entry;
-}
-
-template <typename T>
-QString encodeEntries(const QVector<T>& entries)
+template <typename T, typename ToJsonFn>
+QString encodeEntries(const QVector<T>& entries, ToJsonFn toJson)
 {
     QJsonArray array;
     for (const T& entry : entries)
@@ -287,20 +140,20 @@ bool ContactDao::insertOrReplace(const Contact& contact)
     query.bindValue(QStringLiteral(":title"), optionalStringToVariant(contact.title));
     query.bindValue(QStringLiteral(":notes"), optionalStringToVariant(contact.notes));
     query.bindValue(QStringLiteral(":birthday"), optionalStringToVariant(contact.birthday));
-    query.bindValue(QStringLiteral(":emails_json"), encodeEntries(contact.emails));
-    query.bindValue(QStringLiteral(":phones_json"), encodeEntries(contact.phones));
-    query.bindValue(QStringLiteral(":addresses_json"), encodeEntries(contact.addresses));
+    query.bindValue(QStringLiteral(":emails_json"), encodeEntries(contact.emails, emailEntryToJson));
+    query.bindValue(QStringLiteral(":phones_json"), encodeEntries(contact.phones, phoneEntryToJson));
+    query.bindValue(QStringLiteral(":addresses_json"), encodeEntries(contact.addresses, addressEntryToJson));
     query.bindValue(QStringLiteral(":groups_json"), encodeStringList(contact.groupIds));
     query.bindValue(QStringLiteral(":photo_ref"), optionalStringToVariant(contact.photoRef));
     query.bindValue(QStringLiteral(":pgp_key"), optionalStringToVariant(contact.pgpKey));
-    query.bindValue(QStringLiteral(":ims_json"), encodeEntries(contact.ims));
-    query.bindValue(QStringLiteral(":websites_json"), encodeEntries(contact.websites));
-    query.bindValue(QStringLiteral(":relations_json"), encodeEntries(contact.relations));
-    query.bindValue(QStringLiteral(":events_json"), encodeEntries(contact.events));
+    query.bindValue(QStringLiteral(":ims_json"), encodeEntries(contact.ims, imEntryToJson));
+    query.bindValue(QStringLiteral(":websites_json"), encodeEntries(contact.websites, urlEntryToJson));
+    query.bindValue(QStringLiteral(":relations_json"), encodeEntries(contact.relations, relationEntryToJson));
+    query.bindValue(QStringLiteral(":events_json"), encodeEntries(contact.events, eventEntryToJson));
     query.bindValue(QStringLiteral(":phonetic_given_name"), optionalStringToVariant(contact.phoneticGivenName));
     query.bindValue(QStringLiteral(":phonetic_family_name"), optionalStringToVariant(contact.phoneticFamilyName));
     query.bindValue(QStringLiteral(":department"), optionalStringToVariant(contact.department));
-    query.bindValue(QStringLiteral(":custom_fields_json"), encodeEntries(contact.customFields));
+    query.bindValue(QStringLiteral(":custom_fields_json"), encodeEntries(contact.customFields, customFieldEntryToJson));
     query.bindValue(QStringLiteral(":pronouns"), optionalStringToVariant(contact.pronouns));
     query.bindValue(QStringLiteral(":is_self"), contact.isSelf);
     query.bindValue(QStringLiteral(":merged_uids_json"), encodeStringList(contact.mergedUIDs));

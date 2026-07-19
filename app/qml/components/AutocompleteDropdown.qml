@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import com.urlxl.mail 1.0
+import "../utils/format.js" as Format
 
 // Compose autocomplete (ContactAutocomplete.md): a floating result list below
 // the currently-active TokenField, driven by ContactsApp.searchContacts().
@@ -57,20 +58,13 @@ Item {
         return root.results[root.currentIndex]
     }
 
-    // Escapes HTML metacharacters so a contact name/email containing markup
-    // (synced from the Relay server, vCard import, or a PGP-QR scan result)
-    // can't inject tags into the rich-text Text items below -- same escape
-    // set as EmailDetail.qml's escapeHtml().
-    function escapeHtml(s) {
-        return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    }
-
     // Wraps the first case-insensitive occurrence of needle in `text` with
     // <b>...</b> for a rich-text Text item -- a "good enough" highlight, not
-    // a multi-occurrence highlighter. `text` is escaped first so the markup
+    // a multi-occurrence highlighter. `text` is escaped first (Format.
+    // escapeHtml(), same set EmailDetail.qml/Compose.qml use) so the markup
     // this function adds is the only markup that ever reaches Text.RichText.
     function highlighted(text, needle) {
-        const escaped = root.escapeHtml(text)
+        const escaped = Format.escapeHtml(text)
         if (needle.length === 0)
             return escaped
         const idx = escaped.toLowerCase().indexOf(needle.toLowerCase())

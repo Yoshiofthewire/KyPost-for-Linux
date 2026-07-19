@@ -1,5 +1,7 @@
 #include "net/NtfySubscriber.h"
 
+#include "net/HttpClient.h"
+
 #include <QJsonDocument>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -46,11 +48,7 @@ void NtfySubscriber::sendRequest()
     }
     m_lineBuffer.clear();
 
-    QString base = m_baseUrl;
-    while (base.endsWith(QLatin1Char('/')))
-        base.chop(1);
-
-    QUrl url(base + QLatin1Char('/') + m_topic + QStringLiteral("/json"));
+    QUrl url = joinUrlPath(QUrl(m_baseUrl), m_topic + QStringLiteral("/json"));
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("since"), QString::number(m_since));
     url.setQuery(query);

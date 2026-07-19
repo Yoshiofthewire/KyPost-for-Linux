@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import com.urlxl.mail 1.0
 import "../components"
+import "../utils/format.js" as Format
 
 // Task 35 -- plain reusable Item, deliberately NOT a Kirigami.Page (see
 // Phase 6 global constraint 4); MobileRoot/DesktopRoot each host this
@@ -56,10 +57,6 @@ Item {
     // picked address into.
     property var activeField: null
 
-    function escapeHtml(text) {
-        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    }
-
     // Reply/Forward seed initialBody with a plain-text quote block
     // (EmailDetail.qml's composeRequested() -- unchanged by this feature).
     // HTML-escape it and preserve line breaks so it renders correctly inside
@@ -68,7 +65,7 @@ Item {
     function quotedInitialBodyHtml(text) {
         if (text === "")
             return ""
-        return "<blockquote>" + root.escapeHtml(text).replace(/\n/g, "<br>") + "</blockquote>"
+        return "<blockquote>" + Format.escapeHtml(text).replace(/\n/g, "<br>") + "</blockquote>"
     }
 
     function seedTokensFromString(field, value) {
