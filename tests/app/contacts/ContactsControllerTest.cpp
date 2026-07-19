@@ -154,7 +154,7 @@ class ContactsControllerTest : public QObject
     Q_OBJECT
 
 private slots:
-    void updateContactPreservesEmailEntriesBeyondIndexZero();
+    void updateContactReplacesEmailsPhonesAddressesWholesale();
     void isSyncedReflectsPendingState();
     void createContactRejectsBlankName();
     void updateContactRejectsBlankName();
@@ -190,11 +190,12 @@ void ContactsControllerTest::savePairing(PairingStore& pairingStore, quint16 por
     QVERIFY(pairingStore.save(pairing));
 }
 
-void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
+void ContactsControllerTest::updateContactReplacesEmailsPhonesAddressesWholesale()
 {
-    // Regression test for the "preserve extras beyond index 0" rule --
-    // this is the one rule most likely to regress silently, per the task
-    // brief.
+    // emails/phones/addresses are whole-list-replace fields, same as every
+    // other list-typed field (ims/websites/etc.) -- an update replaces the
+    // entire list, it does not preserve any prior entries, and omitting the
+    // key clears the field entirely.
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
@@ -233,28 +234,45 @@ void ContactsControllerTest::updateContactPreservesEmailEntriesBeyondIndexZero()
     seed.fn = QStringLiteral("Old Name");
     seed.emails = { ContactEmailEntry{ std::nullopt, QStringLiteral("old@example.com") },
                      ContactEmailEntry{ QStringLiteral("work"), QStringLiteral("extra@example.com") } };
+    seed.phones = { ContactPhoneEntry{ std::nullopt, QStringLiteral("555-0100") } };
+    seed.addresses = { ContactAddressEntry{ QStringLiteral("home"), QStringLiteral("1 Old St"), QStringLiteral("Old Town"),
+                                             std::nullopt, std::nullopt, std::nullopt } };
     QVERIFY(contactDao.insertOrReplace(seed));
 
     ContactsController controller(repository, groupsRepository, photoRepository);
+
+    QVariantMap newEmail;
+    newEmail[QStringLiteral("value")] = QStringLiteral("new@example.com");
+    QVariantMap newPhone;
+    newPhone[QStringLiteral("label")] = QStringLiteral("mobile");
+    newPhone[QStringLiteral("value")] = QStringLiteral("555-0200");
 
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QStringLiteral("New Name");
     fields[QStringLiteral("org")] = QString();
     fields[QStringLiteral("notes")] = QString();
-    fields[QStringLiteral("email")] = QStringLiteral("new@example.com");
-    fields[QStringLiteral("phone")] = QString();
+    fields[QStringLiteral("emails")] = QVariantList{ newEmail };
+    fields[QStringLiteral("phones")] = QVariantList{ newPhone };
+    // addresses deliberately omitted -- proves omission clears the field.
 
     QVERIFY(controller.updateContact(QStringLiteral("srv-1"), fields));
 
     const QVariantMap updated = controller.contactAt(QStringLiteral("srv-1"));
     QCOMPARE(updated.value(QStringLiteral("fn")).toString(), QStringLiteral("New Name"));
 
+    // The new list replaces the old one wholesale -- the seed's second email
+    // does NOT survive.
     const QVariantList emails = updated.value(QStringLiteral("emails")).toList();
-    QCOMPARE(emails.size(), 2);
+    QCOMPARE(emails.size(), 1);
     QCOMPARE(emails.at(0).toMap().value(QStringLiteral("value")).toString(), QStringLiteral("new@example.com"));
-    // index 1 survives unchanged, including its label.
-    QCOMPARE(emails.at(1).toMap().value(QStringLiteral("value")).toString(), QStringLiteral("extra@example.com"));
-    QCOMPARE(emails.at(1).toMap().value(QStringLiteral("label")).toString(), QStringLiteral("work"));
+
+    const QVariantList phones = updated.value(QStringLiteral("phones")).toList();
+    QCOMPARE(phones.size(), 1);
+    QCOMPARE(phones.at(0).toMap().value(QStringLiteral("value")).toString(), QStringLiteral("555-0200"));
+    QCOMPARE(phones.at(0).toMap().value(QStringLiteral("label")).toString(), QStringLiteral("mobile"));
+
+    // Omitted key clears the field, same rule as ims/websites/etc.
+    QVERIFY(updated.value(QStringLiteral("addresses")).toList().isEmpty());
 
     // The model was reloaded, too.
     auto* model = qobject_cast<ContactListModel*>(controller.contactModel());
@@ -597,10 +615,10 @@ void ContactsControllerTest::loadSortsSelfContactFirst()
 
 void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
 {
-    // Task 1 of the extended-contact-fields feature: no edit-form UI
-    // consumes these 12 new QVariantMap keys yet, but createContact/
-    // updateContact/contactAt must round-trip them correctly since a later
-    // task's edit form will rely on this contract.
+    // Every one of these QVariantMap keys, including addresses, is a
+    // whole-value/whole-list replace on createContact/updateContact/
+    // contactAt -- exercised together here since ContactDetail.qml's edit
+    // form relies on this contract uniformly.
     Database db;
     QVERIFY(db.open(QStringLiteral(":memory:")));
     ContactDao contactDao(db.handle());
@@ -655,6 +673,14 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     customFieldEntry[QStringLiteral("label")] = QStringLiteral("Employee ID");
     customFieldEntry[QStringLiteral("value")] = QStringLiteral("42");
 
+    QVariantMap addressEntry;
+    addressEntry[QStringLiteral("label")] = QStringLiteral("home");
+    addressEntry[QStringLiteral("street")] = QStringLiteral("1 Analytical Engine Way");
+    addressEntry[QStringLiteral("city")] = QStringLiteral("London");
+    addressEntry[QStringLiteral("region")] = QStringLiteral("England");
+    addressEntry[QStringLiteral("postalCode")] = QStringLiteral("SW1A 1AA");
+    addressEntry[QStringLiteral("country")] = QStringLiteral("UK");
+
     QVariantMap fields;
     fields[QStringLiteral("fn")] = QStringLiteral("Ada Lovelace");
     fields[QStringLiteral("groupIds")] = QVariantList{ QStringLiteral("group-1"), QStringLiteral("group-2") };
@@ -669,6 +695,7 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     fields[QStringLiteral("department")] = QStringLiteral("Engineering");
     fields[QStringLiteral("customFields")] = QVariantList{ customFieldEntry };
     fields[QStringLiteral("pronouns")] = QStringLiteral("she/her");
+    fields[QStringLiteral("addresses")] = QVariantList{ addressEntry };
 
     const QString newUid = controller.createContact(fields);
     QVERIFY(!newUid.isEmpty());
@@ -706,6 +733,12 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     QCOMPARE(createdCustomFields.at(0).toMap().value(QStringLiteral("label")).toString(), QStringLiteral("Employee ID"));
     QCOMPARE(createdCustomFields.at(0).toMap().value(QStringLiteral("value")).toString(), QStringLiteral("42"));
 
+    const QVariantList createdAddresses = created.value(QStringLiteral("addresses")).toList();
+    QCOMPARE(createdAddresses.size(), 1);
+    QCOMPARE(createdAddresses.at(0).toMap().value(QStringLiteral("street")).toString(),
+              QStringLiteral("1 Analytical Engine Way"));
+    QCOMPARE(createdAddresses.at(0).toMap().value(QStringLiteral("country")).toString(), QStringLiteral("UK"));
+
     // updateContact is a whole-value/whole-list replace for every one of
     // these fields, same as it already is for org/notes -- omitting a key
     // from `fields` clears it, it does not preserve the prior value.
@@ -731,6 +764,7 @@ void ContactsControllerTest::createAndUpdateContactRoundTripExtendedFields()
     QCOMPARE(updated.value(QStringLiteral("phoneticGivenName")).toString(), QString());
     QCOMPARE(updated.value(QStringLiteral("phoneticFamilyName")).toString(), QString());
     QCOMPARE(updated.value(QStringLiteral("department")).toString(), QString());
+    QVERIFY(updated.value(QStringLiteral("addresses")).toList().isEmpty());
 }
 
 void ContactsControllerTest::allGroupsReturnsCachedGroupsAsIdNameMaps()

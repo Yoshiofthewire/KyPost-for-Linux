@@ -246,6 +246,7 @@ void PgpQrControllerTest::scanQrPayloadSuccessPopulatesContactCardFields()
             "fn":"Ada Lovelace","org":"Analytical Engines Ltd","notes":"Pioneer of computing",
             "emails":[{"label":"work","value":"ada@example.com"}],
             "phones":[{"label":"mobile","value":"+1-555-0100"}],
+            "addresses":[{"label":"home","street":"12 Torrington Street","city":"London","country":"UK"}],
             "department":"Engineering","pronouns":"she/her",
             "ims":[{"service":"Matrix","label":"work","value":"@ada:example.org"}],
             "websites":[{"label":"blog","value":"https://ada.example.com"}],
@@ -273,8 +274,20 @@ void PgpQrControllerTest::scanQrPayloadSuccessPopulatesContactCardFields()
     const QVariantMap fields = controller.scannedContactCardFields();
     QCOMPARE(fields.value(QStringLiteral("org")).toString(), QStringLiteral("Analytical Engines Ltd"));
     QCOMPARE(fields.value(QStringLiteral("notes")).toString(), QStringLiteral("Pioneer of computing"));
-    QCOMPARE(fields.value(QStringLiteral("email")).toString(), QStringLiteral("ada@example.com"));
-    QCOMPARE(fields.value(QStringLiteral("phone")).toString(), QStringLiteral("+1-555-0100"));
+    const QVariantList emails = fields.value(QStringLiteral("emails")).toList();
+    QCOMPARE(emails.size(), 1);
+    QCOMPARE(emails.first().toMap().value(QStringLiteral("value")).toString(), QStringLiteral("ada@example.com"));
+
+    const QVariantList phones = fields.value(QStringLiteral("phones")).toList();
+    QCOMPARE(phones.size(), 1);
+    QCOMPARE(phones.first().toMap().value(QStringLiteral("value")).toString(), QStringLiteral("+1-555-0100"));
+
+    const QVariantList addresses = fields.value(QStringLiteral("addresses")).toList();
+    QCOMPARE(addresses.size(), 1);
+    QCOMPARE(addresses.first().toMap().value(QStringLiteral("street")).toString(),
+              QStringLiteral("12 Torrington Street"));
+    QCOMPARE(addresses.first().toMap().value(QStringLiteral("country")).toString(), QStringLiteral("UK"));
+
     QCOMPARE(fields.value(QStringLiteral("department")).toString(), QStringLiteral("Engineering"));
     QCOMPARE(fields.value(QStringLiteral("pronouns")).toString(), QStringLiteral("she/her"));
 
@@ -321,8 +334,9 @@ void PgpQrControllerTest::scanQrPayloadWithNoContactCardReturnsAllEmptyFields()
 
     const QVariantMap fields = controller.scannedContactCardFields();
     QCOMPARE(fields.value(QStringLiteral("org")).toString(), QString());
-    QCOMPARE(fields.value(QStringLiteral("email")).toString(), QString());
-    QCOMPARE(fields.value(QStringLiteral("phone")).toString(), QString());
+    QVERIFY(fields.value(QStringLiteral("emails")).toList().isEmpty());
+    QVERIFY(fields.value(QStringLiteral("phones")).toList().isEmpty());
+    QVERIFY(fields.value(QStringLiteral("addresses")).toList().isEmpty());
     QVERIFY(fields.value(QStringLiteral("ims")).toList().isEmpty());
     QVERIFY(fields.value(QStringLiteral("customFields")).toList().isEmpty());
 }

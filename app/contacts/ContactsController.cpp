@@ -22,24 +22,6 @@ std::optional<QString> toOptional(const QString& value)
     return value.isEmpty() ? std::nullopt : std::make_optional(value);
 }
 
-// Shared body of createContact/updateContact's email/phone handling:
-// replaces index 0 of `existing` with `newValue` (or drops it if newValue
-// is blank), keeping every entry from index 1 onward byte-for-byte --
-// mirrors Android's "extraEmails = dto.emails.drop(1)" preserve-untouched-
-// extras pattern. Called with an empty `existing` from createContact, which
-// collapses to "single-entry (or empty) list" as the brief specifies.
-template <typename Entry>
-QVector<Entry> replacePrimaryEntry(const QVector<Entry>& existing, const QString& newValue)
-{
-    const QVector<Entry> tail = existing.size() > 1 ? existing.mid(1) : QVector<Entry>();
-    if (newValue.isEmpty())
-        return tail;
-    QVector<Entry> result;
-    result.append(Entry{ std::nullopt, newValue });
-    result += tail;
-    return result;
-}
-
 QVariantMap emailEntryToMap(const ContactEmailEntry& entry)
 {
     QVariantMap map;
@@ -48,12 +30,28 @@ QVariantMap emailEntryToMap(const ContactEmailEntry& entry)
     return map;
 }
 
+ContactEmailEntry emailEntryFromMap(const QVariantMap& map)
+{
+    ContactEmailEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.value = map.value(QStringLiteral("value")).toString();
+    return entry;
+}
+
 QVariantMap phoneEntryToMap(const ContactPhoneEntry& entry)
 {
     QVariantMap map;
     map[QStringLiteral("label")] = entry.label.value_or(QString());
     map[QStringLiteral("value")] = entry.value;
     return map;
+}
+
+ContactPhoneEntry phoneEntryFromMap(const QVariantMap& map)
+{
+    ContactPhoneEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.value = map.value(QStringLiteral("value")).toString();
+    return entry;
 }
 
 QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
@@ -66,6 +64,18 @@ QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
     map[QStringLiteral("postalCode")] = entry.postalCode.value_or(QString());
     map[QStringLiteral("country")] = entry.country.value_or(QString());
     return map;
+}
+
+ContactAddressEntry addressEntryFromMap(const QVariantMap& map)
+{
+    ContactAddressEntry entry;
+    entry.label = toOptional(map.value(QStringLiteral("label")).toString());
+    entry.street = toOptional(map.value(QStringLiteral("street")).toString());
+    entry.city = toOptional(map.value(QStringLiteral("city")).toString());
+    entry.region = toOptional(map.value(QStringLiteral("region")).toString());
+    entry.postalCode = toOptional(map.value(QStringLiteral("postalCode")).toString());
+    entry.country = toOptional(map.value(QStringLiteral("country")).toString());
+    return entry;
 }
 
 QVariantMap imEntryToMap(const ContactImEntry& entry)
@@ -429,21 +439,20 @@ QVariantMap ContactsController::contactAt(const QString& uid)
 }
 
 // Shared field-population body of createContact/updateContact: reads every
-// non-fn/non-identity key out of `fields` into `contact`. `contact.emails`/
-// `contact.phones` are used as replacePrimaryEntry's `existing` base --
-// createContact passes in a freshly-constructed Contact (so that base is
-// already {}, collapsing to the same "single-entry (or empty) list"
-// behavior the old duplicated code got from passing {} explicitly), while
-// updateContact passes in the loaded Contact's current emails/phones so
-// entries beyond index 0 are preserved, per this class's own doc comment.
+// non-fn/non-identity key out of `fields` into `contact`. Every key here,
+// including emails/phones/addresses, is a whole-value/whole-list replace --
+// omitting a key clears it, same rule as ims/websites/relations/events/
+// customFields below.
 void ContactsController::applyFieldsToContact(Contact& contact, const QVariantMap& fields) const
 {
     contact.org = toOptional(fields.value(QStringLiteral("org")).toString());
     contact.notes = toOptional(fields.value(QStringLiteral("notes")).toString());
-    contact.emails = replacePrimaryEntry<ContactEmailEntry>(
-        contact.emails, fields.value(QStringLiteral("email")).toString().trimmed());
-    contact.phones = replacePrimaryEntry<ContactPhoneEntry>(
-        contact.phones, fields.value(QStringLiteral("phone")).toString().trimmed());
+    contact.emails = entriesFromVariantList<ContactEmailEntry>(
+        fields.value(QStringLiteral("emails")).toList(), emailEntryFromMap);
+    contact.phones = entriesFromVariantList<ContactPhoneEntry>(
+        fields.value(QStringLiteral("phones")).toList(), phoneEntryFromMap);
+    contact.addresses = entriesFromVariantList<ContactAddressEntry>(
+        fields.value(QStringLiteral("addresses")).toList(), addressEntryFromMap);
 
     contact.groupIds = stringListFromVariantList(fields.value(QStringLiteral("groupIds")).toList());
     contact.photoRef = toOptional(fields.value(QStringLiteral("photoRef")).toString());

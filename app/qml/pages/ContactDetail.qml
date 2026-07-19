@@ -14,12 +14,11 @@ import "../utils/format.js" as Format
 // mirroring EmailDetail.qml's onMessageIdChanged/onFolderChanged +
 // Component.onCompleted shape (Task 35).
 //
-// Matches Mac's simpler 3-field edit form over Android's richer one (fn/
-// org/notes/single-email/single-phone) -- this is the exact contract
-// ContactsController::createContact/updateContact accept (see its header
-// doc comment); no multi-email/multi-phone UI here, "extras" beyond index 0
-// are preserved server-side by updateContact itself, not managed by this
-// form at all.
+// Emails, phones, and addresses are each full multi-entry list editors (via
+// RepeaterField, same generic component used for ims/websites/relations/
+// events/customFields below) -- every one of these is a whole-list replace
+// on save, matching ContactsController::createContact/updateContact's
+// documented contract (see its header doc comment).
 Item {
     id: root
 
@@ -104,8 +103,9 @@ Item {
     // writing the same RowLayout{SectionLabel+Text} block out by hand for
     // every field.
     readonly property var detailRows: [
-        { label: i18nc("contact detail field label, the person's email address", "Email"), value: (root.contact.emails && root.contact.emails.length > 0) ? root.contact.emails[0].value : "" },
-        { label: i18n("Phone"), value: (root.contact.phones && root.contact.phones.length > 0) ? root.contact.phones[0].value : "" },
+        { label: i18nc("contact detail field label, the person's email address", "Email"), value: root.joinedValuesText(root.contact.emails) },
+        { label: i18n("Phone"), value: root.joinedValuesText(root.contact.phones) },
+        { label: i18n("Address"), value: root.joinedAddressesText(root.contact.addresses) },
         { label: i18n("Org"), value: root.contact.org || "" },
         { label: i18n("Notes"), value: root.contact.notes || "" },
         { label: i18n("Department"), value: root.contact.department || "" },
@@ -132,6 +132,23 @@ Item {
             return found ? found.name : id
         })
         return names.join(", ")
+    }
+
+    // Joins every entry's .value with "; " for the read-only card's
+    // single-line Email/Phone summary rows -- shows every entry now,
+    // not just the first.
+    function joinedValuesText(entries) {
+        return (entries || []).map(function (e) { return e.value }).filter(function (v) { return v !== "" }).join("; ")
+    }
+
+    // One formatted "street, city region postalCode, country" string per
+    // address (blank components skipped), multiple addresses joined with
+    // "; " for the read-only card's single-line Address summary row.
+    function joinedAddressesText(addresses) {
+        return (addresses || []).map(function (a) {
+            const cityLine = [a.city, a.region, a.postalCode].filter(function (v) { return v; }).join(" ")
+            return [a.street, cityLine, a.country].filter(function (p) { return p; }).join(", ")
+        }).filter(function (s) { return s !== "" }).join("; ")
     }
 
     Component.onCompleted: loadContact()
@@ -176,14 +193,13 @@ Item {
             fn: nameField.text.trim(),
             org: orgField.text,
             notes: notesArea.text,
-            email: emailField.text.trim(),
-            phone: phoneField.text.trim(),
-            // extended-contact-fields Task 5: every field below is a
+            // Every field below (including emails/phones/addresses) is a
             // whole-value/whole-list replace, matching
             // ContactsController::createContact/updateContact's documented
-            // contract (see its header doc comment) -- unlike email/phone
-            // above, there is no "preserve extras beyond index 0" rule for
-            // any of these.
+            // contract (see its header doc comment).
+            emails: emailsField.entries,
+            phones: phonesField.entries,
+            addresses: addressesField.entries,
             department: departmentField.text,
             pronouns: pronounsField.text,
             phoneticGivenName: phoneticGivenNameField.text,
@@ -252,10 +268,9 @@ Item {
         nameField.text = root.contact.fn || ""
         orgField.text = root.contact.org || ""
         notesArea.text = root.contact.notes || ""
-        const emails = root.contact.emails || []
-        emailField.text = emails.length > 0 ? emails[0].value : ""
-        const phones = root.contact.phones || []
-        phoneField.text = phones.length > 0 ? phones[0].value : ""
+        emailsField.entries = cloneEntries(root.contact.emails)
+        phonesField.entries = cloneEntries(root.contact.phones)
+        addressesField.entries = cloneEntries(root.contact.addresses)
 
         departmentField.text = root.contact.department || ""
         pronounsField.text = root.contact.pronouns || ""
@@ -276,8 +291,9 @@ Item {
         nameField.text = ""
         orgField.text = ""
         notesArea.text = ""
-        emailField.text = ""
-        phoneField.text = ""
+        emailsField.entries = []
+        phonesField.entries = []
+        addressesField.entries = []
 
         departmentField.text = ""
         pronounsField.text = ""
@@ -453,17 +469,6 @@ Item {
                     Layout.fillWidth: true
                     placeholderText: i18n("Org")
                 }
-                ThemedTextField {
-                    id: emailField
-                    Layout.fillWidth: true
-                    placeholderText: i18nc("contact detail field label, the person's email address", "Email")
-                }
-                ThemedTextField {
-                    id: phoneField
-                    Layout.fillWidth: true
-                    placeholderText: i18n("Phone")
-                }
-
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 120
@@ -564,13 +569,44 @@ Item {
                     Item { Layout.fillWidth: true }
                 }
 
-                // ---- extended-contact-fields Task 5: list-typed fields ---
+                // ---- list-typed fields ---
                 // One RepeaterField per list field (see that component's
                 // class comment for the shared design) -- `columns` picks
                 // out however many string sub-fields each entry shape needs
-                // (ims alone needs 3; the rest need 2), `entries` is
-                // populated by loadFormFromContact()/clearFormFields() above
-                // and read back out by trySave().
+                // (addresses needs 6; ims needs 3; the rest need 2),
+                // `entries` is populated by loadFormFromContact()/
+                // clearFormFields() above and read back out by trySave().
+
+                SectionLabel { text: i18nc("contact detail field label, the person's email address", "Email") }
+                RepeaterField {
+                    id: emailsField
+                    columns: [
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "value", placeholder: i18nc("contact detail field label, the person's email address", "Email") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Phone") }
+                RepeaterField {
+                    id: phonesField
+                    columns: [
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "value", placeholder: i18n("Phone") },
+                    ]
+                }
+
+                SectionLabel { text: i18n("Addresses") }
+                RepeaterField {
+                    id: addressesField
+                    columns: [
+                        { key: "label", placeholder: i18n("Label") },
+                        { key: "street", placeholder: i18n("Street") },
+                        { key: "city", placeholder: i18n("City") },
+                        { key: "region", placeholder: i18n("Region") },
+                        { key: "postalCode", placeholder: i18n("Postal code") },
+                        { key: "country", placeholder: i18n("Country") },
+                    ]
+                }
 
                 SectionLabel { text: i18n("Instant messaging") }
                 RepeaterField {

@@ -95,6 +95,34 @@ QVariantMap customFieldEntryToMap(const ContactCustomFieldEntry& entry)
     return map;
 }
 
+QVariantMap emailEntryToMap(const ContactEmailEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+QVariantMap phoneEntryToMap(const ContactPhoneEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("value")] = entry.value;
+    return map;
+}
+
+QVariantMap addressEntryToMap(const ContactAddressEntry& entry)
+{
+    QVariantMap map;
+    map[QStringLiteral("label")] = entry.label.value_or(QString());
+    map[QStringLiteral("street")] = entry.street.value_or(QString());
+    map[QStringLiteral("city")] = entry.city.value_or(QString());
+    map[QStringLiteral("region")] = entry.region.value_or(QString());
+    map[QStringLiteral("postalCode")] = entry.postalCode.value_or(QString());
+    map[QStringLiteral("country")] = entry.country.value_or(QString());
+    return map;
+}
+
 template <typename T, typename ToMapFn>
 QVariantList entriesToVariantList(const QVector<T>& entries, ToMapFn toMap)
 {
@@ -278,10 +306,9 @@ QVariantMap PgpQrController::scannedContactCardFields() const
     QVariantMap fields;
     fields[QStringLiteral("org")] = m_scannedContactCard.org.value_or(QString());
     fields[QStringLiteral("notes")] = m_scannedContactCard.notes.value_or(QString());
-    fields[QStringLiteral("email")] =
-        m_scannedContactCard.emails.isEmpty() ? QString() : m_scannedContactCard.emails.first().value;
-    fields[QStringLiteral("phone")] =
-        m_scannedContactCard.phones.isEmpty() ? QString() : m_scannedContactCard.phones.first().value;
+    fields[QStringLiteral("emails")] = entriesToVariantList(m_scannedContactCard.emails, emailEntryToMap);
+    fields[QStringLiteral("phones")] = entriesToVariantList(m_scannedContactCard.phones, phoneEntryToMap);
+    fields[QStringLiteral("addresses")] = entriesToVariantList(m_scannedContactCard.addresses, addressEntryToMap);
     fields[QStringLiteral("department")] = m_scannedContactCard.department.value_or(QString());
     fields[QStringLiteral("pronouns")] = m_scannedContactCard.pronouns.value_or(QString());
     fields[QStringLiteral("phoneticGivenName")] = m_scannedContactCard.phoneticGivenName.value_or(QString());

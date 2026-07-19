@@ -17,35 +17,24 @@ class Contact;
 // (GUI) thread -- see Phase 6 global constraint 2, this is a known, accepted
 // freeze-the-UI tradeoff for this phase, not a bug.
 //
-// createContact/updateContact's QVariantMap fields contract (matches Task
-// 36's edit form field set, itself matching Mac's simpler 3-field edit form
-// over Android's richer one): keys fn (QString, required -- rejected with
-// lastError set if blank/whitespace-only, matching both reference clients'
-// "name is the only required field" rule), org (QString, optional), notes
-// (QString, optional), email (QString, optional -- becomes emails:
-// [{value: email}] if non-blank, else an empty list), phone (QString, same
-// rule as email). On updateContact, entries beyond index 0 of the existing
-// contact's emails/phones are preserved byte-for-byte (mirrors Android's
-// "extraEmails = dto.emails.drop(1)" preserve-untouched-extras pattern) --
-// only index 0 is replaced (or dropped, if the field is blank and there are
-// no further entries) by the form's single email/phone field. createContact
-// has no existing contact to preserve extras from, so it just builds a
-// single-entry (or empty) list per field.
+// createContact/updateContact's QVariantMap fields contract: keys fn
+// (QString, required -- rejected with lastError set if blank/whitespace-only,
+// matching both reference clients' "name is the only required field" rule),
+// org (QString, optional), notes (QString, optional).
 //
-// Extended-contact-fields keys (Task 1 of that feature; Task 5 wires all of
-// these into ContactDetail.qml's edit form -- see allGroups() below for the
-// one small companion method that feature needed for group-assignment):
+// emails (QVariantList<QVariantMap {label, value}>), phones (same shape),
+// addresses (QVariantList<QVariantMap {label, street, city, region,
+// postalCode, country}>), plus the extended-contact-fields keys below --
 // groupIds (QVariantList<QString>), photoRef (QString, optional), pgpKey
 // (QString, optional), ims (QVariantList<QVariantMap {service, label,
 // value}>), websites (QVariantList<QVariantMap {label, value}>), relations
 // (QVariantList<QVariantMap {label, name}>), events (QVariantList<QVariantMap
 // {label, date}>), phoneticGivenName (QString, optional), phoneticFamilyName
 // (QString, optional), department (QString, optional), customFields
-// (QVariantList<QVariantMap {label, value}>), pronouns (QString, optional).
-// Unlike email/phone, every one of these is a whole-value/whole-list replace
-// on both createContact and updateContact -- there's no existing
-// single-value UI precedent to preserve extras around, per the
-// field-by-field mapping table in task-1-brief.md. photoRef is the one
+// (QVariantList<QVariantMap {label, value}>), pronouns (QString, optional) --
+// are every one of them a whole-value/whole-list replace on both
+// createContact and updateContact: omitting a key clears it rather than
+// preserving whatever the existing contact had. photoRef is the one
 // exception the edit form does NOT let the user edit directly (per Task 3,
 // photos are a separate lazy-fetch/cache path via photoPathFor()) -- the
 // form still round-trips whatever value contactAt() gave it unchanged in

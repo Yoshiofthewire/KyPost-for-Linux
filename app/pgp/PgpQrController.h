@@ -74,14 +74,15 @@ public slots:
     // optional "contactCard" on the key response, see PgpQrClient::
     // fetchKey()), reshaped to exactly the field keys
     // ContactsController::createContact/updateContact already accept (org,
-    // notes, email, phone, department, pronouns, phoneticGivenName,
-    // phoneticFamilyName, ims, websites, relations, events, customFields) --
-    // every value defaults to an empty string/list when no contactCard was
-    // present in the last scan (or none has been made yet). fn/pgpKey are
-    // deliberately NOT included here -- callers already have those from
-    // scannedName()/scannedPublicKey() (the out-of-band-confirmed identity),
-    // this is only the rest of the card. birthday/addresses are omitted
-    // because the create/edit form doesn't expose those fields either.
+    // notes, emails, phones, addresses, department, pronouns,
+    // phoneticGivenName, phoneticFamilyName, ims, websites, relations,
+    // events, customFields) -- every value defaults to an empty string/list
+    // when no contactCard was present in the last scan (or none has been
+    // made yet). fn/pgpKey are deliberately NOT included here -- callers
+    // already have those from scannedName()/scannedPublicKey() (the
+    // out-of-band-confirmed identity), this is only the rest of the card.
+    // birthday is omitted because the create/edit form doesn't expose that
+    // field either.
     Q_INVOKABLE QVariantMap scannedContactCardFields() const;
 
 signals:
