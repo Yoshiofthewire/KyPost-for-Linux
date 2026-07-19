@@ -13,7 +13,7 @@ private slots:
     void saveThenLoadRoundTripsEveryField();
     void loadReturnsNulloptWhenSubMissingEvenIfOtherKeysExist();
     void clearThenLoadReturnsNullopt();
-    void subscriberHashEmptyStringRoundTripsAsEmpty();
+    void deviceSecretEmptyStringRoundTripsAsEmpty();
 
 private:
     static DevicePairing samplePairing();
@@ -23,12 +23,12 @@ DevicePairing PairingStoreTest::samplePairing()
 {
     DevicePairing pairing;
     pairing.subscriberId = QStringLiteral("subscriber-123");
-    pairing.subscriberHash = QStringLiteral("deadbeef");
     pairing.serverBaseUrl = QStringLiteral("https://relay.example.com");
     pairing.registrationUrl = QStringLiteral("https://relay.example.com/api/notifications/native/register");
     pairing.pairingToken = QStringLiteral("pairing-token-abc");
     pairing.deviceId = QStringLiteral("device-1");
     pairing.deviceName = QStringLiteral("My Linux Desktop");
+    pairing.deviceSecret = QStringLiteral("deadbeef");
     return pairing;
 }
 
@@ -68,7 +68,7 @@ void PairingStoreTest::loadReturnsNulloptWhenSubMissingEvenIfOtherKeysExist()
 
     // Write the other six keys directly via the underlying SecureStoreFile,
     // skipping "sub", to confirm load() still treats this as unpaired.
-    QVERIFY(secureStore.set(QStringLiteral("hash"), QStringLiteral("deadbeef")));
+    QVERIFY(secureStore.set(QStringLiteral("pairing.deviceSecret"), QStringLiteral("deadbeef")));
     QVERIFY(secureStore.set(QStringLiteral("pairing.serverBaseUrl"), QStringLiteral("https://relay.example.com")));
     QVERIFY(secureStore.set(QStringLiteral("pairing.registrationUrl"),
         QStringLiteral("https://relay.example.com/api/notifications/native/register")));
@@ -96,7 +96,7 @@ void PairingStoreTest::clearThenLoadReturnsNullopt()
     QVERIFY(!pairingStore.isPaired());
 }
 
-void PairingStoreTest::subscriberHashEmptyStringRoundTripsAsEmpty()
+void PairingStoreTest::deviceSecretEmptyStringRoundTripsAsEmpty()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
@@ -104,12 +104,12 @@ void PairingStoreTest::subscriberHashEmptyStringRoundTripsAsEmpty()
     PairingStore pairingStore(secureStore);
 
     DevicePairing pairing = samplePairing();
-    pairing.subscriberHash = QString();
+    pairing.deviceSecret = QString();
     QVERIFY(pairingStore.save(pairing));
 
     const std::optional<DevicePairing> loaded = pairingStore.load();
     QVERIFY(loaded.has_value());
-    QVERIFY(loaded->subscriberHash.isEmpty());
+    QVERIFY(loaded->deviceSecret.isEmpty());
     QCOMPARE(*loaded, pairing);
 }
 

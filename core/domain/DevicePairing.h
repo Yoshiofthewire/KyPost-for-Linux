@@ -3,18 +3,25 @@
 #include <QString>
 
 // The full set of pairing state PairingStore persists to SecureStore.
-// subscriberId/subscriberHash/deviceId reuse SecureStore.h's own doc-comment
-// key names ("sub"/"hash"/"deviceId"); the remaining four are prefixed
-// "pairing." to avoid colliding with any future unrelated key.
+// subscriberId/deviceId reuse SecureStore.h's own doc-comment key names
+// ("sub"/"deviceId"); the remaining five are prefixed "pairing." to avoid
+// colliding with any future unrelated key.
 struct DevicePairing
 {
     QString subscriberId;    // SecureStore key "sub"
-    QString subscriberHash;  // SecureStore key "hash" (may be empty)
     QString serverBaseUrl;   // SecureStore key "pairing.serverBaseUrl"
     QString registrationUrl; // SecureStore key "pairing.registrationUrl"
     QString pairingToken;    // SecureStore key "pairing.pairingToken"
     QString deviceId;        // SecureStore key "deviceId"
     QString deviceName;      // SecureStore key "pairing.deviceName"
+    // The per-device pairing secret, minted fresh on every successful
+    // registration and returned only in that response -- never carried in
+    // the pairing deep link/QR. Must be persisted unconditionally,
+    // overwriting any prior value, since every successful register
+    // invalidates the previous secret. May be empty for a pairing created
+    // before this field existed (pre-migration), which is not an error --
+    // see PairingController::removePairing()'s graceful-degradation path.
+    QString deviceSecret; // SecureStore key "pairing.deviceSecret"
 
     bool operator==(const DevicePairing&) const = default;
 };

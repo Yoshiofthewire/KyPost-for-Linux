@@ -104,7 +104,7 @@ void ContactSyncClientTest::pullRoundTripMapsPopulatedAndAbsentOptionalFieldsInc
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactSyncResult result = client.pull(serverBaseUrl, auth, 0);
 
     QVERIFY(!result.error.has_value());
@@ -271,16 +271,16 @@ void ContactSyncClientTest::pullSendsSinceAsQueryParamAndAuthAsHeaders()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-9"), QStringLiteral("hash-9") };
+    const RelayAuth auth{ QStringLiteral("device-9"), QStringLiteral("secret-9") };
     client.pull(serverBaseUrl, auth, 0);
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("GET /api/contacts/sync?"));
     QVERIFY(request.contains("since=0"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
-    QVERIFY(!request.contains("sub=sub-9"));
-    QVERIFY(!request.contains("hash=hash-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-9"));
+    QVERIFY(!request.contains("device=device-9"));
+    QVERIFY(!request.contains("secret=secret-9"));
 }
 
 void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCreate()
@@ -308,7 +308,7 @@ void ContactSyncClientTest::pushRoundTripSendsExactFieldNamesIncludingEmptyUidCr
     updated.mergedInto = QStringLiteral("survivor-uid");
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactSyncResult result = client.push(serverBaseUrl, auth, 50, { created, updated });
 
     QVERIFY(!result.error.has_value());
@@ -379,14 +379,14 @@ void ContactSyncClientTest::pushSendsAuthAsHeaders()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-7"), QStringLiteral("hash-7") };
+    const RelayAuth auth{ QStringLiteral("device-7"), QStringLiteral("secret-7") };
     client.push(serverBaseUrl, auth, 0, {});
 
     const QByteArray request = fake.receivedRequest();
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-7"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-7"));
-    QVERIFY(!request.contains("sub=sub-7"));
-    QVERIFY(!request.contains("hash=hash-7"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-7"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-7"));
+    QVERIFY(!request.contains("device=device-7"));
+    QVERIFY(!request.contains("secret=secret-7"));
 
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("baseCursor")).toInt(), 0);
@@ -405,7 +405,7 @@ void ContactSyncClientTest::tooOldTrueSurfacesFlagWithEmptyChangedAndDeleted()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactSyncResult result = client.pull(serverBaseUrl, auth, 999999);
 
     QVERIFY(!result.error.has_value());
@@ -423,7 +423,7 @@ void ContactSyncClientTest::pullUnauthorizedFrom401PassesErrorThrough()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactSyncResult result = client.pull(serverBaseUrl, auth, 0);
 
     QVERIFY(result.error.has_value());
@@ -464,7 +464,7 @@ void ContactSyncClientTest::dedupeParsesReportIntoMergedCountAndGroups()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactDedupeResult result = client.dedupe(serverBaseUrl, auth);
 
     QVERIFY(!result.error.has_value());
@@ -484,15 +484,15 @@ void ContactSyncClientTest::dedupeSendsAuthAsHeadersAndPostsToApiContactsDedupe(
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-9"), QStringLiteral("hash-9") };
+    const RelayAuth auth{ QStringLiteral("device-9"), QStringLiteral("secret-9") };
     client.dedupe(serverBaseUrl, auth);
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("POST /api/contacts/dedupe HTTP/1.1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
-    QVERIFY(!request.contains("sub=sub-9"));
-    QVERIFY(!request.contains("hash=hash-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-9"));
+    QVERIFY(!request.contains("device=device-9"));
+    QVERIFY(!request.contains("secret=secret-9"));
 }
 
 void ContactSyncClientTest::dedupeOnEmptyGroupsReturnsZeroMergedCountNoError()
@@ -503,7 +503,7 @@ void ContactSyncClientTest::dedupeOnEmptyGroupsReturnsZeroMergedCountNoError()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactDedupeResult result = client.dedupe(serverBaseUrl, auth);
 
     QVERIFY(!result.error.has_value());
@@ -519,7 +519,7 @@ void ContactSyncClientTest::dedupeUnauthorizedFrom401MapsToError()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactDedupeResult result = client.dedupe(serverBaseUrl, auth);
 
     QVERIFY(result.error.has_value());
@@ -536,7 +536,7 @@ void ContactSyncClientTest::dedupeOnMalformedBodyReturnsDecodingErrorNotCrash()
     ContactSyncClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ContactDedupeResult result = client.dedupe(serverBaseUrl, auth);
 
     QVERIFY(result.error.has_value());

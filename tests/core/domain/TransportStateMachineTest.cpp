@@ -172,12 +172,12 @@ struct RepoHarness
     {
         DevicePairing pairing;
         pairing.subscriberId = QStringLiteral("sub-1");
-        pairing.subscriberHash = QStringLiteral("hash-1");
         pairing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fakeRelayPort);
         pairing.registrationUrl = pairing.serverBaseUrl + QStringLiteral("/api/notifications/native/register");
         pairing.pairingToken = QStringLiteral("pair-tok");
         pairing.deviceId = QStringLiteral("device-1");
         pairing.deviceName = QStringLiteral("My Linux Desktop");
+        pairing.deviceSecret = QStringLiteral("secret-1");
         pairingStore.save(pairing);
     }
 };

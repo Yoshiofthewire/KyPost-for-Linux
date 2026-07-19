@@ -33,12 +33,12 @@ void MfaControllerTest::savePairing(PairingStore& pairingStore, quint16 port)
 {
     DevicePairing pairing;
     pairing.subscriberId = QStringLiteral("sub-1");
-    pairing.subscriberHash = QStringLiteral("hash-1");
     pairing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(port);
     pairing.registrationUrl = pairing.serverBaseUrl + QStringLiteral("/api/notifications/native/register");
     pairing.pairingToken = QStringLiteral("pair-tok");
     pairing.deviceId = QStringLiteral("dev-1");
     pairing.deviceName = QStringLiteral("Test Device");
+    pairing.deviceSecret = QStringLiteral("secret-1");
     QVERIFY(pairingStore.save(pairing));
 }
 
@@ -89,12 +89,15 @@ void MfaControllerTest::respondSuccessSendsStoredCredentialsAndSetsDone()
     QCOMPARE(controller.resultMessage(), QStringLiteral("Approved"));
     QVERIFY(stateSpy.count() >= 2); // sending -> done
 
-    QVERIFY(fake.receivedRequest().contains("POST /api/mfa/push/respond HTTP/1.1"));
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("POST /api/mfa/push/respond HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: dev-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("challengeId")).toString(), QStringLiteral("chal-42"));
-    QCOMPARE(sent.value(QStringLiteral("subscriberId")).toString(), QStringLiteral("sub-1"));
-    QCOMPARE(sent.value(QStringLiteral("subscriberHash")).toString(), QStringLiteral("hash-1"));
-    QCOMPARE(sent.value(QStringLiteral("deviceId")).toString(), QStringLiteral("dev-1"));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberId")));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberHash")));
+    QVERIFY(!sent.contains(QStringLiteral("deviceId")));
     QCOMPARE(sent.value(QStringLiteral("approve")).toBool(), true);
 }
 

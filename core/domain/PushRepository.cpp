@@ -55,7 +55,7 @@ QVector<PushNotification> PushRepository::pullOnce()
         return {};
 
     const QUrl endpoint(resolvePullEndpoint(pairing->serverBaseUrl));
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const qint64 lastCursor = m_cursorStore.notificationCursor();
     const PullResult result = m_client.pull(endpoint, auth, lastCursor);
 

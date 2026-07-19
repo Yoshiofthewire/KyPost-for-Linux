@@ -4,7 +4,6 @@
 
 #include <QString>
 #include <QUrl>
-#include <optional>
 
 class HttpClient;
 
@@ -20,6 +19,11 @@ struct NativeRegistrationResponse
     bool ok = false;
     bool synced = false;
     QString deviceId;
+    // The raw per-device pairing secret, minted fresh on every successful
+    // registration and returned only in this response -- never retrievable
+    // again afterward. Callers must persist it unconditionally, overwriting
+    // any prior value (see DeviceRegistrationService::pair()).
+    QString deviceSecret;
     int devices = 0;
     QString deliveryMode; // "push" or "pull"
     QString pullEndpoint;
@@ -63,9 +67,8 @@ public:
     explicit NativeRegistrationClient(HttpClient& httpClient);
 
     NativeRegistrationResult registerDevice(const QUrl& registrationEndpoint, const QString& subscriberId,
-                                             const std::optional<QString>& subscriberHash, const QString& pairingToken,
-                                             const QString& deviceToken, const QString& deviceId,
-                                             const QString& deviceName) const;
+                                             const QString& pairingToken, const QString& deviceToken,
+                                             const QString& deviceId, const QString& deviceName) const;
 
 private:
     HttpClient& m_httpClient;

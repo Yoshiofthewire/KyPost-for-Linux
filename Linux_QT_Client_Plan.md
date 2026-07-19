@@ -91,8 +91,12 @@ fully-adaptive tree:
   - `GET /api/contacts/sync?since` (pull) / `POST {baseCursor, changes:[ContactDto]}`
     (push); ContactDto: `fn`, `emails[]`/`phones[]` as `{label,value}`, `rev`;
     response `{cursor, tooOld, changed, deleted}`; `tooOld` → reset cursor + wipe cache
-  - `POST /api/mfa/push/respond` — auth in the JSON **body**
-    (`subscriberId`, `subscriberHash`, `deviceId`, `approve`), not query params
+  - `POST /api/mfa/push/respond` — auth via `X-Kypost-Device-Id`/
+    `X-Kypost-Device-Secret` headers (`RelayAuth`), same as every other
+    authenticated endpoint; JSON body is just `{challengeId, approve}`
+  - `POST /api/notifications/native/deregister` — auth via the same device
+    headers, empty body, `{"ok": true}` on success; lets a device remove
+    itself from the account's paired-devices list without a session
 - **13 theme palettes are a binding contract** with web `theme.ts` / Android
   `AppTheme.kt` / this repo's `Style/AppTheme.swift` (easiest transcription
   source — copy values, don't approximate). Fonts: Space Grotesk + IBM Plex
@@ -113,7 +117,6 @@ fully-adaptive tree:
 ```json
 {
   "subscriberId": "...",
-  "subscriberHash": "...",
   "pairingToken": "...",
   "deviceToken": "https://ntfy.sh/<topic>",
   "deviceId": "<stored id, on re-registration>",
@@ -122,6 +125,16 @@ fully-adaptive tree:
   "deviceName": "<hostname / device model>"
 }
 ```
+
+Response gains `"deviceSecret": "<raw hex>"` on every successful call — the
+per-device pairing secret, minted fresh each time and returned only in this
+response, never carried in the pairing deep link. Persist it unconditionally
+(`DevicePairing::deviceSecret`), overwriting any prior value: every
+successful register invalidates the previous secret. Ongoing authenticated
+requests (mail, contacts sync, groups, App Pull, PGP QR mint, MFA respond,
+deregister) send it back as `X-Kypost-Device-Id`/`X-Kypost-Device-Secret`
+headers (`RelayAuth`) — the old account-wide `subscriberHash` scheme was
+removed from the backend entirely, no fallback.
 
 - `deviceToken` **is the UnifiedPush endpoint URL**, not an opaque token.
 - `transport: "unifiedpush"` is mandatory for us: `normalizeNativeTransport`

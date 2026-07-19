@@ -40,7 +40,7 @@ void PushRepositoryTest::savePairing(PairingStore& pairingStore, const QString& 
 {
     DevicePairing pairing;
     pairing.subscriberId = QStringLiteral("sub-1");
-    pairing.subscriberHash = QStringLiteral("hash-1");
+    pairing.deviceSecret = QStringLiteral("secret-1");
     pairing.serverBaseUrl = serverBaseUrl;
     pairing.registrationUrl = serverBaseUrl + QStringLiteral("/api/notifications/native/register");
     pairing.pairingToken = QStringLiteral("pair-tok");

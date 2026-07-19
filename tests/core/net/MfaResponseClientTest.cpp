@@ -16,15 +16,13 @@ private slots:
     void successParsesStatusAndBuildsEndpointFromServerBaseUrl();
     void conflictFrom409IsRejected();
     void unauthorizedFrom401IsRejected();
-    void sentBodyHasAllFourRequiredFieldsAndApproveNotApproved();
+    void sentRequestCarriesDeviceHeadersAndSlimBody();
 };
 
-// Regression coverage for the stale-Swift-shape bug this task exists to
-// avoid reintroducing: the Swift reference client sends
-// {challengeId, approved} with sub/hash as query params, which is NOT what
-// internal/api/push_mfa_handlers.go's handlePushRespond expects. The
-// four-field body below plus the "approve" (not "approved") boolean key is
-// the Go-verified shape.
+// Regression coverage for the Go-verified shape: internal/api/
+// push_mfa_handlers.go's handlePushRespond authenticates via
+// X-Kypost-Device-Id/X-Kypost-Device-Secret headers, with only
+// {challengeId, approve} in the body -- no credentials ride in the JSON.
 
 void MfaResponseClientTest::successParsesStatusAndBuildsEndpointFromServerBaseUrl()
 {
@@ -34,8 +32,8 @@ void MfaResponseClientTest::successParsesStatusAndBuildsEndpointFromServerBaseUr
     MfaResponseClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const MfaResponseResult result = client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("sub-1"),
-                                                      QStringLiteral("hash-1"), QStringLiteral("device-1"), true);
+    const MfaResponseResult result =
+        client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("device-1"), QStringLiteral("secret-1"), true);
 
     QCOMPARE(result.outcome, MfaResponseOutcome::Success);
     QVERIFY(result.status.has_value());
@@ -54,8 +52,8 @@ void MfaResponseClientTest::conflictFrom409IsRejected()
     MfaResponseClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const MfaResponseResult result = client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("sub-1"),
-                                                      QStringLiteral("hash-1"), QStringLiteral("device-1"), true);
+    const MfaResponseResult result =
+        client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("device-1"), QStringLiteral("secret-1"), true);
 
     QCOMPARE(result.outcome, MfaResponseOutcome::Rejected);
     // status is optional on the 409 path per the brief, but surfaced here
@@ -72,13 +70,13 @@ void MfaResponseClientTest::unauthorizedFrom401IsRejected()
     MfaResponseClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const MfaResponseResult result = client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("sub-1"),
-                                                      QStringLiteral("hash-1"), QStringLiteral("device-1"), false);
+    const MfaResponseResult result = client.respond(serverBaseUrl, QStringLiteral("chal-1"), QStringLiteral("device-1"),
+                                                      QStringLiteral("secret-1"), false);
 
     QCOMPARE(result.outcome, MfaResponseOutcome::Rejected);
 }
 
-void MfaResponseClientTest::sentBodyHasAllFourRequiredFieldsAndApproveNotApproved()
+void MfaResponseClientTest::sentRequestCarriesDeviceHeadersAndSlimBody()
 {
     FakeRelayServer fake(httpResponse(200, "OK", R"({"ok":true,"status":"rejected"})"));
     QNetworkAccessManager manager;
@@ -86,16 +84,17 @@ void MfaResponseClientTest::sentBodyHasAllFourRequiredFieldsAndApproveNotApprove
     MfaResponseClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    client.respond(serverBaseUrl, QStringLiteral("chal-42"), QStringLiteral("sub-42"), QStringLiteral("hash-42"),
-                    QStringLiteral("device-42"), false);
+    client.respond(serverBaseUrl, QStringLiteral("chal-42"), QStringLiteral("device-42"), QStringLiteral("secret-42"), false);
+
+    QVERIFY(fake.receivedRequest().contains("X-Kypost-Device-Id: device-42"));
+    QVERIFY(fake.receivedRequest().contains("X-Kypost-Device-Secret: secret-42"));
 
     const QJsonObject sent = fake.receivedJsonBody();
 
-    // The four required string fields, all present.
     QCOMPARE(sent.value(QStringLiteral("challengeId")).toString(), QStringLiteral("chal-42"));
-    QCOMPARE(sent.value(QStringLiteral("subscriberId")).toString(), QStringLiteral("sub-42"));
-    QCOMPARE(sent.value(QStringLiteral("subscriberHash")).toString(), QStringLiteral("hash-42"));
-    QCOMPARE(sent.value(QStringLiteral("deviceId")).toString(), QStringLiteral("device-42"));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberId")));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberHash")));
+    QVERIFY(!sent.contains(QStringLiteral("deviceId")));
 
     // The regression this task exists to prevent: the boolean key on the
     // wire must be "approve", not the stale Swift client's "approved".
@@ -103,9 +102,8 @@ void MfaResponseClientTest::sentBodyHasAllFourRequiredFieldsAndApproveNotApprove
     QVERIFY(!sent.contains(QStringLiteral("approved")));
     QCOMPARE(sent.value(QStringLiteral("approve")).toBool(), false);
 
-    // Exactly these four fields plus approve — no leftover sub/hash query
-    // params and no stray fields from the stale shape.
-    QCOMPARE(sent.size(), 5);
+    // Exactly these two fields — no leftover credential fields.
+    QCOMPARE(sent.size(), 2);
 }
 
 QTEST_GUILESS_MAIN(MfaResponseClientTest)

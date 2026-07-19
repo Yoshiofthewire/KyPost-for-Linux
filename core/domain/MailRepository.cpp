@@ -59,7 +59,7 @@ MailFetchOutcome MailRepository::refreshFolder(const QString& folder, bool force
     if (!pairing.has_value())
         return { MailRepositoryOutcome::NotPaired, QStringLiteral("Not paired") };
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverBaseUrl(pairing->serverBaseUrl);
 
     // forceFullResync must leave `since` as std::nullopt (omitted from the

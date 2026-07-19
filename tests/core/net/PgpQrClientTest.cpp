@@ -37,7 +37,7 @@ void PgpQrClientTest::fetchTokenSuccessParsesTokenExpiresAtAndUrl()
     PgpQrClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PgpQrTokenResult result = client.fetchToken(serverBaseUrl, auth);
 
     QVERIFY(!result.error.has_value());
@@ -55,15 +55,15 @@ void PgpQrClientTest::fetchTokenSendsAuthAsHeadersAndHitsApiPgpQrToken()
     PgpQrClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-9"), QStringLiteral("hash-9") };
+    const RelayAuth auth{ QStringLiteral("device-9"), QStringLiteral("secret-9") };
     client.fetchToken(serverBaseUrl, auth);
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("GET /api/pgp/qr/token HTTP/1.1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
-    QVERIFY(!request.contains("sub=sub-9"));
-    QVERIFY(!request.contains("hash=hash-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-9"));
+    QVERIFY(!request.contains("device=device-9"));
+    QVERIFY(!request.contains("secret=secret-9"));
 }
 
 void PgpQrClientTest::fetchToken400NoPgpIdentitySetsStatusCode()
@@ -74,7 +74,7 @@ void PgpQrClientTest::fetchToken400NoPgpIdentitySetsStatusCode()
     PgpQrClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PgpQrTokenResult result = client.fetchToken(serverBaseUrl, auth);
 
     QVERIFY(result.error.has_value());
@@ -89,7 +89,7 @@ void PgpQrClientTest::fetchToken401MapsToUnauthorized()
     PgpQrClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PgpQrTokenResult result = client.fetchToken(serverBaseUrl, auth);
 
     QVERIFY(result.error.has_value());
@@ -105,7 +105,7 @@ void PgpQrClientTest::fetchToken503MapsToServiceUnavailable()
     PgpQrClient client(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PgpQrTokenResult result = client.fetchToken(serverBaseUrl, auth);
 
     QVERIFY(result.error.has_value());

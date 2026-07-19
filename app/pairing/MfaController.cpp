@@ -44,9 +44,8 @@ void MfaController::respond(const QString& challengeId, bool approve)
 
     setRespondState(QStringLiteral("sending"));
 
-    const MfaResponseResult result = m_client.respond(QUrl(pairing->serverBaseUrl), challengeId,
-                                                        pairing->subscriberId, pairing->subscriberHash,
-                                                        pairing->deviceId, approve);
+    const MfaResponseResult result = m_client.respond(QUrl(pairing->serverBaseUrl), challengeId, pairing->deviceId,
+                                                        pairing->deviceSecret, approve);
 
     switch (result.outcome) {
     case MfaResponseOutcome::Success:

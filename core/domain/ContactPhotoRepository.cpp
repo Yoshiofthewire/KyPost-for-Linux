@@ -29,7 +29,7 @@ QString ContactPhotoRepository::photoPathFor(const QString& contactUid, const QS
     if (!pairing.has_value())
         return QString(); // not paired -- degrade gracefully, no crash
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverUrl(pairing->serverBaseUrl);
 
     const ContactPhotoFetchResult result = m_client.fetch(serverUrl, contactUid, auth);

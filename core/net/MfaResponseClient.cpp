@@ -1,6 +1,7 @@
 #include "net/MfaResponseClient.h"
 
 #include "net/HttpClient.h"
+#include "net/RelayAuth.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -11,20 +12,15 @@ MfaResponseClient::MfaResponseClient(HttpClient& httpClient)
 }
 
 MfaResponseResult MfaResponseClient::respond(const QUrl& serverBaseUrl, const QString& challengeId,
-                                              const QString& subscriberId, const QString& subscriberHash,
-                                              const QString& deviceId, bool approve) const
+                                              const QString& deviceId, const QString& deviceSecret, bool approve) const
 {
     QJsonObject body;
     body[QStringLiteral("challengeId")] = challengeId;
-    body[QStringLiteral("subscriberId")] = subscriberId;
-    body[QStringLiteral("subscriberHash")] = subscriberHash;
-    body[QStringLiteral("deviceId")] = deviceId;
     body[QStringLiteral("approve")] = approve;
 
-    // No query-param auth on this endpoint, unlike every other Relay
-    // endpoint in this batch — every credential rides in the JSON body.
-    const HttpClient::HttpResult result =
-        m_httpClient.post(joinUrlPath(serverBaseUrl, QStringLiteral("api/mfa/push/respond")), {}, body);
+    const RelayAuth auth{ deviceId, deviceSecret };
+    const HttpClient::HttpResult result = m_httpClient.post(
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/mfa/push/respond")), {}, body, auth.headerItems());
 
     MfaResponseResult out;
 

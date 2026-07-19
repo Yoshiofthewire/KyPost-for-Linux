@@ -110,7 +110,7 @@ bool MailController::requirePairing(QUrl& serverBaseUrl, RelayAuth& auth)
         return false;
     }
     serverBaseUrl = QUrl(pairing->serverBaseUrl);
-    auth = RelayAuth{ pairing->subscriberId, pairing->subscriberHash };
+    auth = RelayAuth{ pairing->deviceId, pairing->deviceSecret };
     return true;
 }
 

@@ -219,7 +219,7 @@ ContactSyncOutcome ContactSyncRepository::sync()
     if (!pairing.has_value())
         return { ContactSyncStatus::NotPaired, {}, QStringLiteral("Not paired") };
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverUrl(pairing->serverBaseUrl);
     const QString storedCursor = m_cursorStore.contactBaseCursor();
     const qint64 cursor = storedCursor.isEmpty() ? 0 : storedCursor.toLongLong();
@@ -301,7 +301,7 @@ ContactDedupeOutcome ContactSyncRepository::dedupe()
     if (!pairing.has_value())
         return { ContactDedupeStatus::NotPaired, 0, {}, QStringLiteral("Not paired") };
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverUrl(pairing->serverBaseUrl);
 
     const ContactDedupeResult result = m_client.dedupe(serverUrl, auth);

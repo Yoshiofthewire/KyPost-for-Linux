@@ -15,7 +15,6 @@ class SettingsStore;
 struct PairingParams
 {
     QString subscriberId;
-    QString subscriberHash;   // empty means none
     QString serverBaseUrl;
     QString registrationUrl;
     QString pairingToken;

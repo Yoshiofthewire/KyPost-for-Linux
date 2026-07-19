@@ -32,7 +32,6 @@ PairingParams DeviceRegistrationServiceTest::sampleParams(quint16 port)
 {
     PairingParams params;
     params.subscriberId = QStringLiteral("sub-1");
-    params.subscriberHash = QStringLiteral("hash-1");
     params.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(port);
     params.registrationUrl = QStringLiteral("http://127.0.0.1:%1/api/notifications/native/register").arg(port);
     params.pairingToken = QStringLiteral("pair-tok");
@@ -47,9 +46,9 @@ void DeviceRegistrationServiceTest::successfulPairPersistsPairingAndSettings()
     // set separately below, is what actually gets contacted) -- exercises
     // the "accepted as-is" path of the sameOrigin() check in
     // DeviceRegistrationService::pair().
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example:9443/custom/pull",)"
-                             R"("transport":"unifiedpush"})";
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","deviceSecret":"fresh-device-secret",)"
+                             R"("devices":1,"deliveryMode":"pull",)"
+                             R"("pullEndpoint":"http://relay.example:9443/custom/pull","transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
     QNetworkAccessManager manager;
     HttpClient http(manager);
@@ -80,7 +79,7 @@ void DeviceRegistrationServiceTest::successfulPairPersistsPairingAndSettings()
     const std::optional<DevicePairing> loaded = verifyPairingStore.load();
     QVERIFY(loaded.has_value());
     QCOMPARE(loaded->subscriberId, QStringLiteral("sub-1"));
-    QCOMPARE(loaded->subscriberHash, QStringLiteral("hash-1"));
+    QCOMPARE(loaded->deviceSecret, QStringLiteral("fresh-device-secret"));
     QCOMPARE(loaded->serverBaseUrl, params.serverBaseUrl);
     QCOMPARE(loaded->registrationUrl, params.registrationUrl);
     QCOMPARE(loaded->pairingToken, QStringLiteral("pair-tok"));
@@ -98,8 +97,8 @@ void DeviceRegistrationServiceTest::pullEndpointFromDifferentOriginThanServerIsR
     // server the user actually paired with must be ignored in favor of a
     // same-origin derived one, not persisted verbatim -- otherwise a
     // compromised/malicious relay could silently redirect all future
-    // credentialed polling (subscriberId/subscriberHash ride along on every
-    // pull) to an arbitrary attacker host.
+    // credentialed polling (deviceId/deviceSecret ride along on every pull)
+    // to an arbitrary attacker host.
     const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","devices":1,)"
                              R"("deliveryMode":"pull","pullEndpoint":"http://attacker.example/steal",)"
                              R"("transport":"unifiedpush"})";
@@ -166,17 +165,17 @@ void DeviceRegistrationServiceTest::reregisterIfPairedSendsStoredCredentialsAndU
 
     DevicePairing existing;
     existing.subscriberId = QStringLiteral("sub-existing");
-    existing.subscriberHash = QStringLiteral("hash-existing");
     existing.serverBaseUrl = QStringLiteral("http://127.0.0.1:1");
     existing.registrationUrl = QStringLiteral("http://placeholder/api/notifications/native/register");
     existing.pairingToken = QStringLiteral("existing-token");
     existing.deviceId = QStringLiteral("old-device-id");
     existing.deviceName = QStringLiteral("Existing Desktop");
+    existing.deviceSecret = QStringLiteral("old-device-secret");
     QVERIFY(pairingStore.save(existing));
 
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"new-device-id","devices":1,)"
-                             R"("deliveryMode":"push","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
-                             R"("transport":"unifiedpush"})";
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"new-device-id","deviceSecret":"new-device-secret",)"
+                             R"("devices":1,"deliveryMode":"push",)"
+                             R"("pullEndpoint":"http://relay.example/api/notifications/native/pull","transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
     // registrationUrl in the stored pairing points nowhere real; the
     // service must use it verbatim, so re-point the stored pairing at the
@@ -197,11 +196,15 @@ void DeviceRegistrationServiceTest::reregisterIfPairedSendsStoredCredentialsAndU
 
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("subscriberId")).toString(), QStringLiteral("sub-existing"));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberHash")));
     QCOMPARE(sent.value(QStringLiteral("pairingToken")).toString(), QStringLiteral("existing-token"));
 
     const std::optional<DevicePairing> loaded = pairingStore.load();
     QVERIFY(loaded.has_value());
     QCOMPARE(loaded->deviceId, QStringLiteral("new-device-id"));
+    // Every successful register mints a brand-new secret, invalidating the
+    // previous one -- the stored value must be overwritten, not kept.
+    QCOMPARE(loaded->deviceSecret, QStringLiteral("new-device-secret"));
 }
 
 void DeviceRegistrationServiceTest::reregisterIfPairedWithNoPriorPairingMakesNoRequest()
@@ -244,12 +247,12 @@ void DeviceRegistrationServiceTest::reregisterIfPairedOn401LeavesStoredPairingUn
 
     DevicePairing existing;
     existing.subscriberId = QStringLiteral("sub-existing");
-    existing.subscriberHash = QStringLiteral("hash-existing");
     existing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
     existing.registrationUrl = QStringLiteral("http://127.0.0.1:%1/api/notifications/native/register").arg(fake.port());
     existing.pairingToken = QStringLiteral("existing-token");
     existing.deviceId = QStringLiteral("old-device-id");
     existing.deviceName = QStringLiteral("Existing Desktop");
+    existing.deviceSecret = QStringLiteral("existing-device-secret");
     QVERIFY(pairingStore.save(existing));
 
     QNetworkAccessManager manager;

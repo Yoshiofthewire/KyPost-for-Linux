@@ -25,7 +25,7 @@ QString derivePullEndpoint(const QUrl& serverBaseUrl)
 
 // VibeSec finding: pullEndpoint used to be trusted verbatim from the
 // registration response and persisted, then hit on every future poll with
-// the account's real subscriberId/subscriberHash attached as query params
+// the device's real deviceId/deviceSecret attached
 // (PushNotificationClient::pull). A single malicious or compromised
 // response from an otherwise-trusted relay could silently redirect all
 // future credentialed polling to an arbitrary host, persistently, until
@@ -48,23 +48,23 @@ DeviceRegistrationService::DeviceRegistrationService(NativeRegistrationClient& c
 
 NativeRegistrationResult DeviceRegistrationService::pair(const PairingParams& params, const QString& deviceToken)
 {
-    const NativeRegistrationResult result =
-        m_client.registerDevice(QUrl(params.registrationUrl), params.subscriberId,
-                                 params.subscriberHash.isEmpty() ? std::nullopt
-                                                                  : std::make_optional(params.subscriberHash),
-                                 params.pairingToken, deviceToken, QString(), params.deviceName);
+    const NativeRegistrationResult result = m_client.registerDevice(
+        QUrl(params.registrationUrl), params.subscriberId, params.pairingToken, deviceToken, QString(), params.deviceName);
 
     if (result.outcome != RegistrationOutcome::Success)
         return result;
 
     DevicePairing pairing;
     pairing.subscriberId = params.subscriberId;
-    pairing.subscriberHash = params.subscriberHash;
     pairing.serverBaseUrl = params.serverBaseUrl;
     pairing.registrationUrl = params.registrationUrl;
     pairing.pairingToken = params.pairingToken;
     pairing.deviceId = result.response.deviceId;
     pairing.deviceName = params.deviceName;
+    // Every successful register mints a brand-new secret server-side,
+    // invalidating whatever was stored before -- persist unconditionally,
+    // never fall back to the previous value.
+    pairing.deviceSecret = result.response.deviceSecret;
     m_pairingStore.save(pairing);
 
     const QUrl serverOrigin(params.serverBaseUrl);
@@ -89,7 +89,6 @@ std::optional<NativeRegistrationResult> DeviceRegistrationService::reregisterIfP
 
     PairingParams params;
     params.subscriberId = pairing->subscriberId;
-    params.subscriberHash = pairing->subscriberHash;
     params.serverBaseUrl = pairing->serverBaseUrl;
     params.registrationUrl = pairing->registrationUrl;
     params.pairingToken = pairing->pairingToken;

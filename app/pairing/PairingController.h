@@ -10,6 +10,7 @@
 class QUrl;
 class PairingStore;
 class SettingsStore;
+class DeregisterClient;
 
 // QML-facing bridge (Task 34) over core/domain's DeviceRegistrationService/
 // PairingStore. Registered as the "Pairing" QML singleton in main.cpp.
@@ -69,7 +70,7 @@ class PairingController : public QObject
 
 public:
     PairingController(DeviceRegistrationService& service, PairingStore& pairingStore, SettingsStore& settingsStore,
-                       QObject* parent = nullptr);
+                       DeregisterClient& deregisterClient, QObject* parent = nullptr);
 
     bool isPaired() const;
     QString pairedServerHost() const;
@@ -87,11 +88,11 @@ public slots:
     // pairFromParsedParams() on a successful pair and by removePairing().
     void refreshFromStore();
     // Parses a llamalabels://native-pair URL per the wire format documented
-    // on PairingController.cpp's parseNativePairLink(): sub/hash/srv/pt
-    // query params required (hash may be present-but-empty -- matches
-    // DevicePairing::subscriberHash's own "may be empty" contract; sub/srv/
-    // pt must be present AND non-empty), reg optional (empty/absent derives
-    // the registration endpoint from srv). On parse failure sets
+    // on PairingController.cpp's parseNativePairLink(): sub/srv/pt query
+    // params required and must be present AND non-empty (no `hash` param --
+    // the per-device secret is issued only via the registration response),
+    // reg optional (empty/absent derives the registration endpoint from
+    // srv). On parse failure sets
     // pairingState="failed"+pairingError and returns false without any
     // network call.
     //
@@ -121,8 +122,14 @@ public slots:
     // Discards a pending pairFromDeepLink/pairFromPastedLink request without
     // ever making a network call, returning pairingState to "idle".
     void cancelPendingPair();
-    void reset();         // sets pairingState back to "idle" (for a "Try Again" button after a failure)
-    void removePairing(); // pairingStore.clear() + refreshFromStore()
+    void reset(); // sets pairingState back to "idle" (for a "Try Again" button after a failure)
+    // Best-effort POST .../native/deregister (only when a deviceSecret is
+    // actually stored -- a pairing from before this field existed has none,
+    // and simply skips straight to the local clear below), then
+    // unconditionally pairingStore.clear() + refreshFromStore() regardless
+    // of the network outcome: offline, already-removed, or no secret at all
+    // must never leave the user stuck "paired".
+    void removePairing();
     // Late-bound, same pattern as main.cpp's pairingControllerForDeepLinks
     // pointer (Task 34): UnifiedPushConnector is constructed after this
     // class in main.cpp's dependency order, so main.cpp calls this whenever
@@ -145,13 +152,13 @@ private:
     // deviceRegistrationService.pair(params, m_deviceToken), maps
     // RegistrationOutcome to pairingState/pairingError, calls
     // refreshFromStore() on success.
-    bool pairFromParsedParams(const QString& sub, const QString& hash, const QString& srv, const QString& pt,
-                               const QString& reg);
+    bool pairFromParsedParams(const QString& sub, const QString& srv, const QString& pt, const QString& reg);
     void setPairingState(const QString& state, const QString& error = QString());
 
     DeviceRegistrationService& m_service;
     PairingStore& m_pairingStore;
     SettingsStore& m_settingsStore;
+    DeregisterClient& m_deregisterClient;
     QString m_pairingState = QStringLiteral("idle");
     QString m_pairingError;
     bool m_isPaired = false;

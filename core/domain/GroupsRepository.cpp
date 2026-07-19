@@ -27,7 +27,7 @@ void GroupsRepository::refresh()
     if (!pairing.has_value())
         return;
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverUrl(pairing->serverBaseUrl);
 
     const GroupsFetchResult result = m_client.fetch(serverUrl, auth);

@@ -37,7 +37,7 @@ void MailRepositoryTest::savePairing(PairingStore& pairingStore, quint16 port)
 {
     DevicePairing pairing;
     pairing.subscriberId = QStringLiteral("sub-1");
-    pairing.subscriberHash = QStringLiteral("hash-1");
+    pairing.deviceSecret = QStringLiteral("secret-1");
     pairing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(port);
     pairing.deviceId = QStringLiteral("dev-1");
     QVERIFY(pairingStore.save(pairing));

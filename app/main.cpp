@@ -35,6 +35,7 @@
 #include "net/GroupsClient.h"
 #include "net/HttpClient.h"
 #include "net/MfaResponseClient.h"
+#include "net/DeregisterClient.h"
 #include "net/NativeRegistrationClient.h"
 #include "net/NtfySubscriber.h"
 #include "net/PgpQrClient.h"
@@ -371,6 +372,7 @@ int main(int argc, char* argv[])
     RelayMailSource relayMailSource(httpClient);
     ContactSyncClient contactSyncClient(httpClient);
     MfaResponseClient mfaResponseClient(httpClient);
+    DeregisterClient deregisterClient(httpClient);
     NativeRegistrationClient nativeRegistrationClient(httpClient);
     // extended-contact-fields Task 2: GET /api/groups, this repo's first
     // per-resource GET client -- see core/net/GroupsClient.h.
@@ -521,7 +523,7 @@ int main(int argc, char* argv[])
     // pushServerBaseUrl() properties (Settings > Notifications) can read
     // straight from it -- see PairingController.h's doc comment on why
     // those three reuse pairingChanged() rather than a new signal.
-    PairingController pairingController(deviceRegistrationService, pairingStore, settingsStore);
+    PairingController pairingController(deviceRegistrationService, pairingStore, settingsStore, deregisterClient);
     qmlRegisterSingletonInstance<PairingController>(
         "com.urlxl.mail", 1, 0, "Pairing", &pairingController);
 

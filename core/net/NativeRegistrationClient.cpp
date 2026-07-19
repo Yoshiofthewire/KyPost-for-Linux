@@ -28,13 +28,11 @@ NativeRegistrationClient::NativeRegistrationClient(HttpClient& httpClient)
 }
 
 NativeRegistrationResult NativeRegistrationClient::registerDevice(
-    const QUrl& registrationEndpoint, const QString& subscriberId, const std::optional<QString>& subscriberHash,
-    const QString& pairingToken, const QString& deviceToken, const QString& deviceId, const QString& deviceName) const
+    const QUrl& registrationEndpoint, const QString& subscriberId, const QString& pairingToken,
+    const QString& deviceToken, const QString& deviceId, const QString& deviceName) const
 {
     QJsonObject body;
     body[QStringLiteral("subscriberId")] = subscriberId;
-    if (subscriberHash.has_value())
-        body[QStringLiteral("subscriberHash")] = *subscriberHash;
     body[QStringLiteral("pairingToken")] = pairingToken;
     body[QStringLiteral("deviceToken")] = deviceToken;
     if (!deviceId.isEmpty())
@@ -80,6 +78,7 @@ NativeRegistrationResult NativeRegistrationClient::registerDevice(
     response.ok = json.value(QStringLiteral("ok")).toBool();
     response.synced = json.value(QStringLiteral("synced")).toBool();
     response.deviceId = json.value(QStringLiteral("deviceId")).toString();
+    response.deviceSecret = json.value(QStringLiteral("deviceSecret")).toString();
     response.devices = json.value(QStringLiteral("devices")).toInt();
     response.deliveryMode = json.value(QStringLiteral("deliveryMode")).toString();
     response.pullEndpoint = json.value(QStringLiteral("pullEndpoint")).toString();

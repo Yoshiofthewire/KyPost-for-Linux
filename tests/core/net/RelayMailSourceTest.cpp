@@ -80,7 +80,7 @@ void RelayMailSourceTest::fetchInboxMapsTwoTabsWithAtUtcPassthroughAndOptionalFi
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const InboxFetchResult result = source.fetchInbox(serverBaseUrl, auth, 100, QStringLiteral("Inbox"), qint64(0));
 
     QVERIFY(!result.error.has_value());
@@ -133,7 +133,7 @@ void RelayMailSourceTest::fetchInboxSendsLimitMailboxSinceAsQueryParamsAndAuthAs
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-9"), QStringLiteral("hash-9") };
+    const RelayAuth auth{ QStringLiteral("device-9"), QStringLiteral("secret-9") };
     source.fetchInbox(serverBaseUrl, auth, 250, QStringLiteral("Inbox"), qint64(12345));
 
     const QByteArray request = fake.receivedRequest();
@@ -141,10 +141,10 @@ void RelayMailSourceTest::fetchInboxSendsLimitMailboxSinceAsQueryParamsAndAuthAs
     QVERIFY(request.contains("limit=250"));
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("since=12345"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
-    QVERIFY(!request.contains("sub=sub-9"));
-    QVERIFY(!request.contains("hash=hash-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-9"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-9"));
+    QVERIFY(!request.contains("device=device-9"));
+    QVERIFY(!request.contains("secret=secret-9"));
 }
 
 void RelayMailSourceTest::fetchInboxOmitsLimitAndSinceWhenNotProvided()
@@ -155,7 +155,7 @@ void RelayMailSourceTest::fetchInboxOmitsLimitAndSinceWhenNotProvided()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     source.fetchInbox(serverBaseUrl, auth, std::nullopt, QStringLiteral("Inbox"), std::nullopt);
 
     const QByteArray request = fake.receivedRequest();
@@ -172,7 +172,7 @@ void RelayMailSourceTest::fetchInboxUnauthorizedFrom401PassesErrorThrough()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const InboxFetchResult result = source.fetchInbox(serverBaseUrl, auth, std::nullopt, QStringLiteral("Inbox"), std::nullopt);
 
     QVERIFY(result.error.has_value());
@@ -189,7 +189,7 @@ void RelayMailSourceTest::performActionMoveIncludesTargetMailboxInRequestBody()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ActionResult result = source.performAction(serverBaseUrl, auth, QStringLiteral("move"),
                                                        { QStringLiteral("m1"), QStringLiteral("m2") },
                                                        QStringLiteral("Inbox"), QStringLiteral("Archive"));
@@ -203,10 +203,10 @@ void RelayMailSourceTest::performActionMoveIncludesTargetMailboxInRequestBody()
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("POST /api/inbox/actions HTTP/1.1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
-    QVERIFY(!request.contains("sub=sub-1"));
-    QVERIFY(!request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
+    QVERIFY(!request.contains("device=device-1"));
+    QVERIFY(!request.contains("secret=secret-1"));
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("action")).toString(), QStringLiteral("move"));
     QCOMPARE(sent.value(QStringLiteral("mailbox")).toString(), QStringLiteral("Inbox"));
@@ -228,7 +228,7 @@ void RelayMailSourceTest::performActionReadOmitsTargetMailboxFromRequestBodyButR
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ActionResult result = source.performAction(serverBaseUrl, auth, QStringLiteral("read"),
                                                        { QStringLiteral("m3") }, QStringLiteral("Inbox"), std::nullopt);
 
@@ -267,7 +267,7 @@ void RelayMailSourceTest::sendMailJoinsRecipientsAndBase64EncodesAttachmentByteF
     attachment.data = attachmentBytes;
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const SendMailResult result =
         source.sendMail(serverBaseUrl, auth, QStringLiteral("a@example.com,b@example.com"),
                          QStringLiteral("cc@example.com"), QString(), QStringLiteral("Hello"),
@@ -280,10 +280,10 @@ void RelayMailSourceTest::sendMailJoinsRecipientsAndBase64EncodesAttachmentByteF
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("POST /api/mail/send HTTP/1.1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
-    QVERIFY(!request.contains("sub=sub-1"));
-    QVERIFY(!request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
+    QVERIFY(!request.contains("device=device-1"));
+    QVERIFY(!request.contains("secret=secret-1"));
     const QJsonObject sent = fake.receivedJsonBody();
     // to/cc/bcc travel as comma-joined strings, not JSON arrays -- this
     // client does not split/join on the caller's behalf.
@@ -315,7 +315,7 @@ void RelayMailSourceTest::sendMailSendsEmptyAttachmentsArrayWhenNoneProvided()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     source.sendMail(serverBaseUrl, auth, QStringLiteral("a@example.com"), QString(), QString(),
                      QStringLiteral("Hi"), QStringLiteral("Body"), QStringLiteral("plain"), {});
 
@@ -336,7 +336,7 @@ void RelayMailSourceTest::sendMailParsesAlwaysPresentWarningField()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const SendMailResult result = source.sendMail(serverBaseUrl, auth, QStringLiteral("a@example.com"), QString(),
                                                     QString(), QStringLiteral("Hi"), QStringLiteral("Body"),
                                                     QStringLiteral("plain"), {});
@@ -364,7 +364,7 @@ void RelayMailSourceTest::listAttachmentsSendsMailboxMessageIdAsQueryParamsAndAu
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const ListAttachmentsResult result =
         source.listAttachments(serverBaseUrl, auth, QStringLiteral("Inbox"), QStringLiteral("42"));
 
@@ -383,10 +383,10 @@ void RelayMailSourceTest::listAttachmentsSendsMailboxMessageIdAsQueryParamsAndAu
     QVERIFY(request.contains("GET /api/mail/attachments?"));
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("messageId=42"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
-    QVERIFY(!request.contains("sub=sub-1"));
-    QVERIFY(!request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
+    QVERIFY(!request.contains("device=device-1"));
+    QVERIFY(!request.contains("secret=secret-1"));
 }
 
 void RelayMailSourceTest::downloadAttachmentReturnsRawBytesAndParsesFilenameFromContentDisposition()
@@ -407,7 +407,7 @@ void RelayMailSourceTest::downloadAttachmentReturnsRawBytesAndParsesFilenameFrom
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const DownloadAttachmentResult result =
         source.downloadAttachment(serverBaseUrl, auth, QStringLiteral("Inbox"), QStringLiteral("42"), 0);
 
@@ -421,10 +421,10 @@ void RelayMailSourceTest::downloadAttachmentReturnsRawBytesAndParsesFilenameFrom
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("messageId=42"));
     QVERIFY(request.contains("index=0"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
-    QVERIFY(!request.contains("sub=sub-1"));
-    QVERIFY(!request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
+    QVERIFY(!request.contains("device=device-1"));
+    QVERIFY(!request.contains("secret=secret-1"));
 }
 
 void RelayMailSourceTest::downloadAttachmentMapsNotFoundFrom404()
@@ -436,7 +436,7 @@ void RelayMailSourceTest::downloadAttachmentMapsNotFoundFrom404()
     RelayMailSource source(http);
 
     const QUrl serverBaseUrl(QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const DownloadAttachmentResult result =
         source.downloadAttachment(serverBaseUrl, auth, QStringLiteral("Inbox"), QStringLiteral("42"), 99);
 

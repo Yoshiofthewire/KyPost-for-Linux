@@ -3,6 +3,7 @@
 #include "domain/DeviceRegistrationService.h"
 #include "domain/DevicePairing.h"
 #include "domain/PairingStore.h"
+#include "net/DeregisterClient.h"
 #include "stores/SettingsStore.h"
 
 #include <KLocalizedString>
@@ -12,20 +13,18 @@
 
 namespace {
 
-// Task 34 deep-link wire format, confirmed against both this project's
-// Android and Swift sibling clients' real parsers:
-// llamalabels://native-pair?sub=<id>&hash=<hash>&srv=<serverBaseUrl>&pt=<pairingToken>&reg=<optional>
+// Deep-link wire format, confirmed against both this project's Android and
+// Swift sibling clients' real parsers:
+// llamalabels://native-pair?sub=<id>&srv=<serverBaseUrl>&pt=<pairingToken>&reg=<optional>
 //
-// sub/srv/pt must be present in the query AND non-empty. hash must be
-// present but its value may legitimately be empty -- mirrors
-// DevicePairing::subscriberHash's own "may be empty" doc comment, i.e. a
-// server can pair a subscriber with no hash at all, but the deep link must
-// still carry the key to say so explicitly rather than silently omitting
-// it. reg is optional; empty/absent means "derive from srv".
+// sub/srv/pt must be present in the query AND non-empty. There is no `hash`
+// param at all -- the per-device pairing secret is no longer carried in the
+// deep link/QR; it's issued only via the registration response (see
+// DevicePairing::deviceSecret's doc comment). reg is optional;
+// empty/absent means "derive from srv".
 struct ParsedPairingLink
 {
     QString subscriberId;
-    QString subscriberHash;
     QString serverBaseUrl;
     QString pairingToken;
     QString registrationUrl; // empty if reg was absent/empty in the link
@@ -48,13 +47,12 @@ std::optional<ParsedPairingLink> parseNativePairLink(const QUrl& url)
         return std::nullopt;
 
     const QUrlQuery query(url);
-    if (!query.hasQueryItem(QStringLiteral("sub")) || !query.hasQueryItem(QStringLiteral("hash"))
-        || !query.hasQueryItem(QStringLiteral("srv")) || !query.hasQueryItem(QStringLiteral("pt")))
+    if (!query.hasQueryItem(QStringLiteral("sub")) || !query.hasQueryItem(QStringLiteral("srv"))
+        || !query.hasQueryItem(QStringLiteral("pt")))
         return std::nullopt;
 
     ParsedPairingLink parsed;
     parsed.subscriberId = query.queryItemValue(QStringLiteral("sub"), QUrl::FullyDecoded);
-    parsed.subscriberHash = query.queryItemValue(QStringLiteral("hash"), QUrl::FullyDecoded);
     parsed.serverBaseUrl = query.queryItemValue(QStringLiteral("srv"), QUrl::FullyDecoded);
     parsed.pairingToken = query.queryItemValue(QStringLiteral("pt"), QUrl::FullyDecoded);
     parsed.registrationUrl = query.queryItemValue(QStringLiteral("reg"), QUrl::FullyDecoded);
@@ -68,11 +66,13 @@ std::optional<ParsedPairingLink> parseNativePairLink(const QUrl& url)
 } // namespace
 
 PairingController::PairingController(DeviceRegistrationService& service, PairingStore& pairingStore,
-                                       SettingsStore& settingsStore, QObject* parent)
+                                       SettingsStore& settingsStore, DeregisterClient& deregisterClient,
+                                       QObject* parent)
     : QObject(parent)
     , m_service(service)
     , m_pairingStore(pairingStore)
     , m_settingsStore(settingsStore)
+    , m_deregisterClient(deregisterClient)
 {
     // Unlike MailController/ContactsController (which deliberately start
     // empty until QML calls a load slot), the pairing badge/menu entries
@@ -165,7 +165,6 @@ bool PairingController::pairFromDeepLink(const QUrl& url)
     // pairs immediately -- it waits in "confirm" for confirmPendingPair().
     PairingParams params;
     params.subscriberId = parsed->subscriberId;
-    params.subscriberHash = parsed->subscriberHash;
     params.serverBaseUrl = parsed->serverBaseUrl;
     params.registrationUrl = parsed->registrationUrl.isEmpty() ? deriveRegistrationUrl(parsed->serverBaseUrl)
                                                                  : parsed->registrationUrl;
@@ -189,8 +188,8 @@ bool PairingController::confirmPendingPair()
 
     const PairingParams pending = *m_pendingPair;
     m_pendingPair.reset();
-    return pairFromParsedParams(pending.subscriberId, pending.subscriberHash, pending.serverBaseUrl,
-                                 pending.pairingToken, pending.registrationUrl);
+    return pairFromParsedParams(pending.subscriberId, pending.serverBaseUrl, pending.pairingToken,
+                                 pending.registrationUrl);
 }
 
 void PairingController::cancelPendingPair()
@@ -207,6 +206,12 @@ void PairingController::reset()
 
 void PairingController::removePairing()
 {
+    const std::optional<DevicePairing> pairing = m_pairingStore.load();
+    if (pairing.has_value() && !pairing->deviceId.isEmpty() && !pairing->deviceSecret.isEmpty()) {
+        // Best-effort: the result is intentionally ignored -- local state
+        // clears unconditionally below regardless of network outcome.
+        m_deregisterClient.deregister(QUrl(pairing->serverBaseUrl), pairing->deviceId, pairing->deviceSecret);
+    }
     m_pairingStore.clear();
     refreshFromStore();
 }
@@ -216,14 +221,13 @@ void PairingController::setDeviceToken(const QString& token)
     m_deviceToken = token;
 }
 
-bool PairingController::pairFromParsedParams(const QString& sub, const QString& hash, const QString& srv,
-                                              const QString& pt, const QString& reg)
+bool PairingController::pairFromParsedParams(const QString& sub, const QString& srv, const QString& pt,
+                                              const QString& reg)
 {
     setPairingState(QStringLiteral("working"));
 
     PairingParams params;
     params.subscriberId = sub;
-    params.subscriberHash = hash;
     params.serverBaseUrl = srv;
     params.registrationUrl = reg.isEmpty() ? deriveRegistrationUrl(srv) : reg;
     params.pairingToken = pt;

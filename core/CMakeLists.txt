@@ -70,6 +70,8 @@ add_library(llamacore STATIC
   net/PushNotificationClient.h
   net/MfaResponseClient.cpp
   net/MfaResponseClient.h
+  net/DeregisterClient.cpp
+  net/DeregisterClient.h
   net/ContactSyncClient.cpp
   net/ContactSyncClient.h
   net/GroupsClient.cpp

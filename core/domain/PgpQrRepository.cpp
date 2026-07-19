@@ -45,7 +45,7 @@ PgpQrTokenOutcome PgpQrRepository::fetchMyToken()
     if (!pairing.has_value())
         return { PgpQrTokenStatus::NotPaired, {}, {}, {}, QStringLiteral("Not paired") };
 
-    const RelayAuth auth{ pairing->subscriberId, pairing->subscriberHash };
+    const RelayAuth auth{ pairing->deviceId, pairing->deviceSecret };
     const QUrl serverUrl(pairing->serverBaseUrl);
 
     const PgpQrTokenResult result = m_client.fetchToken(serverUrl, auth);

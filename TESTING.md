@@ -38,7 +38,7 @@ default/bare User-Agent strings (see `AGENTS.md` Section 8).
       pane shows the `StatusBadge` flip to "Paired" plus the paired
       `Server`/`Device` rows populated (`Pairing.pairedServerHost`,
       `Pairing.deviceId`).
-- [ ] **Deep-link the same URL via `kypost llamalabels://native-pair?sub=...&hash=...&srv=...&pt=...`**
+- [ ] **Deep-link the same URL via `kypost llamalabels://native-pair?sub=...&srv=...&pt=...`**
       (or `xdg-open` once the `.desktop` file's
       `MimeType=x-scheme-handler/llamalabels;` is registered). Expected:
       routed through `main.cpp`'s `routeDeepLink()` →
@@ -48,20 +48,28 @@ default/bare User-Agent strings (see `AGENTS.md` Section 8).
       the first instance rather than opening a second window.
       `llamalabels://desktop-pair` (or any other host) is deliberately
       **not** handled — `routeDeepLink()` logs it as unrecognized and drops
-      it; this client only ever does native sub/hash pairing (see
+      it; this client only ever does native sub/pt pairing (see
       `AGENTS.md`/Phase 6 constraint — no separate desktop-session flow).
 - [ ] **Confirm the pairing credentials actually land in the OS keychain**,
       not just in the UI: `kwallet-query -f com.urlxl.mail -l kdewallet`
       (or the equivalent for your Secret Service provider) should list the
-      `sub`/`hash`/`deviceId`/pairing-token entries `SecureStoreKeychain`
-      (`app/platform/SecureStoreKeychain.cpp`, backed by QtKeychain /
-      `org.freedesktop.secrets`) wrote. This exact command was used during
-      Task 37/38's live verification.
+      `sub`/`deviceId`/`deviceSecret`/pairing-token entries
+      `SecureStoreKeychain` (`app/platform/SecureStoreKeychain.cpp`, backed
+      by QtKeychain / `org.freedesktop.secrets`) wrote. This exact command
+      was used during Task 37/38's live verification.
 - [ ] **Tap "Remove Pairing"** (`Pairing.removePairing()`). Expected:
+      `PairingController::removePairing()` first POSTs to
+      `/api/notifications/native/deregister` with the device's own
+      `X-Kypost-Device-Id`/`X-Kypost-Device-Secret` headers (best-effort —
+      check server logs or the web UI's paired-devices list to confirm the
+      row is actually gone, not just the local keychain), then the
       Connection pane reverts to "Not paired", `kwallet-query` shows the
       folder/entries gone (confirmed live during Task 38 via
       `org.kde.KWallet.removeFolder`), and re-pairing with a fresh link
       afterward succeeds again (no leftover state blocks a second pair).
+      A pairing from before this migration has no stored `deviceSecret`;
+      confirm that case still clears locally with no crash even though the
+      deregister call is skipped.
 
 ## Mail
 

@@ -37,7 +37,7 @@ void PushNotificationClientTest::successMapsItemsAndSplitsMultiValueKeywords()
     PushNotificationClient client(http);
 
     const QUrl endpoint(QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PullResult result = client.pull(endpoint, auth, 0);
 
     QVERIFY(!result.error.has_value());
@@ -71,14 +71,14 @@ void PushNotificationClientTest::firstPullOmitsAfterQueryParam()
     PushNotificationClient client(http);
 
     const QUrl endpoint(QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     client.pull(endpoint, auth, 0);
 
     const QByteArray request = fake.receivedRequest();
-    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
-    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
-    QVERIFY(!request.contains("sub=sub-1"));
-    QVERIFY(!request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: device-1"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-1"));
+    QVERIFY(!request.contains("device=device-1"));
+    QVERIFY(!request.contains("secret=secret-1"));
     QVERIFY(!request.contains("after="));
 }
 
@@ -90,7 +90,7 @@ void PushNotificationClientTest::subsequentPullSendsAfterQueryParam()
     PushNotificationClient client(http);
 
     const QUrl endpoint(QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     client.pull(endpoint, auth, 42);
 
     QVERIFY(fake.receivedRequest().contains("after=42"));
@@ -104,7 +104,7 @@ void PushNotificationClientTest::successWithZeroNotificationsIsDistinctFromFailu
     PushNotificationClient client(http);
 
     const QUrl endpoint(QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PullResult result = client.pull(endpoint, auth, 0);
 
     QVERIFY(!result.error.has_value());
@@ -120,7 +120,7 @@ void PushNotificationClientTest::unauthorizedFrom401PassesErrorThrough()
     PushNotificationClient client(http);
 
     const QUrl endpoint(QStringLiteral("http://127.0.0.1:%1/api/notifications/native/pull").arg(fake.port()));
-    const RelayAuth auth{ QStringLiteral("sub-1"), QStringLiteral("hash-1") };
+    const RelayAuth auth{ QStringLiteral("device-1"), QStringLiteral("secret-1") };
     const PullResult result = client.pull(endpoint, auth, 0);
 
     QVERIFY(result.error.has_value());

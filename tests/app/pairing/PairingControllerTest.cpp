@@ -3,6 +3,7 @@
 #include "domain/DeviceRegistrationService.h"
 #include "domain/DevicePairing.h"
 #include "domain/PairingStore.h"
+#include "net/DeregisterClient.h"
 #include "net/HttpClient.h"
 #include "net/NativeRegistrationClient.h"
 #include "stores/SecureStoreFile.h"
@@ -30,12 +31,13 @@ private slots:
     void pairFromDeepLinkHappyPathPairsAndPersists();
     void pairFromDeepLinkSendsDeviceTokenWhenSet();
     void pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenRegOmitted();
-    void pairFromDeepLinkAllowsPresentButEmptyHashValue();
     void pairFromDeepLinkMissingRequiredParam_data();
     void pairFromDeepLinkMissingRequiredParam();
     void pairFromDeepLinkRejectsNonNativePairHost();
     void pairFromPastedLinkRejectsNonLinkTextWithNoNetworkCall();
     void refreshFromStoreReflectsPreSeededPairingStoreAndRemovePairingClears();
+    void removePairingSkipsNetworkCallWhenNoDeviceSecretStored();
+    void removePairingDeregistersServerSideWhenDeviceSecretPresent();
     void resetReturnsToIdleAfterFailure();
 
 private:
@@ -76,12 +78,12 @@ void PairingControllerTest::pairFromDeepLinkEntersConfirmStateWithoutNetworkCall
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-confirm");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-confirm");
     params[QStringLiteral("srv")] = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok-confirm");
 
@@ -109,8 +111,9 @@ void PairingControllerTest::confirmPendingPairWithNoPendingRequestFails()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QVERIFY(!controller.confirmPendingPair());
     QCOMPARE(controller.pairingState(), QStringLiteral("failed"));
@@ -133,12 +136,12 @@ void PairingControllerTest::cancelPendingPairDiscardsRequestWithNoNetworkCall()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-cancel");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-cancel");
     params[QStringLiteral("srv")] = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok-cancel");
 
@@ -159,8 +162,9 @@ void PairingControllerTest::cancelPendingPairDiscardsRequestWithNoNetworkCall()
 
 void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
 {
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-1","deviceSecret":"fresh-device-secret",)"
+                             R"("devices":1,"deliveryMode":"pull",)"
+                             R"("pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
                              R"("transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
 
@@ -177,8 +181,9 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
     QVERIFY(!controller.isPaired());
     QCOMPARE(controller.pairingState(), QStringLiteral("idle"));
 
@@ -190,7 +195,6 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-1");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-1");
     params[QStringLiteral("srv")] = serverBaseUrl;
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok");
     params[QStringLiteral("reg")] = registrationUrl;
@@ -227,12 +231,13 @@ void PairingControllerTest::pairFromDeepLinkHappyPathPairsAndPersists()
     const std::optional<DevicePairing> loaded = pairingStore.load();
     QVERIFY(loaded.has_value());
     QCOMPARE(loaded->subscriberId, QStringLiteral("sub-1"));
-    QCOMPARE(loaded->subscriberHash, QStringLiteral("hash-1"));
+    QCOMPARE(loaded->deviceSecret, QStringLiteral("fresh-device-secret"));
     QCOMPARE(loaded->registrationUrl, registrationUrl);
     QCOMPARE(loaded->deviceId, QStringLiteral("dev-1"));
 
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("subscriberId")).toString(), QStringLiteral("sub-1"));
+    QVERIFY(!sent.contains(QStringLiteral("subscriberHash")));
     QCOMPARE(sent.value(QStringLiteral("pairingToken")).toString(), QStringLiteral("pair-tok"));
     // This test never calls setDeviceToken(), so m_deviceToken stays at its
     // default-constructed empty QString() -- verifies the no-endpoint-yet
@@ -252,8 +257,9 @@ void PairingControllerTest::pairFromDeepLinkSendsDeviceTokenWhenSet()
     // the Task 43 fix (passing QString() unconditionally instead of
     // m_deviceToken) would fail this test while leaving
     // pairFromDeepLinkHappyPathPairsAndPersists above green.
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-4","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-4","deviceSecret":"secret-4",)"
+                             R"("devices":1,"deliveryMode":"pull",)"
+                             R"("pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
                              R"("transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
 
@@ -270,8 +276,9 @@ void PairingControllerTest::pairFromDeepLinkSendsDeviceTokenWhenSet()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
     controller.setDeviceToken(QStringLiteral("some-real-endpoint"));
 
     const QString serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
@@ -279,7 +286,6 @@ void PairingControllerTest::pairFromDeepLinkSendsDeviceTokenWhenSet()
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-4");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-4");
     params[QStringLiteral("srv")] = serverBaseUrl;
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok-4");
     params[QStringLiteral("reg")] = registrationUrl;
@@ -295,8 +301,9 @@ void PairingControllerTest::pairFromDeepLinkSendsDeviceTokenWhenSet()
 
 void PairingControllerTest::pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenRegOmitted()
 {
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-2","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
+    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-2","deviceSecret":"secret-2",)"
+                             R"("devices":1,"deliveryMode":"pull",)"
+                             R"("pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
                              R"("transport":"unifiedpush"})";
     FakeRelayServer fake(httpResponse(200, "OK", body));
 
@@ -313,15 +320,15 @@ void PairingControllerTest::pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenReg
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     // Trailing slash on srv exercises the strip-trailing-slash rule too.
     const QString serverBaseUrl = QStringLiteral("http://127.0.0.1:%1/").arg(fake.port());
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-2");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-2");
     params[QStringLiteral("srv")] = serverBaseUrl;
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok-2");
     // reg deliberately omitted.
@@ -340,53 +347,10 @@ void PairingControllerTest::pairFromDeepLinkDerivesRegistrationUrlFromSrvWhenReg
     QVERIFY(fake.receivedRequest().contains("POST /api/notifications/native/register HTTP/1.1"));
 }
 
-void PairingControllerTest::pairFromDeepLinkAllowsPresentButEmptyHashValue()
-{
-    // subscriberHash "may be empty" per DevicePairing's own doc comment --
-    // the deep link's "hash" query key must be present, but an empty value
-    // is a legitimate "no hash" pairing, not a parse failure.
-    const QByteArray body = R"({"ok":true,"synced":true,"deviceId":"dev-3","devices":1,)"
-                             R"("deliveryMode":"pull","pullEndpoint":"http://relay.example/api/notifications/native/pull",)"
-                             R"("transport":"unifiedpush"})";
-    FakeRelayServer fake(httpResponse(200, "OK", body));
-
-    QTemporaryDir secureDir;
-    QVERIFY(secureDir.isValid());
-    SecureStoreFile secureStore(secureDir.path());
-    PairingStore pairingStore(secureStore);
-
-    QTemporaryDir settingsDir;
-    QVERIFY(settingsDir.isValid());
-    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
-
-    QNetworkAccessManager manager;
-    HttpClient http(manager);
-    NativeRegistrationClient client(http);
-    DeviceRegistrationService service(client, pairingStore, settingsStore);
-
-    PairingController controller(service, pairingStore, settingsStore);
-
-    QMap<QString, QString> params;
-    params[QStringLiteral("sub")] = QStringLiteral("sub-3");
-    params[QStringLiteral("hash")] = QString(); // present, empty
-    params[QStringLiteral("srv")] = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
-    params[QStringLiteral("pt")] = QStringLiteral("pair-tok-3");
-
-    QVERIFY(controller.pairFromDeepLink(buildLink(params)));
-    QCOMPARE(controller.pairingState(), QStringLiteral("confirm"));
-    QVERIFY(controller.confirmPendingPair());
-    QCOMPARE(controller.pairingState(), QStringLiteral("paired"));
-
-    const std::optional<DevicePairing> loaded = pairingStore.load();
-    QVERIFY(loaded.has_value());
-    QVERIFY(loaded->subscriberHash.isEmpty());
-}
-
 void PairingControllerTest::pairFromDeepLinkMissingRequiredParam_data()
 {
     QTest::addColumn<QString>("omittedKey");
     QTest::newRow("sub missing") << QStringLiteral("sub");
-    QTest::newRow("hash key missing entirely") << QStringLiteral("hash");
     QTest::newRow("srv missing") << QStringLiteral("srv");
     QTest::newRow("pt missing") << QStringLiteral("pt");
 }
@@ -412,12 +376,12 @@ void PairingControllerTest::pairFromDeepLinkMissingRequiredParam()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QMap<QString, QString> params;
     params[QStringLiteral("sub")] = QStringLiteral("sub-x");
-    params[QStringLiteral("hash")] = QStringLiteral("hash-x");
     params[QStringLiteral("srv")] = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
     params[QStringLiteral("pt")] = QStringLiteral("pair-tok-x");
     params.remove(omittedKey);
@@ -453,15 +417,15 @@ void PairingControllerTest::pairFromDeepLinkRejectsNonNativePairHost()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QUrl link;
     link.setScheme(QStringLiteral("llamalabels"));
     link.setHost(QStringLiteral("desktop-pair"));
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("sub"), QStringLiteral("sub-1"));
-    query.addQueryItem(QStringLiteral("hash"), QStringLiteral("hash-1"));
     query.addQueryItem(QStringLiteral("srv"), QStringLiteral("http://127.0.0.1:%1").arg(fake.port()));
     query.addQueryItem(QStringLiteral("pt"), QStringLiteral("pair-tok"));
     link.setQuery(query);
@@ -488,8 +452,9 @@ void PairingControllerTest::pairFromPastedLinkRejectsNonLinkTextWithNoNetworkCal
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QVERIFY(!controller.pairFromPastedLink(QStringLiteral("this is not a pairing link")));
     QCOMPARE(controller.pairingState(), QStringLiteral("failed"));
@@ -505,12 +470,12 @@ void PairingControllerTest::refreshFromStoreReflectsPreSeededPairingStoreAndRemo
 
     DevicePairing pairing;
     pairing.subscriberId = QStringLiteral("sub-seed");
-    pairing.subscriberHash = QStringLiteral("hash-seed");
     pairing.serverBaseUrl = QStringLiteral("https://relay.example.com:8443");
     pairing.registrationUrl = QStringLiteral("https://relay.example.com:8443/api/notifications/native/register");
     pairing.pairingToken = QStringLiteral("tok-seed");
     pairing.deviceId = QStringLiteral("dev-seed");
     pairing.deviceName = QStringLiteral("Seeded Device");
+    pairing.deviceSecret = QStringLiteral("secret-seed");
     QVERIFY(pairingStore.save(pairing));
 
     QTemporaryDir settingsDir;
@@ -521,11 +486,12 @@ void PairingControllerTest::refreshFromStoreReflectsPreSeededPairingStoreAndRemo
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
     // Construction alone must reflect the pre-seeded pairing -- see
     // PairingController's constructor comment; no explicit refreshFromStore()
     // call needed here.
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QVERIFY(controller.isPaired());
     QCOMPARE(controller.deviceId(), QStringLiteral("dev-seed"));
@@ -546,6 +512,95 @@ void PairingControllerTest::refreshFromStoreReflectsPreSeededPairingStoreAndRemo
     QVERIFY(!pairingStore.load().has_value());
 }
 
+void PairingControllerTest::removePairingSkipsNetworkCallWhenNoDeviceSecretStored()
+{
+    // A pairing created before the per-device-secret migration has no
+    // deviceSecret at all -- removePairing() must fall back to exactly the
+    // old local-only clear, never attempting a request (whose credentials
+    // would be blank/meaningless).
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"ok":true})"));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    DevicePairing pairing;
+    pairing.subscriberId = QStringLiteral("sub-nosecret");
+    pairing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
+    pairing.registrationUrl =
+        QStringLiteral("http://127.0.0.1:%1/api/notifications/native/register").arg(fake.port());
+    pairing.pairingToken = QStringLiteral("tok-nosecret");
+    pairing.deviceId = QStringLiteral("dev-nosecret");
+    pairing.deviceName = QStringLiteral("Pre-Migration Device");
+    // deviceSecret deliberately left empty.
+    QVERIFY(pairingStore.save(pairing));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    NativeRegistrationClient client(http);
+    DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
+
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
+    QVERIFY(controller.isPaired());
+
+    controller.removePairing();
+
+    QVERIFY(!controller.isPaired());
+    QVERIFY(!pairingStore.load().has_value());
+    QVERIFY(fake.receivedRequest().isEmpty());
+}
+
+void PairingControllerTest::removePairingDeregistersServerSideWhenDeviceSecretPresent()
+{
+    FakeRelayServer fake(httpResponse(200, "OK", R"({"ok":true})"));
+
+    QTemporaryDir secureDir;
+    QVERIFY(secureDir.isValid());
+    SecureStoreFile secureStore(secureDir.path());
+    PairingStore pairingStore(secureStore);
+
+    DevicePairing pairing;
+    pairing.subscriberId = QStringLiteral("sub-full");
+    pairing.serverBaseUrl = QStringLiteral("http://127.0.0.1:%1").arg(fake.port());
+    pairing.registrationUrl = QStringLiteral("http://127.0.0.1:%1/api/notifications/native/register").arg(fake.port());
+    pairing.pairingToken = QStringLiteral("tok-full");
+    pairing.deviceId = QStringLiteral("dev-full");
+    pairing.deviceName = QStringLiteral("Fully Paired Device");
+    pairing.deviceSecret = QStringLiteral("secret-full");
+    QVERIFY(pairingStore.save(pairing));
+
+    QTemporaryDir settingsDir;
+    QVERIFY(settingsDir.isValid());
+    SettingsStore settingsStore(settingsDir.filePath(QStringLiteral("settings.ini")));
+
+    QNetworkAccessManager manager;
+    HttpClient http(manager);
+    NativeRegistrationClient client(http);
+    DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
+
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
+    QVERIFY(controller.isPaired());
+
+    controller.removePairing();
+
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("POST /api/notifications/native/deregister HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Device-Id: dev-full"));
+    QVERIFY(request.contains("X-Kypost-Device-Secret: secret-full"));
+
+    // Local state clears regardless of the (here, successful) network
+    // outcome -- see removePairing()'s doc comment.
+    QVERIFY(!controller.isPaired());
+    QVERIFY(!pairingStore.load().has_value());
+}
+
 void PairingControllerTest::resetReturnsToIdleAfterFailure()
 {
     QTemporaryDir secureDir;
@@ -561,8 +616,9 @@ void PairingControllerTest::resetReturnsToIdleAfterFailure()
     HttpClient http(manager);
     NativeRegistrationClient client(http);
     DeviceRegistrationService service(client, pairingStore, settingsStore);
+    DeregisterClient deregisterClient(http);
 
-    PairingController controller(service, pairingStore, settingsStore);
+    PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QVERIFY(!controller.pairFromPastedLink(QStringLiteral("not a link")));
     QCOMPARE(controller.pairingState(), QStringLiteral("failed"));
