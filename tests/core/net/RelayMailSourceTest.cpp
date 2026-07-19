@@ -17,7 +17,7 @@ class RelayMailSourceTest : public QObject
 
 private slots:
     void fetchInboxMapsTwoTabsWithAtUtcPassthroughAndOptionalFields();
-    void fetchInboxSendsLimitMailboxSinceAndAuthAsQueryParams();
+    void fetchInboxSendsLimitMailboxSinceAsQueryParamsAndAuthAsHeaders();
     void fetchInboxOmitsLimitAndSinceWhenNotProvided();
     void fetchInboxUnauthorizedFrom401PassesErrorThrough();
 
@@ -28,7 +28,7 @@ private slots:
     void sendMailSendsEmptyAttachmentsArrayWhenNoneProvided();
     void sendMailParsesAlwaysPresentWarningField();
 
-    void listAttachmentsSendsMailboxMessageIdAndAuthAsQueryParamsAndParsesResult();
+    void listAttachmentsSendsMailboxMessageIdAsQueryParamsAndAuthAsHeadersAndParsesResult();
 
     void downloadAttachmentReturnsRawBytesAndParsesFilenameFromContentDisposition();
     void downloadAttachmentMapsNotFoundFrom404();
@@ -125,7 +125,7 @@ void RelayMailSourceTest::fetchInboxMapsTwoTabsWithAtUtcPassthroughAndOptionalFi
     QVERIFY(!item2.changeType.has_value());
 }
 
-void RelayMailSourceTest::fetchInboxSendsLimitMailboxSinceAndAuthAsQueryParams()
+void RelayMailSourceTest::fetchInboxSendsLimitMailboxSinceAsQueryParamsAndAuthAsHeaders()
 {
     FakeRelayServer fake(httpResponse(200, "OK", R"({"tabs":[],"byTab":{}})"));
     QNetworkAccessManager manager;
@@ -138,11 +138,13 @@ void RelayMailSourceTest::fetchInboxSendsLimitMailboxSinceAndAuthAsQueryParams()
 
     const QByteArray request = fake.receivedRequest();
     QVERIFY(request.contains("GET /api/inbox?"));
-    QVERIFY(request.contains("sub=sub-9"));
-    QVERIFY(request.contains("hash=hash-9"));
     QVERIFY(request.contains("limit=250"));
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("since=12345"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
+    QVERIFY(!request.contains("sub=sub-9"));
+    QVERIFY(!request.contains("hash=hash-9"));
 }
 
 void RelayMailSourceTest::fetchInboxOmitsLimitAndSinceWhenNotProvided()
@@ -199,7 +201,12 @@ void RelayMailSourceTest::performActionMoveIncludesTargetMailboxInRequestBody()
     QVERIFY(result.failed.isEmpty());
     QCOMPARE(result.targetMailbox, QStringLiteral("Archive"));
 
-    QVERIFY(fake.receivedRequest().contains("POST /api/inbox/actions?"));
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("POST /api/inbox/actions HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
+    QVERIFY(!request.contains("sub=sub-1"));
+    QVERIFY(!request.contains("hash=hash-1"));
     const QJsonObject sent = fake.receivedJsonBody();
     QCOMPARE(sent.value(QStringLiteral("action")).toString(), QStringLiteral("move"));
     QCOMPARE(sent.value(QStringLiteral("mailbox")).toString(), QStringLiteral("Inbox"));
@@ -271,7 +278,12 @@ void RelayMailSourceTest::sendMailJoinsRecipientsAndBase64EncodesAttachmentByteF
     QCOMPARE(result.sentSaved, true);
     QVERIFY(result.warning.isEmpty());
 
-    QVERIFY(fake.receivedRequest().contains("POST /api/mail/send?"));
+    const QByteArray request = fake.receivedRequest();
+    QVERIFY(request.contains("POST /api/mail/send HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
+    QVERIFY(!request.contains("sub=sub-1"));
+    QVERIFY(!request.contains("hash=hash-1"));
     const QJsonObject sent = fake.receivedJsonBody();
     // to/cc/bcc travel as comma-joined strings, not JSON arrays -- this
     // client does not split/join on the caller's behalf.
@@ -335,7 +347,7 @@ void RelayMailSourceTest::sendMailParsesAlwaysPresentWarningField()
     QCOMPARE(result.warning, QStringLiteral("email sent but could not be saved to Sent folder"));
 }
 
-void RelayMailSourceTest::listAttachmentsSendsMailboxMessageIdAndAuthAsQueryParamsAndParsesResult()
+void RelayMailSourceTest::listAttachmentsSendsMailboxMessageIdAsQueryParamsAndAuthAsHeadersAndParsesResult()
 {
     const QByteArray body = R"(
     {
@@ -371,8 +383,10 @@ void RelayMailSourceTest::listAttachmentsSendsMailboxMessageIdAndAuthAsQueryPara
     QVERIFY(request.contains("GET /api/mail/attachments?"));
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("messageId=42"));
-    QVERIFY(request.contains("sub=sub-1"));
-    QVERIFY(request.contains("hash=hash-1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
+    QVERIFY(!request.contains("sub=sub-1"));
+    QVERIFY(!request.contains("hash=hash-1"));
 }
 
 void RelayMailSourceTest::downloadAttachmentReturnsRawBytesAndParsesFilenameFromContentDisposition()
@@ -407,6 +421,10 @@ void RelayMailSourceTest::downloadAttachmentReturnsRawBytesAndParsesFilenameFrom
     QVERIFY(request.contains("mailbox=Inbox"));
     QVERIFY(request.contains("messageId=42"));
     QVERIFY(request.contains("index=0"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-1"));
+    QVERIFY(!request.contains("sub=sub-1"));
+    QVERIFY(!request.contains("hash=hash-1"));
 }
 
 void RelayMailSourceTest::downloadAttachmentMapsNotFoundFrom404()

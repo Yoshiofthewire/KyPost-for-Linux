@@ -98,15 +98,15 @@ InboxFetchResult RelayMailSource::fetchInbox(const QUrl& serverBaseUrl, const Re
                                               std::optional<int> limit, const QString& mailbox,
                                               std::optional<qint64> since) const
 {
-    QList<QPair<QString, QString>> query = auth.queryItems();
+    QList<QPair<QString, QString>> query;
     if (limit.has_value())
         query.append({ QStringLiteral("limit"), QString::number(*limit) });
     query.append({ QStringLiteral("mailbox"), mailbox });
     if (since.has_value())
         query.append({ QStringLiteral("since"), QString::number(*since) });
 
-    const HttpClient::HttpResult result =
-        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/inbox")), query);
+    const HttpClient::HttpResult result = m_httpClient.get(
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/inbox")), query, auth.headerItems());
 
     InboxFetchResult out;
     if (result.error.has_value()) {
@@ -161,7 +161,7 @@ ActionResult RelayMailSource::performAction(const QUrl& serverBaseUrl, const Rel
         body[QStringLiteral("targetMailbox")] = *targetMailbox;
 
     const HttpClient::HttpResult result = m_httpClient.post(
-        joinUrlPath(serverBaseUrl, QStringLiteral("api/inbox/actions")), auth.queryItems(), body);
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/inbox/actions")), {}, body, auth.headerItems());
 
     ActionResult out;
     if (result.error.has_value()) {
@@ -215,7 +215,7 @@ SendMailResult RelayMailSource::sendMail(const QUrl& serverBaseUrl, const RelayA
     requestBody[QStringLiteral("attachments")] = attachmentsJson;
 
     const HttpClient::HttpResult result = m_httpClient.post(
-        joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/send")), auth.queryItems(), requestBody);
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/send")), {}, requestBody, auth.headerItems());
 
     SendMailResult out;
     if (result.error.has_value()) {
@@ -243,12 +243,12 @@ SendMailResult RelayMailSource::sendMail(const QUrl& serverBaseUrl, const RelayA
 ListAttachmentsResult RelayMailSource::listAttachments(const QUrl& serverBaseUrl, const RelayAuth& auth,
                                                          const QString& mailbox, const QString& messageId) const
 {
-    QList<QPair<QString, QString>> query = auth.queryItems();
+    QList<QPair<QString, QString>> query;
     query.append({ QStringLiteral("mailbox"), mailbox });
     query.append({ QStringLiteral("messageId"), messageId });
 
-    const HttpClient::HttpResult result =
-        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/attachments")), query);
+    const HttpClient::HttpResult result = m_httpClient.get(
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/attachments")), query, auth.headerItems());
 
     ListAttachmentsResult out;
     if (result.error.has_value()) {
@@ -278,13 +278,13 @@ DownloadAttachmentResult RelayMailSource::downloadAttachment(const QUrl& serverB
                                                                const QString& mailbox, const QString& messageId,
                                                                int index) const
 {
-    QList<QPair<QString, QString>> query = auth.queryItems();
+    QList<QPair<QString, QString>> query;
     query.append({ QStringLiteral("mailbox"), mailbox });
     query.append({ QStringLiteral("messageId"), messageId });
     query.append({ QStringLiteral("index"), QString::number(index) });
 
-    const HttpClient::HttpResult result =
-        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/attachment")), query);
+    const HttpClient::HttpResult result = m_httpClient.get(
+        joinUrlPath(serverBaseUrl, QStringLiteral("api/mail/attachment")), query, auth.headerItems());
 
     DownloadAttachmentResult out;
     if (result.error.has_value()) {
