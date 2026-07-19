@@ -26,7 +26,7 @@ ContactPhotoFetchResult ContactPhotoClient::fetch(const QUrl& serverBaseUrl, con
                                                     const RelayAuth& auth) const
 {
     const HttpClient::HttpResult result =
-        m_httpClient.get(endpointFor(serverBaseUrl, contactUid), auth.queryItems());
+        m_httpClient.get(endpointFor(serverBaseUrl, contactUid), {}, auth.headerItems());
 
     ContactPhotoFetchResult out;
 

@@ -16,7 +16,7 @@ class ContactPhotoClientTest : public QObject
 
 private slots:
     void fetchReturnsRawBytesOnSuccess();
-    void fetchSendsAuthAsQueryParamsAndBuildsPathWithContactUid();
+    void fetchSendsAuthAsHeadersAndBuildsPathWithContactUid();
     void fetchUnauthorizedFrom401DegradesGracefullyToEmptyResult();
     void fetchOnTransportFailureDegradesGracefullyToEmptyResult();
 };
@@ -37,7 +37,7 @@ void ContactPhotoClientTest::fetchReturnsRawBytesOnSuccess()
     QCOMPARE(result.photoBytes, photoBytes);
 }
 
-void ContactPhotoClientTest::fetchSendsAuthAsQueryParamsAndBuildsPathWithContactUid()
+void ContactPhotoClientTest::fetchSendsAuthAsHeadersAndBuildsPathWithContactUid()
 {
     FakeRelayServer fake(httpResponse(200, "OK", ""));
     QNetworkAccessManager manager;
@@ -49,9 +49,11 @@ void ContactPhotoClientTest::fetchSendsAuthAsQueryParamsAndBuildsPathWithContact
     client.fetch(serverBaseUrl, QStringLiteral("contact-42"), auth);
 
     const QByteArray request = fake.receivedRequest();
-    QVERIFY(request.contains("GET /api/contacts/contact-42/photo?"));
-    QVERIFY(request.contains("sub=sub-9"));
-    QVERIFY(request.contains("hash=hash-9"));
+    QVERIFY(request.contains("GET /api/contacts/contact-42/photo HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
+    QVERIFY(!request.contains("sub=sub-9"));
+    QVERIFY(!request.contains("hash=hash-9"));
 }
 
 void ContactPhotoClientTest::fetchUnauthorizedFrom401DegradesGracefullyToEmptyResult()
