@@ -311,9 +311,20 @@ int main(int argc, char* argv[])
     // constructed below also lives under dataDir, so this one chmod covers
     // both.
     QFile::setPermissions(dataDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    // One-time migration: the app was renamed from llamamail to kypost
+    // (branding rename) without moving the on-disk database file. Installs
+    // upgrading from a pre-rename build have all their real data in
+    // llamamail.db; carry it forward under the new name instead of
+    // silently opening a fresh, empty kypost.db, which would desync from
+    // cursors.ini's already-advanced sync cursor and orphan every locally
+    // cached contact/mail record.
+    const QString newDbPath = dataDir + QStringLiteral("/kypost.db");
+    const QString oldDbPath = dataDir + QStringLiteral("/llamamail.db");
+    if (!QFile::exists(newDbPath) && QFile::exists(oldDbPath))
+        QFile::rename(oldDbPath, newDbPath);
     Database database;
-    if (!database.open(dataDir + QStringLiteral("/kypost.db")))
-        qFatal("main: Database::open failed for %s", qPrintable(dataDir + QStringLiteral("/kypost.db")));
+    if (!database.open(newDbPath))
+        qFatal("main: Database::open failed for %s", qPrintable(newDbPath));
 
     // extended-contact-fields Task 3: on-disk cache for fetched contact
     // photo bytes, keyed by Contact::photoRef -- reuses the same
