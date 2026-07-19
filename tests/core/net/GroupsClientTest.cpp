@@ -15,7 +15,7 @@ class GroupsClientTest : public QObject
 
 private slots:
     void fetchParsesJsonArrayIntoGroups();
-    void fetchSendsAuthAsQueryParamsAndGetsCorrectPath();
+    void fetchSendsAuthAsHeadersAndGetsCorrectPath();
     void fetchOnEmptyArrayReturnsEmptyGroupsNoError();
     void fetchUnauthorizedFrom401DegradesGracefullyToEmptyResult();
     void fetchOnMalformedBodyReturnsDecodingErrorNotCrash();
@@ -44,7 +44,7 @@ void GroupsClientTest::fetchParsesJsonArrayIntoGroups()
     QCOMPARE(result.groups.at(1).rev, qint64(3));
 }
 
-void GroupsClientTest::fetchSendsAuthAsQueryParamsAndGetsCorrectPath()
+void GroupsClientTest::fetchSendsAuthAsHeadersAndGetsCorrectPath()
 {
     FakeRelayServer fake(httpResponse(200, "OK", "[]"));
     QNetworkAccessManager manager;
@@ -56,9 +56,11 @@ void GroupsClientTest::fetchSendsAuthAsQueryParamsAndGetsCorrectPath()
     client.fetch(serverBaseUrl, auth);
 
     const QByteArray request = fake.receivedRequest();
-    QVERIFY(request.contains("GET /api/groups?"));
-    QVERIFY(request.contains("sub=sub-9"));
-    QVERIFY(request.contains("hash=hash-9"));
+    QVERIFY(request.contains("GET /api/groups HTTP/1.1"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Id: sub-9"));
+    QVERIFY(request.contains("X-Kypost-Subscriber-Hash: hash-9"));
+    QVERIFY(!request.contains("sub=sub-9"));
+    QVERIFY(!request.contains("hash=hash-9"));
 }
 
 void GroupsClientTest::fetchOnEmptyArrayReturnsEmptyGroupsNoError()

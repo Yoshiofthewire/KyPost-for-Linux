@@ -28,7 +28,7 @@ GroupsClient::GroupsClient(HttpClient& httpClient)
 GroupsFetchResult GroupsClient::fetch(const QUrl& serverBaseUrl, const RelayAuth& auth) const
 {
     const HttpClient::HttpResult result =
-        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/groups")), auth.queryItems());
+        m_httpClient.get(joinUrlPath(serverBaseUrl, QStringLiteral("api/groups")), {}, auth.headerItems());
 
     GroupsFetchResult out;
 
