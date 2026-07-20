@@ -97,20 +97,20 @@ static void loadBundledFonts()
 }
 
 // Task 34: replaces the Task 12 log-only stub -- scans a set of
-// command-line-style arguments for a llamalabels:// deep link and, for a
-// recognized llamalabels://native-pair link, actually routes it to
+// command-line-style arguments for a kypost:// deep link and, for a
+// recognized kypost://native-pair link, actually routes it to
 // PairingController::pairFromDeepLink() instead of just logging it (see
 // PairingController.cpp's parseNativePairLink() for the full sub/hash/srv/
 // pt/reg parsing contract). Reachable both via a fresh launch's argv and via
 // KDBusService::activateRequested relaying a second launch's argv to the
 // already-running instance -- same dual call-site shape Task 12 established.
 //
-// llamalabels://desktop-pair (or any other llamalabels:// host) is
+// kypost://desktop-pair (or any other kypost:// host) is
 // unrecognized here, per Phase 6 global constraint 6 (desktop pairing is
 // out of scope for this client family) -- it falls through to the same
 // redacted-query-string qDebug() Task 11's security review required,
 // unchanged. Never logs sub/hash/pt (or the query string of any
-// unrecognized llamalabels:// link) -- those are real authentication
+// unrecognized kypost:// link) -- those are real authentication
 // credentials.
 //
 // pairingController is a plain (non-owning) pointer rather than a
@@ -121,7 +121,7 @@ static void routeDeepLink(const QStringList& arguments, PairingController* pairi
 {
     for (const QString& argument : arguments) {
         const QUrl url(argument);
-        if (url.scheme() != QStringLiteral("llamalabels"))
+        if (url.scheme() != QStringLiteral("kypost"))
             continue;
 
         if (url.host() == QStringLiteral("native-pair")) {
@@ -132,12 +132,12 @@ static void routeDeepLink(const QStringList& arguments, PairingController* pairi
                 qWarning() << "routeDeepLink: native-pair link arrived before PairingController was ready, dropping";
                 return;
             }
-            qDebug() << "routeDeepLink: routing llamalabels://native-pair link to PairingController";
+            qDebug() << "routeDeepLink: routing kypost://native-pair link to PairingController";
             pairingController->pairFromDeepLink(url);
             return;
         }
 
-        // Any other llamalabels:// host (including desktop-pair, which
+        // Any other kypost:// host (including desktop-pair, which
         // Phase 6 global constraint 6 puts explicitly out of scope) is
         // unrecognized -- strip the query string before logging, same as
         // the Task 11 stub did, so a real credential never lands in the
@@ -220,16 +220,16 @@ int main(int argc, char* argv[])
     QObject::connect(&dbusService, &KDBusService::activateRequested, &dbusService,
                       [&pairingControllerForDeepLinks](const QStringList& arguments, const QString& workingDirectory) {
                           // Task 34 security fix: this used to log the raw `arguments` list
-                          // (Task 11/12), which is fine while every llamalabels:// URL only
+                          // (Task 11/12), which is fine while every kypost:// URL only
                           // ever carries a fake test token, but arguments can now carry a
-                          // real llamalabels://native-pair link -- sub/hash/pt are real
+                          // real kypost://native-pair link -- sub/hash/pt are real
                           // authentication credentials once pairFromDeepLink() below
                           // succeeds. Log only the count and workingDirectory here;
                           // routeDeepLink() below does its own properly-redacted logging of
                           // the link itself.
                           qDebug() << "KDBusService: activateRequested -- argument count:" << arguments.size()
                                     << "workingDirectory:" << workingDirectory;
-                          // Task 12/34: a second `kypost llamalabels://...` invocation gets
+                          // Task 12/34: a second `kypost kypost://...` invocation gets
                           // redirected here instead of spawning a duplicate process -- route
                           // its argv through the same deep-link router used at startup.
                           routeDeepLink(arguments, pairingControllerForDeepLinks);
@@ -549,7 +549,7 @@ int main(int argc, char* argv[])
 
     // pairingController now exists -- point the pointer the KDBusService
     // activateRequested lambda above captured (by reference) at it, so a
-    // second launch relaying a llamalabels://native-pair link over D-Bus can
+    // second launch relaying a kypost://native-pair link over D-Bus can
     // actually reach PairingController. See that lambda's comment for why
     // this ordering is safe.
     pairingControllerForDeepLinks = &pairingController;
@@ -557,7 +557,7 @@ int main(int argc, char* argv[])
     // Task 34: this process is the one that "won" KDBusService's Unique-mode
     // registration (construction above already guarantees that -- a losing
     // instance relays its argv and exits at that point, it doesn't reach
-    // here), so also check its own argv for a llamalabels:// URL -- covers
+    // here), so also check its own argv for a kypost:// URL -- covers
     // the case where xdg-open launches kypost fresh (nothing was running
     // yet to redirect to). Moved here (versus immediately after KDBusService,
     // where the Task 12 stub ran this) so PairingController already exists
@@ -644,7 +644,7 @@ int main(int argc, char* argv[])
     // is a documented no-op when there is no stored pairing yet
     // (DeviceRegistrationService.cpp: returns std::nullopt without calling
     // the client, confirmed by reading it) -- first-time pairing stays the
-    // existing Pairing.qml/llamalabels://native-pair flow from Phase 6 and
+    // existing Pairing.qml/kypost://native-pair flow from Phase 6 and
     // is never triggered from here, even though this signal can fire before
     // the user has ever paired.
     //

@@ -131,7 +131,7 @@ Kirigami.ApplicationWindow {
     // ---- deep-link auto-navigate to Pairing.qml ------------------------
     // main.cpp's routeDeepLink() -> Pairing.pairFromDeepLink() (Task 34)
     // drives Pairing.pairingState away from "idle" whenever a real
-    // llamalabels://native-pair link arrives, whether or not this window
+    // kypost://native-pair link arrives, whether or not this window
     // is already up. autoNavigatedForAttempt guards against
     // double-pushing Pairing.qml: pairingStateChanged can fire more than
     // once per attempt ("confirm" -> "working" -> "paired"/"failed" each

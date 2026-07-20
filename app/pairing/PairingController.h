@@ -16,7 +16,7 @@ class DeregisterClient;
 // PairingStore. Registered as the "Pairing" QML singleton in main.cpp.
 // pairFromDeepLink/pairFromPastedLink are the real replacement for the
 // Task 12 routeDeepLink stub -- see main.cpp's routeDeepLink for the
-// llamalabels://native-pair wiring. pairFromParsedParams (and therefore any
+// kypost://native-pair wiring. pairFromParsedParams (and therefore any
 // successful pair) runs deviceRegistrationService.pair() synchronously on
 // the calling (GUI) thread -- see Phase 6 global constraint 2, this is a
 // known, accepted freeze-the-UI tradeoff for this phase, not a bug.
@@ -87,7 +87,7 @@ public slots:
     // deviceId. Called once from the constructor, and again by
     // pairFromParsedParams() on a successful pair and by removePairing().
     void refreshFromStore();
-    // Parses a llamalabels://native-pair URL per the wire format documented
+    // Parses a kypost://native-pair URL per the wire format documented
     // on PairingController.cpp's parseNativePairLink(): sub/srv/pt query
     // params required and must be present AND non-empty (no `hash` param --
     // the per-device secret is issued only via the registration response),
@@ -97,7 +97,7 @@ public slots:
     // network call.
     //
     // VibeSec fix: this app is registered as the OS-wide handler for the
-    // llamalabels:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
+    // kypost:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
     // MimeType), so a link clicked anywhere on the system -- a browser, a
     // chat client, another app -- reaches this method, including via
     // KDBusService relaying a second launch's argv to an already-running

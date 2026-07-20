@@ -15,7 +15,7 @@ namespace {
 
 // Deep-link wire format, confirmed against both this project's Android and
 // Swift sibling clients' real parsers:
-// llamalabels://native-pair?sub=<id>&srv=<serverBaseUrl>&pt=<pairingToken>&reg=<optional>
+// kypost://native-pair?sub=<id>&srv=<serverBaseUrl>&pt=<pairingToken>&reg=<optional>
 //
 // sub/srv/pt must be present in the query AND non-empty. There is no `hash`
 // param at all -- the per-device pairing secret is no longer carried in the
@@ -43,7 +43,7 @@ QString deriveRegistrationUrl(const QString& serverBaseUrl)
 
 std::optional<ParsedPairingLink> parseNativePairLink(const QUrl& url)
 {
-    if (url.scheme() != QStringLiteral("llamalabels") || url.host() != QStringLiteral("native-pair"))
+    if (url.scheme() != QStringLiteral("kypost") || url.host() != QStringLiteral("native-pair"))
         return std::nullopt;
 
     const QUrlQuery query(url);

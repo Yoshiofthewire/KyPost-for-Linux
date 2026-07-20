@@ -234,8 +234,8 @@ Kirigami.ApplicationWindow {
 
     // ---- pairing confirmation ------------------------------------------
     // VibeSec fix: this app is registered as the OS-wide handler for the
-    // llamalabels:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
-    // MimeType), so a llamalabels://native-pair link clicked anywhere on
+    // kypost:// scheme (packaging/flatpak/com.urlxl.mail.desktop's
+    // MimeType), so a kypost://native-pair link clicked anywhere on
     // the system reaches PairingController without any of this app's own
     // UI ever having been on screen -- including here, where (unlike
     // MobileRoot.qml's pageStack) there's no page to auto-push. This is a

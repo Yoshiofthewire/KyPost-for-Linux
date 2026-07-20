@@ -41,7 +41,7 @@ private slots:
     void resetReturnsToIdleAfterFailure();
 
 private:
-    // Builds a llamalabels://native-pair?... link from a param map, letting
+    // Builds a kypost://native-pair?... link from a param map, letting
     // callers omit keys to exercise the missing-required-param path.
     static QUrl buildLink(const QMap<QString, QString>& params);
 };
@@ -49,7 +49,7 @@ private:
 QUrl PairingControllerTest::buildLink(const QMap<QString, QString>& params)
 {
     QUrl url;
-    url.setScheme(QStringLiteral("llamalabels"));
+    url.setScheme(QStringLiteral("kypost"));
     url.setHost(QStringLiteral("native-pair"));
     QUrlQuery query;
     for (auto it = params.constBegin(); it != params.constEnd(); ++it)
@@ -400,7 +400,7 @@ void PairingControllerTest::pairFromDeepLinkMissingRequiredParam()
 
 void PairingControllerTest::pairFromDeepLinkRejectsNonNativePairHost()
 {
-    // llamalabels://desktop-pair is explicitly out of scope per Phase 6
+    // kypost://desktop-pair is explicitly out of scope per Phase 6
     // global constraint 6 -- must be treated as unrecognized, not routed.
     FakeRelayServer fake(httpResponse(200, "OK", R"({"ok":true})"));
 
@@ -422,7 +422,7 @@ void PairingControllerTest::pairFromDeepLinkRejectsNonNativePairHost()
     PairingController controller(service, pairingStore, settingsStore, deregisterClient);
 
     QUrl link;
-    link.setScheme(QStringLiteral("llamalabels"));
+    link.setScheme(QStringLiteral("kypost"));
     link.setHost(QStringLiteral("desktop-pair"));
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("sub"), QStringLiteral("sub-1"));

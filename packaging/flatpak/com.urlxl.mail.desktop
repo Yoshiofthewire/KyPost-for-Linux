@@ -4,4 +4,4 @@ Name=KyPost
 Exec=kypost %u
 Icon=com.urlxl.mail
 Categories=Network;Email;
-MimeType=x-scheme-handler/llamalabels;
+MimeType=x-scheme-handler/kypost;

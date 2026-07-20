@@ -30,7 +30,7 @@ default/bare User-Agent strings (see `AGENTS.md` Section 8).
 
 ## Pairing
 
-- [ ] **Paste a `llamalabels://native-pair` link into Settings → Connection
+- [ ] **Paste a `kypost://native-pair` link into Settings → Connection
       → "Pair This Device…".** The popup hosts `Pairing.qml`, whose paste
       field calls `Pairing.pairFromPastedLink(text)`
       (`app/qml/pages/Pairing.qml`). Expected: `pairingState` moves
@@ -38,15 +38,15 @@ default/bare User-Agent strings (see `AGENTS.md` Section 8).
       pane shows the `StatusBadge` flip to "Paired" plus the paired
       `Server`/`Device` rows populated (`Pairing.pairedServerHost`,
       `Pairing.deviceId`).
-- [ ] **Deep-link the same URL via `kypost llamalabels://native-pair?sub=...&srv=...&pt=...`**
+- [ ] **Deep-link the same URL via `kypost kypost://native-pair?sub=...&srv=...&pt=...`**
       (or `xdg-open` once the `.desktop` file's
-      `MimeType=x-scheme-handler/llamalabels;` is registered). Expected:
+      `MimeType=x-scheme-handler/kypost;` is registered). Expected:
       routed through `main.cpp`'s `routeDeepLink()` →
       `PairingController::pairFromDeepLink()`, same success path as the
       pasted-link case above. A second launch while the app is already
       running is expected to relay over D-Bus (`KDBusService::Unique`) to
       the first instance rather than opening a second window.
-      `llamalabels://desktop-pair` (or any other host) is deliberately
+      `kypost://desktop-pair` (or any other host) is deliberately
       **not** handled — `routeDeepLink()` logs it as unrecognized and drops
       it; this client only ever does native sub/pt pairing (see
       `AGENTS.md`/Phase 6 constraint — no separate desktop-session flow).
@@ -393,10 +393,13 @@ accounts) to exercise the full handshake.
       entry (sourced from `packaging/flatpak/icons/hicolor/*/apps/
       com.urlxl.mail.png` + `.svg`, regenerated from the new `ky.png` mark
       — confirm it's the new mark, not the old llama wordmark). Package ID
-      (`com.urlxl.mail`), the `llamalabels://` deep-link scheme, and
-      `QSettings`/keychain storage keys are **intentionally unchanged** by
-      this rename — don't expect or flag those as needing to say
-      "kypost"/"KyPost" anywhere.
+      (`com.urlxl.mail`) and `QSettings`/keychain storage keys
+      are **intentionally unchanged** by this rename — don't expect or flag
+      those as needing to say "kypost"/"KyPost" anywhere. The deep-link
+      scheme **was** renamed separately (`llamalabels://` → `kypost://`,
+      see the pairing repo-wide rebrand plan) — confirm it says
+      `x-scheme-handler/kypost` in the flatpak `.desktop` file, not the
+      old scheme.
 
 ## Packaging (new this phase)
 
@@ -505,7 +508,7 @@ accounts) to exercise the full handshake.
   items in this checklist require a human running the app locally against
   `mail.urlxl.com`; none of it is automated or CI-gated.
 - **No desktop-session pairing flow.** Only native sub/hash pairing via
-  `llamalabels://native-pair` exists; `llamalabels://desktop-pair` is
+  `kypost://native-pair` exists; `kypost://desktop-pair` is
   explicitly recognized-and-dropped, not a second supported flow.
 - **No "sync to system contacts" integration.** There is no Linux system
   address-book equivalent wired into this codebase (unlike the Mac/Android

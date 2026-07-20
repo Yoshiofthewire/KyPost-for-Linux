@@ -15,7 +15,7 @@ import "../components"
 // Paste-link only, no camera/QR scanning -- global constraint 6: desktop
 // pairing is explicitly out of scope, and neither reference client's QR
 // path has a Qt/QML equivalent available in this phase. Deep-link arrival
-// (llamalabels://native-pair) is routed straight to
+// (kypost://native-pair) is routed straight to
 // Pairing.pairFromDeepLink() from main.cpp's routeDeepLink(), independent
 // of whether this page happens to be on screen -- this file only needs to
 // reflect pairingState once that call lands, which the state machine below
@@ -81,10 +81,10 @@ Item {
                 id: pasteField
                 Layout.fillWidth: true
                 // Not wrapped in i18n() -- this is an example of the
-                // llamalabels:// URL scheme itself (a technical wire format,
+                // kypost:// URL scheme itself (a technical wire format,
                 // not natural-language prose), same reasoning as leaving
                 // StandardFolder wire names untranslated.
-                placeholderText: "llamalabels://native-pair?…"
+                placeholderText: "kypost://native-pair?…"
                 inputField.font.family: Theme.fontMono
             }
 
@@ -97,12 +97,12 @@ Item {
         }
 
         // ---- confirm ---------------------------------------------------
-        // VibeSec fix: a llamalabels://native-pair link (deep link or
+        // VibeSec fix: a kypost://native-pair link (deep link or
         // pasted) no longer pairs immediately on arrival -- see
         // PairingController::pairFromDeepLink's doc comment. This step
         // shows which server is asking before Pairing.confirmPendingPair()
         // makes any network call, so a link clicked outside this app (this
-        // app is the OS-wide handler for the llamalabels:// scheme) can't
+        // app is the OS-wide handler for the kypost:// scheme) can't
         // silently re-pair the device.
         ColumnLayout {
             Layout.fillWidth: true

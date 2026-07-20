@@ -37,7 +37,7 @@ Go relay backend.
   whether or not a UnifiedPush distributor is installed.
 - **13 themes**, transcribed byte-for-byte from the design system shared across every sibling
   client.
-- **Device pairing** via a pasted or `llamalabels://` deep link, plus push-based MFA approval.
+- **Device pairing** via a pasted or `kypost://` deep link, plus push-based MFA approval.
 - **Localized** — every user-facing string is wrapped for translation (`po/`).
 
 ## Building
