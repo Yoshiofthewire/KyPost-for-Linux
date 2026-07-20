@@ -228,7 +228,7 @@ QString xLabelParamForWrite(const std::optional<QString>& label)
     return QStringLiteral(";X-LABEL=") + quoteParamValueIfNeeded(*label);
 }
 
-// X-LLAMA-CUSTOM's LABEL parameter is the user-supplied custom-field name
+// X-KYPOST-CUSTOM's LABEL parameter is the user-supplied custom-field name
 // -- same free-text quoting rule as xLabelParamForWrite, split into its
 // own helper since (unlike the others) a custom field always has a LABEL=
 // param, never an absent/omitted one.
@@ -263,7 +263,7 @@ struct ContentLine
     QString name;
     QStringList typeTokens;
     std::optional<QString> xLabelParam; // "X-LABEL=" -- websites/URL only
-    std::optional<QString> labelParam; // "LABEL=" -- X-LLAMA-CUSTOM only
+    std::optional<QString> labelParam; // "LABEL=" -- X-KYPOST-CUSTOM only
     QString value; // still escaped; caller unescapes per-field
 };
 
@@ -485,10 +485,10 @@ QString contactToVCard(const Contact& contact)
             QStringLiteral("X-ABDATE") + typeParamForWrite(event.label) + QLatin1Char(':') + escapeText(event.date));
     }
     for (const ContactCustomFieldEntry& field : contact.customFields) {
-        // X-LLAMA-CUSTOM: app-specific free-form fields have no vCard
+        // X-KYPOST-CUSTOM: app-specific free-form fields have no vCard
         // concept at all -- unverified against a real KAddressBook/EDS
         // export, re-check when Task 7/8 lands a real backend.
-        lines << foldLine(QStringLiteral("X-LLAMA-CUSTOM") + labelParamForWrite(field.label) + QLatin1Char(':')
+        lines << foldLine(QStringLiteral("X-KYPOST-CUSTOM") + labelParamForWrite(field.label) + QLatin1Char(':')
             + escapeText(field.value));
     }
 
@@ -602,7 +602,7 @@ Contact contactFromVCard(const QString& vcard)
             entry.label = firstNonPrefTypeLower(cl.typeTokens);
             entry.date = unescapeText(cl.value);
             contact.events.append(entry);
-        } else if (name == QStringLiteral("X-LLAMA-CUSTOM")) {
+        } else if (name == QStringLiteral("X-KYPOST-CUSTOM")) {
             ContactCustomFieldEntry entry;
             entry.label = cl.labelParam.value_or(QString());
             entry.value = unescapeText(cl.value);

@@ -387,7 +387,7 @@ void VCardContactTest::roundTripsCustomFields()
     contact.customFields = { ContactCustomFieldEntry{ QStringLiteral("Employee ID"), QStringLiteral("42") } };
 
     const QString vcard = VCardContact::contactToVCard(contact);
-    QVERIFY(vcard.contains(QStringLiteral("X-LLAMA-CUSTOM;LABEL=Employee ID:42")));
+    QVERIFY(vcard.contains(QStringLiteral("X-KYPOST-CUSTOM;LABEL=Employee ID:42")));
 
     const Contact roundTripped = VCardContact::contactFromVCard(vcard);
     QCOMPARE(roundTripped.customFields, contact.customFields);
@@ -458,7 +458,7 @@ void VCardContactTest::absentNewFieldsProduceNoLinesAndDefaultOnRead()
     QVERIFY(!vcard.contains(QStringLiteral("URL")));
     QVERIFY(!vcard.contains(QStringLiteral("X-RELATED")));
     QVERIFY(!vcard.contains(QStringLiteral("X-ABDATE")));
-    QVERIFY(!vcard.contains(QStringLiteral("X-LLAMA-CUSTOM")));
+    QVERIFY(!vcard.contains(QStringLiteral("X-KYPOST-CUSTOM")));
     QVERIFY(!vcard.contains(QStringLiteral("CATEGORIES")));
     QVERIFY(!vcard.contains(QStringLiteral("PHOTO")));
 
@@ -528,7 +528,7 @@ void VCardContactTest::customFieldLabelContainingDelimitersRoundTripsViaQuotedPa
     contact.customFields = { ContactCustomFieldEntry{ QStringLiteral("Cost,Center;Code"), QStringLiteral("42") } };
 
     const QString vcard = VCardContact::contactToVCard(contact);
-    QVERIFY(vcard.contains(QStringLiteral("X-LLAMA-CUSTOM;LABEL=\"Cost,Center;Code\":42")));
+    QVERIFY(vcard.contains(QStringLiteral("X-KYPOST-CUSTOM;LABEL=\"Cost,Center;Code\":42")));
 
     const Contact roundTripped = VCardContact::contactFromVCard(vcard);
     QCOMPARE(roundTripped.customFields.size(), 1);
