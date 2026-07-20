@@ -1,5 +1,5 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR Llama Mail
+# Copyright (C) YEAR KyPost
 # This file is distributed under the same license as the kypost package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: kypost\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-15 04:52-0400\n"
+"POT-Creation-Date: 2026-07-19 20:30-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,39 +17,57 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: app/contacts/ContactsController.cpp:152
+#: app/contacts/ContactsController.cpp:231
 #, kde-format
 msgid "Synced -- %1 pushed, %2 applied"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:157 app/mail/MailController.cpp:109
-#: app/pairing/MfaController.cpp:41
+#: app/contacts/ContactsController.cpp:243
+#: app/contacts/ContactsController.cpp:286 app/mail/MailController.cpp:109
+#: app/pairing/MfaController.cpp:41 app/pgp/PgpQrController.cpp:128
 #, kde-format
 msgid "Not paired"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:161
+#: app/contacts/ContactsController.cpp:247
+#: app/contacts/ContactsController.cpp:290
 #, kde-format
 msgid "Unauthorized -- please re-pair this device"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:165
+#: app/contacts/ContactsController.cpp:251
+#: app/contacts/ContactsController.cpp:294
 #, kde-format
 msgid "Service unavailable"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:169
+#: app/contacts/ContactsController.cpp:255
 #, kde-format
 msgid "Sync failed, try again"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:224
-#: app/contacts/ContactsController.cpp:247
+#: app/contacts/ContactsController.cpp:277
+#, kde-format
+msgid "Merged %1 duplicate(s) -- %2"
+msgstr ""
+
+#: app/contacts/ContactsController.cpp:280
+#, kde-format
+msgid "No duplicates found"
+msgstr ""
+
+#: app/contacts/ContactsController.cpp:298
+#, kde-format
+msgid "Dedupe failed, try again"
+msgstr ""
+
+#: app/contacts/ContactsController.cpp:401
+#: app/contacts/ContactsController.cpp:419
 #, kde-format
 msgid "Name is required"
 msgstr ""
 
-#: app/contacts/ContactsController.cpp:253
+#: app/contacts/ContactsController.cpp:425
 #, kde-format
 msgid "Contact not found"
 msgstr ""
@@ -94,49 +112,94 @@ msgstr ""
 msgid "Could not write attachment to %1"
 msgstr ""
 
-#: app/pairing/MfaController.cpp:53
+#: app/pairing/MfaController.cpp:52
 #, kde-format
 msgid "Approved"
 msgstr ""
 
-#: app/pairing/MfaController.cpp:53
+#: app/pairing/MfaController.cpp:52
 #, kde-format
 msgid "Denied"
 msgstr ""
 
-#: app/pairing/MfaController.cpp:65
+#: app/pairing/MfaController.cpp:64
 #, kde-format
 msgid "This request was already resolved (%1)."
 msgstr ""
 
-#: app/pairing/MfaController.cpp:68
+#: app/pairing/MfaController.cpp:67
 #, kde-format
 msgid "This request was already handled or denied."
 msgstr ""
 
-#: app/pairing/MfaController.cpp:75
+#: app/pairing/MfaController.cpp:74
 #, kde-format
 msgid "Failed to send response, please try again."
 msgstr ""
 
-#: app/pairing/PairingController.cpp:154
+#: app/pairing/PairingController.cpp:160
 #, kde-format
 msgid "This pairing link is invalid or incomplete."
 msgstr ""
 
-#: app/pairing/PairingController.cpp:216
+#: app/pairing/PairingController.cpp:185
+#, kde-format
+msgid "There is no pending pairing request to confirm."
+msgstr ""
+
+#: app/pairing/PairingController.cpp:256
 #, kde-format
 msgid "This pairing link was rejected. Check the link and try again."
 msgstr ""
 
-#: app/pairing/PairingController.cpp:219
+#: app/pairing/PairingController.cpp:259
 #, kde-format
 msgid "The server is not configured for pairing yet."
 msgstr ""
 
-#: app/pairing/PairingController.cpp:223
+#: app/pairing/PairingController.cpp:263
 #, kde-format
 msgid "Pairing failed, please try again."
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:131
+#, kde-format
+msgid "You haven't set up PGP encryption yet"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:134
+#, kde-format
+msgid "Session expired -- please re-pair this device"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:137 app/pgp/PgpQrController.cpp:206
+#, kde-format
+msgid "PGP QR exchange is unavailable right now"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:140
+#, kde-format
+msgid "Failed to load QR code, try again"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:180
+#, kde-format
+msgid "That QR code isn't a PGP key-exchange code"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:199
+#, kde-format
+msgid "This person hasn't set up PGP encryption yet"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:204
+#, kde-format
+msgid "That code has expired -- ask them to refresh and scan again"
+msgstr ""
+
+#: app/pgp/PgpQrController.cpp:208
+#, kde-format
+msgid "Failed to fetch key, try again"
 msgstr ""
 
 #: app/push/NotificationDispatcher.cpp:63
@@ -144,247 +207,502 @@ msgstr ""
 msgid "View"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:237
-msgid "Show Detail"
+#: app/qml/components/AddressBookPickerDialog.qml:86
+#: app/qml/pages/Compose.qml:219
+msgid "Address Book"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:237
-msgid "Hide Detail"
+#: app/qml/components/AddressBookPickerDialog.qml:93
+#: app/qml/pages/MfaApproval.qml:147 app/qml/pages/PgpMyQrCode.qml:77
+#: app/qml/pages/PgpScanContactKey.qml:65
+msgid "Close"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:241 app/qml/MobileRoot.qml:217
-#: app/qml/MobileRoot.qml:344
+#: app/qml/components/AddressBookPickerDialog.qml:101
+msgid "Search contacts…"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:113
+#: app/qml/components/AutocompleteDropdown.qml:140
+msgid "No contacts found"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:172
+msgid "✓ To"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:172
+#: app/qml/pages/Compose.qml:213
+msgid "To"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:176
+msgid "✓ Cc"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:176
+#: app/qml/pages/Compose.qml:226
+msgid "Cc"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:180
+msgid "✓ Bcc"
+msgstr ""
+
+#: app/qml/components/AddressBookPickerDialog.qml:180
+#: app/qml/pages/Compose.qml:234
+msgid "Bcc"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:42
+msgid "Please fill in both fields"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:46
+msgid "Link must start with http://, https://, or mailto:"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:83
+#: app/qml/components/RichBodyEditor.qml:145
+msgid "Insert Link"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:91
+#: app/qml/pages/ContactDetail.qml:584 app/qml/pages/ContactDetail.qml:593
+#: app/qml/pages/ContactDetail.qml:602 app/qml/pages/ContactDetail.qml:616
+#: app/qml/pages/ContactDetail.qml:625 app/qml/pages/ContactDetail.qml:652
+msgid "Label"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:97
+#: app/qml/pages/ContactDetail.qml:626
+msgid "URL"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:104
+msgid "Style as button"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:130 app/qml/DesktopRoot.qml:316
+#: app/qml/pages/ContactDetail.qml:724 app/qml/pages/Pairing.qml:160
+msgid "Cancel"
+msgstr ""
+
+#: app/qml/components/HyperlinkDialog.qml:134
+msgid "Insert"
+msgstr ""
+
+#: app/qml/components/RepeaterField.qml:190
+msgid "+ Add"
+msgstr ""
+
+#: app/qml/components/RichBodyEditor.qml:130
+msgid "Bold"
+msgstr ""
+
+#: app/qml/components/RichBodyEditor.qml:135
+msgid "Italic"
+msgstr ""
+
+#: app/qml/components/RichBodyEditor.qml:140
+msgid "Underline"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:280
+msgid "Pair this device?"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:288 app/qml/pages/Pairing.qml:130
+msgid "A pairing request wants to connect this device to:"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:305 app/qml/pages/Pairing.qml:149
+msgid ""
+"Only confirm this if you expected it. Once paired, this server can deliver "
+"mail notifications to this device."
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:320 app/qml/pages/Pairing.qml:93
+#: app/qml/pages/Pairing.qml:164
+msgid "Pair"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:456
+msgid "Email"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:491 app/qml/DesktopRoot.qml:633
+#: app/qml/MobileRoot.qml:219 app/qml/MobileRoot.qml:412
 msgid "Compose"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:245 app/qml/MobileRoot.qml:288
-#: app/qml/MobileRoot.qml:306 app/qml/pages/Settings.qml:79
+#: app/qml/DesktopRoot.qml:530 app/qml/MobileRoot.qml:261
+msgid "Contact"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:629
+msgid "Show Detail"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:629
+msgid "Hide Detail"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:637 app/qml/MobileRoot.qml:355
+#: app/qml/MobileRoot.qml:374 app/qml/pages/Settings.qml:84
 msgid "Settings"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:279
+#: app/qml/DesktopRoot.qml:681
 msgid "Mail"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:311
+#: app/qml/DesktopRoot.qml:731
 msgid "People"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:325 app/qml/MobileRoot.qml:237
-#: app/qml/MobileRoot.qml:350 app/qml/pages/ContactsList.qml:62
-#: app/qml/pages/Settings.qml:52
+#: app/qml/DesktopRoot.qml:760 app/qml/MobileRoot.qml:239
+#: app/qml/MobileRoot.qml:418 app/qml/pages/ContactsList.qml:57
+#: app/qml/pages/Settings.qml:57
 msgid "Contacts"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:385 app/qml/MobileRoot.qml:427
+#: app/qml/DesktopRoot.qml:835 app/qml/MobileRoot.qml:487
+#: app/qml/pages/PgpMyQrCode.qml:127
 msgid "Refresh"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:405 app/qml/MobileRoot.qml:499
+#: app/qml/DesktopRoot.qml:870 app/qml/MobileRoot.qml:529
+msgid "All"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:877 app/qml/MobileRoot.qml:540
+#: app/qml/pages/EmailDetail.qml:524
+msgid "%1 (%2)"
+msgstr ""
+
+#: app/qml/DesktopRoot.qml:899 app/qml/MobileRoot.qml:563
 msgid "No emails yet — tap Refresh."
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:499 app/qml/MobileRoot.qml:599
-#: app/qml/pages/ContactDetail.qml:284 app/qml/pages/EmailDetail.qml:318
+#: app/qml/DesktopRoot.qml:1009 app/qml/MobileRoot.qml:664
+#: app/qml/pages/ContactDetail.qml:443 app/qml/pages/EmailDetail.qml:359
 msgid "Delete"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:537
+#: app/qml/DesktopRoot.qml:1064
 msgid "Select an email"
 msgstr ""
 
-#: app/qml/DesktopRoot.qml:537
+#: app/qml/DesktopRoot.qml:1064
 msgid "Select a contact"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:189
+#: app/qml/MobileRoot.qml:191
 msgctxt "page title for viewing a single email message"
 msgid "Email"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:253
-msgid "Contact"
+#: app/qml/MobileRoot.qml:285 app/qml/pages/PgpMyQrCode.qml:70
+#: app/qml/pages/Settings.qml:385
+msgid "My PGP QR Code"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:269 app/qml/MobileRoot.qml:302
+#: app/qml/MobileRoot.qml:299
+msgid "Scan Contact Key"
+msgstr ""
+
+#: app/qml/MobileRoot.qml:336 app/qml/MobileRoot.qml:370
 #: app/qml/pages/Pairing.qml:63
 msgid "Pair Device"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:338 app/qml/MobileRoot.qml:361
+#: app/qml/MobileRoot.qml:406 app/qml/MobileRoot.qml:429
 msgid "Inbox"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:416
+#: app/qml/MobileRoot.qml:476
 msgid "Folder: %1"
 msgstr ""
 
-#: app/qml/MobileRoot.qml:465
-msgid "All"
-msgstr ""
-
-#: app/qml/MobileRoot.qml:476 app/qml/pages/EmailDetail.qml:392
-msgid "%1 (%2)"
-msgstr ""
-
-#: app/qml/MobileRoot.qml:643 app/qml/pages/EmailDetail.qml:302
+#: app/qml/MobileRoot.qml:708 app/qml/pages/EmailDetail.qml:341
 msgid "Archive"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:42
+#: app/qml/pages/Compose.qml:128
 msgid "Please fill in all fields"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:77
-msgid "To"
+#: app/qml/pages/Compose.qml:197 app/qml/pages/ContactDetail.qml:353
+#: app/qml/pages/EmailDetail.qml:381
+msgid "Open in New Window"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:82
-msgid "Cc"
+#: app/qml/pages/Compose.qml:216 app/qml/pages/Compose.qml:229
+#: app/qml/pages/Compose.qml:237
+msgid "%1 is already added"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:87
-msgid "Bcc"
-msgstr ""
-
-#: app/qml/pages/Compose.qml:92
+#: app/qml/pages/Compose.qml:242
 msgid "Subject"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:130
-msgid "Write your message…"
-msgstr ""
-
-#: app/qml/pages/Compose.qml:140 app/qml/pages/Compose.qml:223
+#: app/qml/pages/Compose.qml:258 app/qml/pages/Compose.qml:341
 msgid "Attach files"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:207 app/qml/pages/MfaApproval.qml:110
+#: app/qml/pages/Compose.qml:325 app/qml/pages/MfaApproval.qml:110
 msgid "Sending…"
 msgstr ""
 
-#: app/qml/pages/Compose.qml:214
+#: app/qml/pages/Compose.qml:332
 msgid "Send"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:82 app/qml/pages/ContactDetail.qml:316
+#: app/qml/pages/ContactDetail.qml:106 app/qml/pages/ContactDetail.qml:580
+#: app/qml/pages/ContactDetail.qml:585
 msgctxt "contact detail field label, the person's email address"
 msgid "Email"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:83 app/qml/pages/ContactDetail.qml:321
+#: app/qml/pages/ContactDetail.qml:107 app/qml/pages/ContactDetail.qml:589
+#: app/qml/pages/ContactDetail.qml:594
 msgid "Phone"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:84 app/qml/pages/ContactDetail.qml:311
+#: app/qml/pages/ContactDetail.qml:108
+msgid "Address"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:109 app/qml/pages/ContactDetail.qml:470
 msgid "Org"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:85
+#: app/qml/pages/ContactDetail.qml:110
 msgid "Notes"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:235 app/qml/pages/ContactsList.qml:136
+#: app/qml/pages/ContactDetail.qml:111 app/qml/pages/ContactDetail.qml:512
+msgid "Department"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:112 app/qml/pages/ContactDetail.qml:517
+msgid "Pronouns"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:113 app/qml/pages/ContactDetail.qml:559
+msgid "PGP Key"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:114 app/qml/pages/ContactDetail.qml:664
+msgid "Groups"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:387 app/qml/pages/ContactsList.qml:167
 msgid "Unnamed"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:244
+#: app/qml/pages/ContactDetail.qml:396
 msgid "Synced"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:244
+#: app/qml/pages/ContactDetail.qml:396
 msgid "Local"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:280
+#: app/qml/pages/ContactDetail.qml:401
+msgid "Your contact"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:439
 msgid "Edit"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:300
+#: app/qml/pages/ContactDetail.qml:459
 msgid "Add contact"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:300
+#: app/qml/pages/ContactDetail.qml:459
 msgid "Edit contact"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:306
+#: app/qml/pages/ContactDetail.qml:465 app/qml/pages/ContactDetail.qml:635
 msgid "Name"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:353
+#: app/qml/pages/ContactDetail.qml:502
 msgid "Notes…"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:373
-msgid "Cancel"
+#: app/qml/pages/ContactDetail.qml:522
+msgid "Phonetic given name"
 msgstr ""
 
-#: app/qml/pages/ContactDetail.qml:378
+#: app/qml/pages/ContactDetail.qml:527
+msgid "Phonetic family name"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:566
+msgid "Scan to add key"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:598
+msgid "Addresses"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:603
+msgid "Street"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:604
+msgid "City"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:605
+msgid "Region"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:606
+msgid "Postal code"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:607
+msgid "Country"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:611
+msgid "Instant messaging"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:615
+msgid "Service"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:617
+msgid "Handle"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:621
+msgid "Websites"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:630
+msgid "Relations"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:634
+msgid "Relation"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:639
+msgid "Events"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:643
+msgid "Event"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:644
+msgid "Date (YYYY-MM-DD)"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:648
+msgid "Custom fields"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:653
+msgid "Value"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:706
+msgid "No groups available"
+msgstr ""
+
+#: app/qml/pages/ContactDetail.qml:729 app/qml/pages/PgpScanContactKey.qml:140
 msgid "Save"
 msgstr ""
 
-#: app/qml/pages/ContactsList.qml:69
+#: app/qml/pages/ContactsList.qml:64
 msgid "Add"
 msgstr ""
 
-#: app/qml/pages/ContactsList.qml:73
+#: app/qml/pages/ContactsList.qml:79
 msgid "Sync"
 msgstr ""
 
+#: app/qml/pages/ContactsList.qml:88
+msgid "Find Duplicates"
+msgstr ""
+
 #: app/qml/pages/ContactsList.qml:97
+msgid "Scan PGP Key"
+msgstr ""
+
+#: app/qml/pages/ContactsList.qml:116
 msgid "No contacts yet — sync or add one."
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:117
+#: app/qml/pages/ContactsList.qml:168
+msgid "You"
+msgstr ""
+
+#: app/qml/pages/EmailDetail.qml:142
 msgid "%1 B"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:119
+#: app/qml/pages/EmailDetail.qml:144
 msgid "%1 KB"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:120
+#: app/qml/pages/EmailDetail.qml:145
 msgid "%1 MB"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:259
+#: app/qml/pages/EmailDetail.qml:294
 msgid "Reply"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:264 app/qml/pages/EmailDetail.qml:285
+#: app/qml/pages/EmailDetail.qml:300 app/qml/pages/EmailDetail.qml:322
 msgid "%1 wrote:"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:269
+#: app/qml/pages/EmailDetail.qml:306
 msgid "Reply All"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:290
+#: app/qml/pages/EmailDetail.qml:328
 msgid "Forward"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:294
+#: app/qml/pages/EmailDetail.qml:332
 msgid "---------- Forwarded message ----------"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:295
+#: app/qml/pages/EmailDetail.qml:333
 msgid "From: %1"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:296
+#: app/qml/pages/EmailDetail.qml:334
 msgid "Subject: %1"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:310
+#: app/qml/pages/EmailDetail.qml:350
 msgid "Junk"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:370
+#: app/qml/pages/EmailDetail.qml:375
+msgid "Show images"
+msgstr ""
+
+#: app/qml/pages/EmailDetail.qml:390
+msgid "Images are hidden to protect your privacy."
+msgstr ""
+
+#: app/qml/pages/EmailDetail.qml:502
 msgid "Attachments"
 msgstr ""
 
-#: app/qml/pages/EmailDetail.qml:403
+#: app/qml/pages/EmailDetail.qml:535
 msgid "Saved to Downloads"
 msgstr ""
 
@@ -404,11 +722,7 @@ msgstr ""
 msgid "Approve"
 msgstr ""
 
-#: app/qml/pages/MfaApproval.qml:147
-msgid "Close"
-msgstr ""
-
-#: app/qml/pages/MfaApproval.qml:177 app/qml/pages/Pairing.qml:218
+#: app/qml/pages/MfaApproval.qml:177 app/qml/pages/Pairing.qml:289
 msgid "Try Again"
 msgstr ""
 
@@ -416,94 +730,159 @@ msgstr ""
 msgid "Open a pairing link from the web app, or paste it below."
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:93
-msgid "Pair"
+#: app/qml/pages/Pairing.qml:121
+msgid "Pair with this server?"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:111
+#: app/qml/pages/Pairing.qml:182
 msgid "Pairing…"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:134
+#: app/qml/pages/Pairing.qml:205
 msgid "Device paired"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:148 app/qml/pages/Settings.qml:144
+#: app/qml/pages/Pairing.qml:219 app/qml/pages/Settings.qml:166
 msgid "Server"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:161 app/qml/pages/Settings.qml:157
+#: app/qml/pages/Pairing.qml:232 app/qml/pages/Settings.qml:179
 msgid "Device"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:174 app/qml/pages/Settings.qml:86
+#: app/qml/pages/Pairing.qml:245 app/qml/pages/Settings.qml:91
 msgid "Done"
 msgstr ""
 
-#: app/qml/pages/Pairing.qml:194
+#: app/qml/pages/Pairing.qml:265
 msgid "Pairing failed"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:52
+#: app/qml/pages/PgpMyQrCode.qml:114
+msgid "Expires %1"
+msgstr ""
+
+#: app/qml/pages/PgpScanContactKey.qml:58
+msgid "Scan to Add Contact Key"
+msgstr ""
+
+#: app/qml/pages/PgpScanContactKey.qml:112
+msgid "Fingerprint"
+msgstr ""
+
+#: app/qml/pages/PgpScanContactKey.qml:123
+msgid ""
+"Confirm this fingerprint matches what they show you in person before saving."
+msgstr ""
+
+#: app/qml/pages/PgpScanContactKey.qml:135
+msgid "Scan again"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:57
 msgid "Connection"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:52
+#: app/qml/pages/Settings.qml:57
 msgid "Appearance"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:52
+#: app/qml/pages/Settings.qml:57
 msgid "Keywords"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:52
+#: app/qml/pages/Settings.qml:57
 msgid "Notifications"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:131
+#: app/qml/pages/Settings.qml:57
+msgid "General"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:153
 msgid "Paired"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:179
+#: app/qml/pages/Settings.qml:201
 msgid "Pair This Device…"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:184
+#: app/qml/pages/Settings.qml:206
 msgid "Remove Pairing"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:258
+#: app/qml/pages/Settings.qml:290
 msgid "No keywords yet."
 msgstr ""
 
-#: app/qml/pages/Settings.qml:281
+#: app/qml/pages/Settings.qml:328
 msgid "Visible"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:281
+#: app/qml/pages/Settings.qml:328
 msgid "Hidden"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:307
+#: app/qml/pages/Settings.qml:368
 msgid "No sync yet."
 msgstr ""
 
-#: app/qml/pages/Settings.qml:319
+#: app/qml/pages/Settings.qml:380
 msgid "Sync Now"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:342
+#: app/qml/pages/Settings.qml:415
 msgid "Not yet registered"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:356
+#: app/qml/pages/Settings.qml:429
 msgid "Delivery Mode"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:368
+#: app/qml/pages/Settings.qml:441
 msgid "Transport"
 msgstr ""
 
-#: app/qml/pages/Settings.qml:382
+#: app/qml/pages/Settings.qml:455
 msgid "Push Server"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:485
+msgid "Interface Mode"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:492
+msgid "Auto"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:497
+msgid "Desktop"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:502
+msgid "Mobile"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:511
+msgid "Restart KyPost for interface mode changes to take effect."
+msgstr ""
+
+#: app/qml/pages/Settings.qml:523
+msgid "System Tray"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:530
+msgid "Enable Tray Icon"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:536 app/qml/pages/Settings.qml:555
+msgid "On"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:536 app/qml/pages/Settings.qml:555
+msgid "Off"
+msgstr ""
+
+#: app/qml/pages/Settings.qml:549
+msgid "Minimize to Tray on Close"
 msgstr ""

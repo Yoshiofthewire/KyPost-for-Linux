@@ -252,7 +252,7 @@ Item {
                             // AppTheme.cpp), NOT wrapped in i18n(): these are
                             // brand-style palette names (same "don't
                             // translate the product name" reasoning as
-                            // "Llama Mail" itself), AND they live in core/,
+                            // "KyPost" itself), AND they live in core/,
                             // which the Phase 8 global-constraints boundary
                             // (item 3) forbids linking KI18n into -- they're
                             // also the literal identifier Theme.setTheme()
