@@ -168,6 +168,14 @@ Kirigami.ApplicationWindow {
             if (Pairing.pairingState === "idle" || root.autoNavigatedForAttempt)
                 return
             root.autoNavigatedForAttempt = true
+            // Same raise()+requestActivate() as onOpenEmailRequested above
+            // -- a kypost://native-pair link can arrive via KDBusService
+            // while this window is minimized/behind others, and pushing
+            // pairingPageComponent alone doesn't bring the window forward,
+            // so the confirm page would open invisibly and the pairing
+            // attempt would silently stall on this step forever.
+            root.raise()
+            root.requestActivate()
             if (!root.pageStack.currentItem || root.pageStack.currentItem.objectName !== "pairingPage")
                 root.pageStack.push(pairingPageComponent)
         }

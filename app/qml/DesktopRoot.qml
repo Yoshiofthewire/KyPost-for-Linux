@@ -327,10 +327,20 @@ Kirigami.ApplicationWindow {
     Connections {
         target: Pairing
         function onPairingStateChanged() {
-            if (Pairing.pairingState === "confirm")
+            if (Pairing.pairingState === "confirm") {
+                // Same raise()+requestActivate() as onOpenEmailRequested
+                // above -- a kypost://native-pair link can arrive via
+                // KDBusService while this window is minimized/behind
+                // others, and Popup.open() alone doesn't bring the window
+                // forward, so the confirm prompt would open invisibly and
+                // the pairing attempt would silently stall on this step
+                // forever.
+                root.raise()
+                root.requestActivate()
                 pairingConfirmPopup.open()
-            else
+            } else {
                 pairingConfirmPopup.close()
+            }
         }
     }
 

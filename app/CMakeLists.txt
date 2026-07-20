@@ -280,6 +280,32 @@ install(FILES
   DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 )
 
+# Refresh the desktop-file MIME cache (${CMAKE_INSTALL_DATADIR}/applications/
+# mimeinfo.cache) so kypost://'s x-scheme-handler association above is
+# actually discoverable, not just present on disk. install(FILES ...) alone
+# only copies the .desktop file -- it never regenerates this cache, and
+# without it GIO-based URL dispatch (what Chrome and most other browsers use
+# to launch an external protocol handler) reports "No default application"
+# and silently does nothing on a kypost://native-pair link click, even
+# though xdg-mime's own raw-directory-scan fallback still resolves it fine.
+# Distro packaging (deb/rpm triggers, Flatpak's export step) normally runs
+# this as a post-install hook; a plain `cmake --install` has none, so it's
+# done here instead. Quietly skipped if update-desktop-database isn't
+# installed (optional tool, not a hard build dependency) or the DESTDIR'd
+# path isn't the live system database (e.g. packaging a staging root).
+find_program(UPDATE_DESKTOP_DATABASE_EXECUTABLE update-desktop-database)
+if(UPDATE_DESKTOP_DATABASE_EXECUTABLE)
+  install(CODE "
+    execute_process(
+      COMMAND ${UPDATE_DESKTOP_DATABASE_EXECUTABLE} \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_DATADIR}/applications\"
+      RESULT_VARIABLE _update_desktop_database_result
+    )
+    if(NOT _update_desktop_database_result EQUAL 0)
+      message(STATUS \"update-desktop-database failed (non-fatal, e.g. staged DESTDIR install) -- kypost:// links may need \\`update-desktop-database\\` run manually\")
+    endif()
+  ")
+endif()
+
 # Install D-Bus service file (Task 45): activation metadata. The Exec= path
 # (/usr/bin/kypost) is only correct once make install puts the binary
 # there, which is now the case for real system installs.
