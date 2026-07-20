@@ -62,7 +62,7 @@ trap 'rm -rf "$work_dir"' EXIT
 # shellcheck disable=SC2086
 xgettext --c++ --kde --force-po --from-code=UTF-8 \
     --package-name=kypost \
-    --copyright-holder="Llama Mail" \
+    --copyright-holder="KyPost" \
     $keywords \
     -o "$work_dir/cpp.pot" \
     $cpp_files
@@ -70,7 +70,7 @@ xgettext --c++ --kde --force-po --from-code=UTF-8 \
 # shellcheck disable=SC2086
 xgettext --language=JavaScript --force-po --from-code=UTF-8 \
     --package-name=kypost \
-    --copyright-holder="Llama Mail" \
+    --copyright-holder="KyPost" \
     $keywords \
     -o "$work_dir/qml.pot" \
     $qml_files

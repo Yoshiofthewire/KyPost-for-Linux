@@ -50,7 +50,7 @@ struct ContactDedupeOutcome
 };
 
 // Sits between ContactSyncClient and ContactDao/PendingContactChangeDao,
-// matching the Domain/Repositories layer in llama-Mail-for-Mac
+// matching the Domain/Repositories layer in kypost-for-Mac
 // (ContactSyncRepository.swift) -- see ContactSyncReconciliation.h for the
 // uid-assignment half of sync(). queueCreate/queueUpdate/queueDelete apply
 // to the local cache immediately and enqueue the corresponding wire change

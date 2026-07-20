@@ -20,7 +20,7 @@ struct MailFetchOutcome
 };
 
 // Sits between RelayMailSource and EmailDao, matching the Domain/
-// Repositories layer in llama-Mail-for-Mac (its MailRepository does a dumb
+// Repositories layer in kypost-for-Mac (its MailRepository does a dumb
 // full-replace with no delta-merge; Android's MailRepository.kt/
 // reconcileFetchResult is the closer reference for the delta-merge logic
 // here). Also owns the two wire-mapping fixes RelayMailSource deliberately

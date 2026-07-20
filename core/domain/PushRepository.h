@@ -12,7 +12,7 @@ class PushNotificationClient;
 class SettingsStore;
 
 // Sits between PushNotificationClient and PushDao, matching the
-// Domain/Repositories layer in llama-Mail-for-Mac (PushRepository.swift) --
+// Domain/Repositories layer in kypost-for-Mac (PushRepository.swift) --
 // port of PushRepositoryTests from PushTests.swift, with one deliberate
 // deviation documented on recordPushArrival() below.
 class PushRepository

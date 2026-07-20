@@ -2,7 +2,7 @@
 
 #include <QString>
 
-// Inbound MFA push challenge shape, verified against llama-mobile's
+// Inbound MFA push challenge shape, verified against kypost-android's
 // MfaChallengePayload (app/src/main/java/com/urlxl/mail/push/
 // MfaChallengePayload.kt): only `challengeId` arrives with the challenge —
 // no message/description field exists on the wire today, so none is

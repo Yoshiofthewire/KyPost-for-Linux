@@ -17,7 +17,7 @@ class QNetworkReply;
 // Synchronous-from-the-caller's-point-of-view wrapper around
 // QNetworkAccessManager for Relay HTTP calls. get()/post() block the calling
 // thread on a local QEventLoop driven by the reply's finished signal — this
-// mirrors llama-Mail-for-Mac's HTTPClient async/await call shape one-for-one
+// mirrors kypost-for-Mac's HTTPClient async/await call shape one-for-one
 // (verified reference: Data/Networking/HTTPClient.swift, read for structure
 // only), so every Task 14-18 client reads as a straight-line sequence
 // instead of a signal/callback chain. Callers must invoke get()/post() off

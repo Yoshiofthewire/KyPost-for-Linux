@@ -3,7 +3,7 @@
 #include <optional>
 
 // Shared failure model for every Relay HTTP call (Task 14-18 clients build
-// on this). Mirrors llama-Mail-for-Mac's NetworkError (verified reference:
+// on this). Mirrors kypost-for-Mac's NetworkError (verified reference:
 // Data/Networking/HTTPClient.swift), read for structure only. `Server` does
 // not carry the status code the way the Swift `.server(statusCode:)` case
 // does — HttpResult::statusCode already exposes it to the caller, so no

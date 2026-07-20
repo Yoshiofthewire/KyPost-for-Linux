@@ -8,7 +8,7 @@ namespace {
 
 // Reconstructs {scheme}://{host}[:port]/api/notifications/native/pull from
 // the registration endpoint's authority, for when the server response omits
-// pullEndpoint. Mirrors llama-Mail-for-Mac's resolvedPullEndpoint(srv:).
+// pullEndpoint. Mirrors kypost-for-Mac's resolvedPullEndpoint(srv:).
 QString derivePullEndpoint(const QUrl& registrationEndpoint)
 {
     QUrl pull;

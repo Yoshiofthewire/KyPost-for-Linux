@@ -12,7 +12,7 @@ class HttpClient;
 // brief for line references). pullEndpoint is populated on the client side
 // with a derived value (scheme+host+port of the registration endpoint plus
 // the well-known pull path) when the server omits it, mirroring
-// llama-Mail-for-Mac's resolvedPullEndpoint(srv:) — callers never see an
+// kypost-for-Mac's resolvedPullEndpoint(srv:) — callers never see an
 // empty pullEndpoint on Success.
 struct NativeRegistrationResponse
 {
@@ -32,7 +32,7 @@ struct NativeRegistrationResponse
     bool operator==(const NativeRegistrationResponse&) const = default;
 };
 
-// Mirrors llama-Mail-for-Mac's RegistrationOutcome. Unauthorized <-
+// Mirrors kypost-for-Mac's RegistrationOutcome. Unauthorized <-
 // NetworkError::Unauthorized (401/403); BackendMisconfigured <-
 // NetworkError::ServiceUnavailable (503, meaning PAIRING_SECRET isn't set
 // server-side — persistent, don't retry); Failure covers everything else

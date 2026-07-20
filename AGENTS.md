@@ -1,8 +1,8 @@
-# Llama Mail — Linux Qt Client
+# KyPost — Linux Qt Client
 
 ## 1. Project identity
 
-Llama Mail is a **relay-only** Qt/C++/QML email client: there is no IMAP or
+KyPost is a **relay-only** Qt/C++/QML email client: there is no IMAP or
 SMTP anywhere on-device, and the backend at `mail.urlxl.com` is the sole
 transport for mail, contacts, and push. It targets **Qt6/Kirigami KF6
 only** across two surfaces from one codebase — **Linux Desktop** (KDE
@@ -10,8 +10,8 @@ Plasma primary, packaged as a Flatpak) and **KDE Mobile** (Plasma Mobile,
 same Flatpak, mobile UI root). **Ubuntu Touch (Lomiri) support is
 deferred** — Qt5 is EOL and this codebase no longer builds against it; see
 Section 4 for the re-check trigger. It is the fourth sibling client after
-the Android app (`~/git/llama-mobile`) and the SwiftUI macOS/iOS app
-(`~/git/llama-Mail-for-Mac`). The authoritative design source for this repo
+the Android app (`~/git/kypost-android`) and the SwiftUI macOS/iOS app
+(`~/git/kypost-for-Mac`). The authoritative design source for this repo
 is `Linux_QT_Client_Plan.md` at the repo root — read it before making any
 architectural decision; this file only summarizes and carries forward the
 rules most likely to be violated by accident (note: that plan document
@@ -25,7 +25,7 @@ Full detail (including per-subdirectory breakdowns) lives in
 map, not a duplicate:
 
 ```
-core/       — libllamacore: models/net/db/stores/domain/theme, QtCore+Network+Sql only
+core/       — libkypostcore: models/net/db/stores/domain/theme, QtCore+Network+Sql only
 app/        — main.cpp, push/ (KUnifiedPush glue, Qt6-only), platform/ (SecureStore backends), qml/ (MobileRoot, DesktopRoot, pages, components)
 tests/      — QtTest, stubbed HttpClient; ctest-driven
 packaging/  — flatpak/ (Flatpak manifest + desktop file), dbus/ (session D-Bus activation .service), and click/ (Clickable manifest + apparmor)
@@ -52,12 +52,12 @@ Carried forward verbatim (in substance) from `Linux_QT_Client_Plan.md`'s own
 
 - **Relay-only.** No IMAP/SMTP anywhere. `mail.urlxl.com` is the sole
   transport. Search is local-cache-only.
-- **Wire contracts come from the backend Go source**, plus `llama-mobile`'s
-  `RelayModels.kt`/`ContactSyncModels.kt` and `llama-Mail-for-Mac`'s
+- **Wire contracts come from the backend Go source**, plus `kypost-android`'s
+  `RelayModels.kt`/`ContactSyncModels.kt` and `kypost-for-Mac`'s
   `Data/Networking/*` (relay-only, live-verified, test-locked clients).
   **Never guess shapes** — guessed shapes have caused live 400s before.
 - **The 13 theme palettes are a binding contract**, sourced from
-  `llama-Mail-for-Mac/Style/AppTheme.swift`'s 7-field `ThemePalette` — not
+  `kypost-for-Mac/Style/AppTheme.swift`'s 7-field `ThemePalette` — not
   the web's 16-field `theme.ts`. Copy values, don't approximate.
 - **StandardFolder wire names**: `INBOX`, `Drafts`, `Junk`, `Sent`, `Trash`,
   `Archive`; display name splits on both `/` and `.`.

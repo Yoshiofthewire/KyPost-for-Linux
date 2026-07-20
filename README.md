@@ -71,7 +71,7 @@ Qt6/KF6 track.
 ## Architecture
 
 ```
-core/       — libllamacore: models, SQLite DAOs, stores, relay networking, domain
+core/       — libkypostcore: models, SQLite DAOs, stores, relay networking, domain
               repositories, theme data. QtCore/QtNetwork/QtSql only — no QtGui/QtQuick/
               QtDBus/KUnifiedPush/KNotifications.
 app/        — main.cpp, push/ (KUnifiedPush + KNotifications glue), platform/ (SecureStore
