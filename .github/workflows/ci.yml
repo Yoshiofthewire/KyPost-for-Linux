@@ -41,7 +41,7 @@
 # libkf6dbusaddons-dev, libkf6i18n-dev, kunifiedpush-dev, and -- under a
 # different name than the brief guessed -- qtkeychain-qt6-dev (Qt6Keychain
 # 0.16.0 in this archive as of this check; the Flatpak manifate
-# `packaging/flatpak/com.urlxl.mail.json` separately pins 0.17.0 for
+# `packaging/flatpak/com.urlxl.mail.yaml` separately pins 0.17.0 for
 # its from-source build, a different mechanism for a different
 # distribution channel -- 0.16 vs 0.17 is not an ABI/API-breaking gap for
 # the calls SecureStoreKeychain.cpp makes).
@@ -87,7 +87,7 @@
 # WriteBarcode.h that PgpQrController.cpp uses (confirmed by extracting that
 # .deb directly), and neon's archive doesn't package zxing-cpp at all. This
 # project already solved that exact gap for the Flatpak manifest
-# (packaging/flatpak/com.urlxl.mail.json) by building zxing-cpp v3.1.0 from
+# (packaging/flatpak/com.urlxl.mail.yaml) by building zxing-cpp v3.1.0 from
 # source, so this job now does the same (see the dedicated step below) --
 # simplified since, unlike flatpak-builder's network-isolated build phase,
 # this runner has network access throughout, so ZXING_DEPENDENCIES' default
@@ -113,7 +113,7 @@ on:
   # flatpak-build below is gated to these two trigger types only (see its
   # own `if:` condition) -- a real flatpak-builder run is minutes, not the
   # hours once feared before base/base-version replaced a from-source
-  # WebEngine rebuild (see packaging/flatpak/com.urlxl.mail.json's own
+  # WebEngine rebuild (see packaging/flatpak/com.urlxl.mail.yaml's own
   # comments), but it still downloads a real Flathub extension + SDK and
   # isn't worth the latency/flakiness surface on every push/PR that
   # build-and-test above already covers.
@@ -169,7 +169,7 @@ jobs:
       # contents directly -- neither file is present), and KDE neon's "user"
       # archive added above doesn't package zxing-cpp at all. Built from
       # source instead, pinned to the same v3.1.0 tag/commit the Flatpak
-      # manifest (packaging/flatpak/com.urlxl.mail.json) already builds for
+      # manifest (packaging/flatpak/com.urlxl.mail.yaml) already builds for
       # the identical reason -- see that manifest's own comments for the
       # version research. Unlike that manifest's sandboxed, network-isolated
       # build phase, this runner has network access throughout, so the
@@ -213,7 +213,7 @@ jobs:
 
   # --- flatpak-builder validation job ---
   #
-  # Previously omitted entirely: packaging/flatpak/com.urlxl.mail.json used
+  # Previously omitted entirely: packaging/flatpak/com.urlxl.mail.yaml used
   # to fail deterministically at the kypost module's CMake configure step
   # (Could NOT find Qt6WebEngineQuick), and a job that fails on literally
   # every push/PR is worse than no job. Resolved 2026-07-17 (see
@@ -240,7 +240,7 @@ jobs:
       - name: Build Flatpak manifest
         run: |
           flatpak-builder --user --force-clean --install-deps-from=flathub \
-            build-flatpak packaging/flatpak/com.urlxl.mail.json
+            build-flatpak packaging/flatpak/com.urlxl.mail.yaml
 
       # Confirms the built app actually loads/runs inside the sandbox, not
       # just that flatpak-builder's install step succeeded -- catches
@@ -249,7 +249,7 @@ jobs:
       - name: Launch smoke test
         run: |
           timeout 15 flatpak-builder --run build-flatpak \
-            packaging/flatpak/com.urlxl.mail.json kypost --platform offscreen 2>&1 | tee launch.log
+            packaging/flatpak/com.urlxl.mail.yaml kypost --platform offscreen 2>&1 | tee launch.log
           if grep -qi "is not a type\|unavailable\|QQmlApplicationEngine failed" launch.log; then
             echo "QML load failure detected in launch output" >&2
             exit 1

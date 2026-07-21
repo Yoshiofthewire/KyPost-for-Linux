@@ -428,7 +428,7 @@ accounts) to exercise the full handshake.
 - [x] **`flatpak-builder` — build the manifest and confirm it produces a
       runnable app.** Run:
       `flatpak-builder --user --force-clean --install-deps-from=flathub
-      <builddir> packaging/flatpak/com.urlxl.mail.json`. **Resolved
+      <builddir> packaging/flatpak/com.urlxl.mail.yaml`. **Resolved
       (2026-07-17), confirmed via a real from-scratch build + launch, not
       just reasoning:** the manifest now declares `base:
       io.qt.qtwebengine.BaseApp` / `base-version: 6.10` (a real, published
@@ -465,7 +465,7 @@ accounts) to exercise the full handshake.
       `MutedHint is not a type` at launch) were also found and fixed via
       real `flatpak-builder --run` launches, not static review. Final
       confirmed state: a clean full build (`REAL_EXIT_CODE=0`) followed by
-      `flatpak-builder --run <builddir> packaging/flatpak/com.urlxl.mail.json
+      `flatpak-builder --run <builddir> packaging/flatpak/com.urlxl.mail.yaml
       kypost` loading every QML file with no errors and reaching
       `KUnifiedPush::Connector::Registered` with a real
       `unifiedpush.kde.org` endpoint host, live, inside the sandbox.

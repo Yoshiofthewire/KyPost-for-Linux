@@ -318,7 +318,7 @@ llama-mail-qt/
       components/             # EmailListRow, KeywordTabBar, Avatar, EmptyState, StatusBadge, ThemedButton
   tests/                      # QtTest, stubbed HttpClient — port the Mac suite's coverage
   packaging/
-    flatpak/com.urlxl.mail.json (+ metainfo, .desktop, icons)
+    flatpak/com.urlxl.mail.yaml (+ metainfo, .desktop, icons)
     click/ (clickable.yaml, manifest.json, apparmor, .desktop, urls hook)
   po/                         # gettext catalogs seeded from Localizable.xcstrings keys
 ```
@@ -448,7 +448,7 @@ tests under both Qt majors).
 
 ## Post-audit cleanup backlog (2026-07-17)
 
-1. **Fix Flatpak packaging.** ~~`packaging/flatpak/com.urlxl.mail.json`
+1. **Fix Flatpak packaging.** ~~`packaging/flatpak/com.urlxl.mail.yaml`
    currently fails to build (`Could NOT find Qt6WebEngineQuick`, see risk #9)
    and isn't exercised by CI~~ — **Resolved (2026-07-17):** the manifest now
    declares `base: io.qt.qtwebengine.BaseApp` / `base-version: 6.10` (see

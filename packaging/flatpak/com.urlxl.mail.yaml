@@ -1,0 +1,216 @@
+app-id: com.urlxl.mail
+runtime: org.kde.Platform
+runtime-version: "6.10"
+sdk: org.kde.Sdk
+
+# Qt6::WebEngineQuick (app/CMakeLists.txt's find_package(Qt6 REQUIRED
+# COMPONENTS WebEngineQuick), used only by app/qml/pages/EmailDetail.qml's
+# WebEngineView) isn't in the org.kde.Platform//6.10 runtime itself, so
+# the build previously failed with "Could NOT find Qt6WebEngineQuick".
+# Docs/TESTING.md/Linux_QT_Client_Plan.md previously assumed Flathub's
+# io.qt.qtwebengine.BaseApp topped out around Qt 6.4 and a from-source
+# qtwebengine module (a large Chromium build) would be needed -- that
+# assumption was stale/wrong: confirmed live via `flatpak remote-info
+# --user flathub io.qt.qtwebengine.BaseApp//6.10` that a real,
+# published, pre-built branch/6.10 extension exists (222MB download).
+# `base`/`base-version` is the documented way apps needing WebEngine
+# consume it (not a from-source rebuild) -- verified against real
+# published KDE apps on this exact runtime/sdk stack, e.g.
+# flathub/org.kde.cantor's manifest uses the identical
+# base=io.qt.qtwebengine.BaseApp/base-version=6.10/cleanup-commands
+# trio. No changes needed to the `modules` list below -- the base app
+# already provides Qt6WebEngineQuick's headers/libs during the build.
+base: io.qt.qtwebengine.BaseApp
+base-version: "6.10"
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+
+command: kypost
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=network
+
+  # KDBusService(KDBusService::Unique) in app/main.cpp claims this
+  # well-known bus name for duplicate-launch detection and D-Bus
+  # activation (packaging/dbus/com.urlxl.mail.service, wired by
+  # Task 45). KUnifiedPush::Connector (app/push/UnifiedPushConnector.cpp)
+  # registers under this same serviceName on the session bus without
+  # claiming it itself -- its constructor's own comment documents
+  # "Destination=<serviceName> Path=/org/unifiedpush/Connector" as the
+  # address the distributor uses to deliver push wake-ups. Without
+  # --own-name, KDBusService::Unique's RequestName call is denied by
+  # the sandbox and every launch (plus D-Bus activation and
+  # UnifiedPush delivery) breaks.
+  - --own-name=com.urlxl.mail
+
+  # Qt6Keychain (app/platform/SecureStoreKeychain.cpp, used to persist
+  # pairing credentials) talks to the Secret Service D-Bus API on
+  # Linux, i.e. org.freedesktop.secrets, exported by
+  # gnome-keyring/kwalletd's ksecretd. Without this the keychain reads
+  # and writes on every pairing/credential operation fail.
+  - --talk-name=org.freedesktop.secrets
+
+  # KUnifiedPush::Connector::registerClient() (app/push/UnifiedPushConnector.cpp)
+  # calls out to the local UnifiedPush distributor over D-Bus to
+  # request an endpoint -- a separate direction from the
+  # --own-name=com.urlxl.mail grant above, which only covers the
+  # distributor calling back INTO the app for delivery/activation.
+  # Without a --talk-name for the distributor's bus name, the
+  # sandbox's D-Bus proxy blocks this outbound registration call
+  # and the Distributor push tier can never acquire an endpoint
+  # from inside the sandbox. Confirmed live on a dev machine
+  # running kunifiedpush-distributor: `busctl --user list` shows
+  # the distributor owns "org.unifiedpush.Distributor.kde" at
+  # /org/unifiedpush/Distributor (interfaces
+  # org.unifiedpush.Distributor1/Distributor2); `strings` on the
+  # installed libKUnifiedPush.so confirms this
+  # org.unifiedpush.Distributor.<name> naming is the library's own
+  # convention, not one implementation's quirk -- hence the
+  # wildcard, to cover other distributors too.
+  - --talk-name=org.unifiedpush.Distributor.*
+
+  # PGP QR key exchange's "Scan to Add Contact Key" screen needs
+  # camera access (QtMultimedia Camera/CaptureSession, decoded via
+  # PgpQrScanner/zxing-cpp). This machine's qt6-multimedia-ffmpeg
+  # backend talks to V4L2 devices directly, not the pipewire camera
+  # portal, so the narrower --socket=pipewire (sufficient for a
+  # GStreamer/pipewire-portal backend) is NOT enough here --
+  # confirmed by which qt6-multimedia-* backend package is actually
+  # installed (ffmpeg, not gstreamer) on this dev machine. Flag for
+  # re-verification against whichever backend org.kde.Sdk 6.10's
+  # runtime actually ships if pipewire access alone turns out to
+  # work there instead.
+  - --device=all
+
+  # Desktop notifications (KF6::Notifications, NotificationDispatcher.cpp,
+  # KNotification("newMail")): deliberately NOT adding
+  # --talk-name=org.freedesktop.Notifications here. Researched Task 47
+  # (2026-07-14) against the locally installed KF6::Notifications 6.27.0:
+  # KNotificationManager::pluginForAction() (knotificationmanager.cpp,
+  # invent.kde.org/frameworks/knotifications) calls isInsideSandbox()
+  # -- QFileInfo::exists("/.flatpak-info") || qEnvironmentVariableIsSet
+  # ("SNAP") -- and when that is true *and*
+  # org.freedesktop.portal.Desktop is registered on the session bus, it
+  # instantiates NotifyByPortal (talks to
+  # org.freedesktop.portal.Notification) instead of NotifyByPopup
+  # (which would talk to org.freedesktop.Notifications directly).
+  # Confirmed locally too: `strings -e l libKF6Notifications.so.6.27.0`
+  # contains the literal UTF-16 string "/.flatpak-info" alongside
+  # "org.freedesktop.portal.Desktop", matching that source. Inside this
+  # Flatpak, KNotifications therefore auto-routes through the portal,
+  # and portals never need finish-args entries -- adding a talk-name
+  # for the raw interface here would be dead permission surface.
+
+modules:
+  - name: qtkeychain
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_WITH_QT5=OFF
+      - -DBUILD_TEST_APPLICATION=OFF
+      - -DBUILD_TRANSLATIONS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/frankosterfeld/qtkeychain/archive/refs/tags/0.17.0.tar.gz
+        sha256: 3b85c3929034b0a99da777130c34d99f006fcd3a9d56564159399a33fee0e504
+
+  - name: zxing-cpp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DZXING_READERS=ON
+      - -DZXING_WRITERS=ON
+      - -DZXING_EXAMPLES=OFF
+      - -DZXING_UNIT_TESTS=OFF
+      - -DZXING_DEPENDENCIES=LOCAL
+
+      # zxing-cpp 3.1.0's top-level CMakeLists.txt unconditionally
+      # does add_subdirectory(docs) -- there is no
+      # ZXING_BUILD_DOCS-style option to opt out. docs/CMakeLists.txt
+      # only fetches anything if find_package(Doxygen) succeeds
+      # (org.kde.Sdk//6.10 has doxygen installed, so it does), then
+      # FetchContent_MakeAvailable()'s a doxygen-awesome-css zip
+      # straight from github.com -- which fails deterministically
+      # inside flatpak-builder's network-isolated build sandbox
+      # ("Could not resolve host: github.com"), confirmed via a
+      # real build attempt. CMAKE_DISABLE_FIND_PACKAGE_Doxygen is
+      # the standard CMake mechanism for exactly this case: forces
+      # find_package(Doxygen) to report not-found regardless of
+      # what's actually on the SDK, without needing zxing-cpp
+      # itself to support disabling its docs target.
+      - -DCMAKE_DISABLE_FIND_PACKAGE_Doxygen=ON
+
+      # wrappers/c/CMakeLists.txt's zxing_add_package_stb() macro
+      # (zxing.cmake) checks STB_IMAGE_INCLUDE_DIR first, before
+      # falling back to pkg-config or a network FetchContent --
+      # with ZXING_DEPENDENCIES=LOCAL, a pkg-config miss on `stb`
+      # (not packaged on org.kde.Sdk//6.10) is a hard REQUIRED
+      # failure rather than a fallback, confirmed via a real build
+      # attempt. stb is a single-header library with no build
+      # step, so it's vendored below as a plain source (fetched by
+      # flatpak-builder's own download phase, which has network
+      # access, unlike the sandboxed configure/build phase that
+      # FetchContent would need it in) rather than switching
+      # ZXING_DEPENDENCIES to AUTO, which would just move the same
+      # class of failure to whichever *other* zxing_add_package
+      # dependency isn't present as a system package either.
+      # /run/build/<module-name> is flatpak-builder's own fixed,
+      # documented build-directory path inside the sandbox
+      # (confirmed from a real build log).
+      - -DSTB_IMAGE_INCLUDE_DIR=/run/build/zxing-cpp/stb-vendor
+    sources:
+      # Switched from a GitHub release-tarball "archive" source to a
+      # "git" source: v3.1.0's auto-generated tarball doesn't include
+      # the `zint` git submodule (.gitmodules: path=zint,
+      # url=github.com/zint/zint.git) that core/src/libzint/zint.h
+      # requires ("../../../zint/backend/zint.h: No such file or
+      # directory") -- confirmed via a real build attempt.
+      # flatpak-builder's git source type fetches submodules by
+      # default (no disable-submodules flag set), so this alone
+      # resolves it. tag+commit both pinned, matching this manifest's
+      # own io.qt.qtwebengine.BaseApp base's convention for its
+      # qtwebengine source.
+      - type: git
+        url: https://github.com/zxing-cpp/zxing-cpp.git
+        tag: v3.1.0
+        commit: 885baaf0840335153c1a487fa65f9c1388702c81
+      - type: archive
+        url: https://github.com/nothings/stb/archive/31c1ad37456438565541f4919958214b6e762fb4.tar.gz
+        sha256: e4e3bba9c572a4a4148373a914d88ea0f0d11de8cc2c66739926e7eca0223319
+        dest: stb-vendor
+
+  # KUnifiedPush (app/push/UnifiedPushConnector.cpp's
+  # <KUnifiedPush/Connector>, app/CMakeLists.txt's
+  # find_package(KUnifiedPush REQUIRED)) was never added as a
+  # module here -- this manifest predates the UnifiedPush
+  # integration work (Task 10+), and nothing since then re-ran a
+  # full sandboxed flatpak-builder build to notice the gap (the
+  # only prior sandboxed-build verification, Task 9, predates
+  # UnifiedPush entirely; all live UnifiedPush E2E proofs since
+  # were on native, non-Flatpak builds -- see the
+  # --talk-name=org.unifiedpush.Distributor.* comment above for
+  # the matching D-Bus-permission half of this same gap).
+  # org.kde.Platform//6.10 doesn't bundle it (confirmed: this dev
+  # machine has it as a separate pacman package,
+  # kunifiedpush-26.04.3). Sourced from KDE's own release-service
+  # tarball, version-matched to this dev machine's installed
+  # kunifiedpush-26.04.3 for consistency with what's already been
+  # live-tested; no extra config-opts needed, mirroring the real,
+  # published flathub/org.kde.neochat manifest's identical
+  # kunifiedpush module (NeoChat is a real KDE app that also
+  # integrates UnifiedPush, same org.kde.Platform/Sdk stack).
+  - name: kunifiedpush
+    buildsystem: cmake-ninja
+    builddir: true
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/release-service/26.04.3/src/kunifiedpush-26.04.3.tar.xz
+        sha256: 247ccc7bcc4277e2fc63a753c367d0ca10efe3b4916f60a44d9ca2da403c4fe5
+
+  - name: kypost
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+    sources:
+      - type: dir
+        path: ../..
